@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Release artifacts (.nupkg etc.) — regenerable via dotnet pack,
+# uploaded to GitHub Releases / NuGet rather than tracked.
+Releases/
+
+# Keep the repo-root mod DLLs so the clone is install-ready (root only,
+# so example/template build output below stays untracked).
+!/1.6/Assemblies/*.dll
+!/1.6/Assemblies/*.pdb
+
+# Example extension build output - users build it themselves.
+Templates/ClientExtension/1.6/Assemblies/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store

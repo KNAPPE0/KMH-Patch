@@ -1,0 +1,207 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>KMH.Sdk.Client</name>
+    </assembly>
+    <members>
+        <member name="M:KMH.Sdk.Client.Apis.ITreasuryCache.RequestRefresh">
+            <summary>Ask the server for a fresh treasury snapshot. Returns false if not connected to a KMH server.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IMarketplaceCache.TryBuy(System.Int64,System.Int32)">
+            <summary>Send a buy intent. Server responds with snapshot + treasury push.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IMarketplaceCache.TryCancel(System.Int64)">
+            <summary>Cancel one of your own listings.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IMarketplaceCache.TryPost(System.String,System.Int32,System.Int32,System.String,System.Int32)">
+            <summary>Post a new listing. Items get escrowed from your treasury.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.ILinkedAccountsCache.FormatUsername(System.String)">
+            <summary>
+            Format a username with the standard "Discord-aware" treatment
+            (linked users get the Discord brand color in RimWorld rich-text).
+            Safe to call for unknown / unlinked usernames.
+            </summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IItemLabelResolver.LabelFor(System.String)">
+            <summary>Look up a friendly label for a RimWorld defName via the local DefDatabase.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IItemLabelResolver.ResolveStuffedLabel(System.String,System.String)">
+            <summary>Combine stuff + item labels ("plasteel" + "knife" → "plasteel knife"). Falls back to plain label when stuff is empty.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Apis.IKmhEnvelope">
+            <summary>SDK-safe wrapper around a KMH protocol envelope received from the server.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Apis.IClientLog">
+            <summary>
+            Pipes extension messages through KMH's logger so output is
+            prefixed with the extension's name + lands in the dedicated
+            KMH log file alongside Verse.Log.
+            </summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Apis.INotifications">
+            <summary>
+            Transient in-game toast notifications. Use sparingly - RimWorld
+            players have lots of messages already.
+            </summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.INotifications.Positive(System.String)">
+            <summary>Green "things went well" toast.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.INotifications.Rejected(System.String)">
+            <summary>Yellow "request rejected by server" toast.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.INotifications.Neutral(System.String)">
+            <summary>Plain neutral toast for informational events.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Apis.IKmhClientEvents">
+            <summary>Subscribe to client-side lifecycle + snapshot events.</summary>
+            <remarks>
+            Handlers fire on RimWorld's main thread (snapshot callbacks
+            arrive via the patch's main-thread queue). Long-running work
+            should be queued to your own background worker.
+            </remarks>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.KmhServerConnected">
+            <summary>Handshake completed - KMH server confirmed compatible.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.KmhServerDisconnected">
+            <summary>Connection dropped. Caches will be reset shortly after.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.TreasuryCacheUpdated">
+            <summary>Treasury cache refreshed (new snapshot from server).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.MarketplaceCacheUpdated">
+            <summary>Marketplace cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.QuestCacheUpdated">
+            <summary>Quest cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.GuildCacheUpdated">
+            <summary>Caller's guild snapshot refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.GuildLeaderboardCacheUpdated">
+            <summary>Cross-guild leaderboard cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.PlayerStatsCacheUpdated">
+            <summary>Player-stats leaderboard cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.LinkedAccountsCacheUpdated">
+            <summary>Discord linked-accounts map refreshed.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.IKmhClientExtension">
+             <summary>
+             Implement this interface in your RimWorld mod's assembly and
+             KMH-Patch will discover + instantiate it at game load.
+             </summary>
+             <remarks>
+             Discovery rules:
+               - Your mod's About/About.xml should list KMHPatch as a
+                 <c>&lt;modDependencies&gt;</c> entry and use
+                 <c>&lt;loadAfter&gt;</c> to ensure the patch loads first.
+                 Your assembly should reference KMH.Sdk.Client.dll, not
+                 KMHPatch.dll directly.
+               - At KMH-Patch's mod-init time, every loaded RimWorld mod
+                 is scanned for concrete public classes implementing this
+                 interface with a parameterless constructor.
+               - Multiple extensions per mod assembly are allowed; each is
+                 instantiated + registered independently.
+            
+             Lifecycle:
+               1. <see cref="M:KMH.Sdk.Client.IKmhClientExtension.Register(KMH.Sdk.Client.IKmhClientHost)"/> called once during KMH-Patch's
+                  <c>Mod</c> constructor - after Harmony patches are
+                  installed and KMH handlers are registered, but before any
+                  RimWorld scene loads. Wire your event subscriptions,
+                  register custom wire kinds, install your own Harmony
+                  patches (using your own Harmony instance with an id
+                  distinct from KMH's).
+               2. RimWorld runs normally; KMH fires events as snapshots
+                  arrive from the server, the player links / unlinks their
+                  Discord, etc.
+               3. <see cref="M:KMH.Sdk.Client.IKmhClientExtension.Shutdown"/> called when RimWorld quits cleanly
+                  (best-effort - process kills don't call it).
+            
+             Failure isolation:
+               - Throwing from your ctor or from <see cref="M:KMH.Sdk.Client.IKmhClientExtension.Register(KMH.Sdk.Client.IKmhClientHost)"/> is
+                 caught by the loader and logged; KMH continues without
+                 your extension active.
+               - Throwing from a subscribed event handler is logged but does
+                 not abort the event dispatch chain.
+             </remarks>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientExtension.Name">
+            <summary>
+            Display name shown in logs and on the KMH tab's loaded-
+            extensions list. Keep short + human-readable
+            (e.g. "Bank Loans", "Auction House UI").
+            </summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientExtension.Version">
+            <summary>SemVer string. Surfaced in logs + diagnostic UI.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.IKmhClientExtension.Register(KMH.Sdk.Client.IKmhClientHost)">
+            <summary>
+            Called once at mod init. Subscribe to events, register
+            custom wire kinds, install your own Harmony patches.
+            </summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.IKmhClientExtension.Shutdown">
+            <summary>
+            Called on graceful game shutdown. Best-effort. Use for
+            flushing local-state files etc.
+            </summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.IKmhClientHost">
+            <summary>
+            Stable API surface handed to every loaded client extension.
+            Mirrors <c>KMH.Sdk.Server.IKmhServerHost</c> on the patch side.
+            </summary>
+            <remarks>
+            The SDK never exposes raw RWT or RimWorld types - extensions
+            get SDK-defined records / interfaces only. That insulates
+            extension code from API drift in either dependency.
+            </remarks>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientHost.KmhVersion">
+            <summary>Version of the KMHPatch assembly currently loaded.</summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientHost.SdkVersion">
+            <summary>Version of the SDK assembly currently loaded.</summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientHost.KmhHarmonyId">
+            <summary>
+            Harmony instance id KMH-Patch uses for its own patches.
+            If your extension installs Harmony patches, use a
+            DIFFERENT id (e.g.
+            <c>"yourname.kmhext.auctionsui"</c>) so the Harmony tracker
+            keeps the two patch sets distinguishable in logs.
+            </summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientHost.IsKmhServer">
+            <summary>
+            True once the current session has handshaken with a KMH-
+            enabled server. False on stock-RWT servers / not connected.
+            </summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.IKmhClientHost.LocalUsername">
+            <summary>
+            The in-game username for the current session, or empty
+            string when not connected.
+            </summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.IKmhClientHost.Send(System.String,System.Object)">
+            <summary>
+            Send a typed payload to the server. Returns false if the
+            session isn't on a KMH server. Same envelope shape KMH's
+            own features use.
+            </summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.IKmhClientHost.RegisterHandler(System.String,System.Action{KMH.Sdk.Client.Apis.IKmhEnvelope})">
+            <summary>
+            Register a handler for a wire kind pushed by the server.
+            Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>)
+            so they don't collide with KMH's own <c>kmh.*</c>.
+            </summary>
+        </member>
+    </members>
+</doc>

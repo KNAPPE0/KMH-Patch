@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>KMH Patch for RimWorld Together</name>
+  <author>KNAPPE0</author>
+  <packageId>knappe.kmh.patch</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <modVersion>1.0.0</modVersion>
+
+  <description>KMH is a community feature pack for the official RimWorld Together mod - a player-driven economy layer for multiplayer.
+
+It adds an in-game KMH tab with:
+- a player marketplace (buy/sell, search, guild-only listings)
+- treasury vaults, personal and guild
+- a quest board: deliver, bounty, hunt, build, escort, defend, and custom quests
+- guilds with ranks, buyable perks, alliances, and a shared vault
+- a reputation system with quest-trust scoring
+- custom production sites with workers and reward routing
+- player and guild leaderboards
+- an optional Discord bridge
+
+Clean-room patch: it contains no RimWorld Together source code and adds its features via Harmony at runtime. RimWorld Together must be installed separately. KMH only activates when you connect to a KMH-enabled server.
+
+Client mod (this): https://github.com/KNAPPE0/KMH-Patch
+Server addon: https://github.com/KNAPPE0/KMH-Server-Addon
+  </description>
+
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+    <li>
+      <packageId>nova.rimworldtogether</packageId>
+      <displayName>RimWorld Together</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/3005289691</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>Ludeon.RimWorld</li>
+    <li>Ludeon.RimWorld.Royalty</li>
+    <li>Ludeon.Rimworld.Ideology</li>
+    <li>Ludeon.Rimworld.Biotech</li>
+    <li>Ludeon.Rimworld.Odyssey</li>
+    <li>nova.rimworldtogether</li>
+  </loadAfter>
+</ModMetaData>

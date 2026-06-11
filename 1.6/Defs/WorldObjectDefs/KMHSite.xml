@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- World-map marker for a KMH custom site. Driven entirely by
+       WorldComponent_KMHSiteMarkers from the server's site snapshot, so it
+       carries no map and no faction. Texture points at a vanilla site icon
+       so the mod ships no art; swap if it renders as a placeholder. -->
+  <WorldObjectDef>
+    <defName>KMHSite</defName>
+    <label>KMH site</label>
+    <description>A KMH custom production site.</description>
+    <worldObjectClass>KMHPatch.Features.Sites.KMHSiteWorldObject</worldObjectClass>
+    <texture>World/WorldObjects/Sites/GenericSite</texture>
+    <expandingIconTexture>World/WorldObjects/Sites/GenericSite</expandingIconTexture>
+    <expandingIcon>true</expandingIcon>
+    <expandingIconPriority>10</expandingIconPriority>
+    <selectable>true</selectable>
+    <canHaveFaction>false</canHaveFaction>
+    <useDynamicDrawer>true</useDynamicDrawer>
+  </WorldObjectDef>
+
+</Defs>
