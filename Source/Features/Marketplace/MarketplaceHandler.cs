@@ -71,9 +71,13 @@ namespace KMHPatch.Features.Marketplace
                 KmhNotifications.Rejected("Unit price must be greater than 0");
                 return false;
             }
+            // the picker hands us a composed treasury key - send the parts so the listing keeps material + quality
+            UI.ItemKeys.Split(itemDefName, out string pureDef, out string stuffDef, out int qualityIdx);
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplacePost, new
             {
-                item_def_name     = itemDefName,
+                item_def_name     = pureDef,
+                stuff_def_name    = stuffDef,
+                quality_index     = qualityIdx,
                 qty               = qty,
                 unit_price_silver = unitPriceSilver,
                 visibility        = visibility ?? VisibilityPublic,

@@ -49,21 +49,22 @@ namespace KMHPatch.Features.Treasury
             if (string.IsNullOrEmpty(itemDefName)) { KmhNotifications.Rejected("Item is missing"); return false; }
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
 
-            ThingDef def = ColonyGoods.Def(itemDefName);
-            if (def == null) { KmhNotifications.Rejected("Unknown item"); return false; }
+            // itemDefName may be a composed key (def|stuff|quality) straight from the caravan picker
+            ItemKeys.Split(itemDefName, out string pureDef, out _, out _);
+            if (ColonyGoods.Def(pureDef) == null) { KmhNotifications.Rejected("Unknown item"); return false; }
 
             Caravan caravan = ColonyGoods.RequireCaravan(out string err);
             if (caravan == null) { KmhNotifications.Rejected(err); return false; }
 
-            int have = ColonyGoods.Count(caravan, def);
-            if (have < qty) { KmhNotifications.Rejected($"Your caravan only has {have} {ItemLabels.ResolveLabel(itemDefName)}"); return false; }
+            int have = ColonyGoods.CountKey(caravan, itemDefName);
+            if (have < qty) { KmhNotifications.Rejected($"Your caravan only has {have} {ItemKeys.LabelForKey(itemDefName)}"); return false; }
 
-            if (!ColonyGoods.TryRemove(caravan, def, qty))
+            if (!ColonyGoods.TryRemoveKey(caravan, itemDefName, qty))
             { KmhNotifications.Rejected("Could not take the items from the caravan"); return false; }
 
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositItem, new { item_def_name = itemDefName, qty });
-            if (sent) KmhNotifications.Positive($"Deposited ×{qty} {ItemLabels.ResolveLabel(itemDefName)}");
-            else { ColonyGoods.Give(caravan, def, qty); KmhNotifications.Rejected("Not connected - items returned to your caravan"); }
+            if (sent) KmhNotifications.Positive($"Deposited ×{qty} {ItemKeys.LabelForKey(itemDefName)}");
+            else { ColonyGoods.DeliverKey(itemDefName, qty); KmhNotifications.Rejected("Not connected - items returned to your caravan"); }
             return sent;
         }
 
@@ -102,10 +103,11 @@ namespace KMHPatch.Features.Treasury
             {
                 if (kind == "item")
                 {
-                    ThingDef def = ColonyGoods.Def(defName);
-                    if (def == null) { KmhLog.Warn($"Treasury grant for unknown item '{defName}'"); return; }
-                    ColonyGoods.Deliver(def, amount);
-                    KmhNotifications.Positive($"Received ×{amount} {ItemLabels.ResolveLabel(defName)}");
+                    // defName may be a composed key - DeliverKey restores material + quality on spawn
+                    ItemKeys.Split(defName, out string pureDef, out _, out _);
+                    if (ColonyGoods.Def(pureDef) == null) { KmhLog.Warn($"Treasury grant for unknown item '{defName}'"); return; }
+                    ColonyGoods.DeliverKey(defName, amount);
+                    KmhNotifications.Positive($"Received ×{amount} {ItemKeys.LabelForKey(defName)}");
                 }
                 else
                 {

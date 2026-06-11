@@ -82,6 +82,8 @@ namespace KMHPatch.Features.Quests.Dto
         // Delivery target - DeliverItem kind only
         [JsonProperty("target_item_def_name")] public string TargetItemDefName { get; set; } = "";
         [JsonProperty("target_item_qty")]      public int    TargetItemQty     { get; set; } = 0;
+        // 0 = any quality; 1..7 = Awful..Legendary, delivered items must match or beat it
+        [JsonProperty("target_quality_index")] public int    TargetQualityIndex { get; set; } = 0;
         [JsonProperty("target_treasury_key")]  public string TargetTreasuryKey { get; set; } = "";
 
         // Lifecycle
