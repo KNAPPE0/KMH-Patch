@@ -266,7 +266,8 @@ namespace KMHPatch.Features.Quests
             switch (q.Kind)
             {
                 case QuestEntry.KindDeliverItem:
-                    detail = $"Deliver {q.TargetItemQty}× {ItemLabels.ResolveLabel(q.TargetItemDefName)}";
+                    detail = $"Deliver {q.TargetItemQty}× {ItemLabels.ResolveLabel(q.TargetItemDefName)}" +
+                             (q.TargetQualityIndex > 0 ? $" ({UI.ItemKeys.QualityName(q.TargetQualityIndex)} or better)" : "");
                     if (!string.IsNullOrEmpty(q.TargetTreasuryKey)) detail += $"  →  {q.TargetTreasuryKey}";
                     break;
                 case QuestEntry.KindEscort:

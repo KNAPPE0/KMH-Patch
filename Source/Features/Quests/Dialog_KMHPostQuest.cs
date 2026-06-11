@@ -28,6 +28,7 @@ namespace KMHPatch.Features.Quests
         private string _expiresHours      = "0";
         private string _targetItemDefName = "";
         private string _targetItemQty     = "1";
+        private int    _targetQualityIdx  = 0; // 0 = any, 1..7 = Awful..Legendary (or better)
 
         // Per-kind inputs. Tiles are entered as world-tile ids; the "Current" button fills the player's current map
         // tile.
@@ -220,7 +221,26 @@ namespace KMHPatch.Features.Quests
                             onPick:          (defName, qty) => { _targetItemDefName = defName; _targetItemQty = qty.ToString(); }));
                     }
                     y += 30f;
-                    return DrawTextRow(rect, y, "Target item qty", ref _targetItemQty);
+                    y = DrawTextRow(rect, y, "Target item qty", ref _targetItemQty);
+
+                    // quality requirement - delivered items must match or beat it, Any skips the check
+                    DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Required quality");
+                    string qLabel = _targetQualityIdx > 0 ? $"{ItemKeys.QualityName(_targetQualityIdx)} or better" : "Any";
+                    if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), qLabel))
+                    {
+                        List<FloatMenuOption> qOpts = new List<FloatMenuOption>
+                        {
+                            new FloatMenuOption("Any", () => _targetQualityIdx = 0),
+                        };
+                        for (int qi = 1; qi <= 7; qi++)
+                        {
+                            int captured = qi;
+                            qOpts.Add(new FloatMenuOption($"{ItemKeys.QualityName(captured)} or better",
+                                () => _targetQualityIdx = captured));
+                        }
+                        Find.WindowStack.Add(new FloatMenu(qOpts));
+                    }
+                    return y + 30f;
 
                 case QuestEntry.KindEscort:
                     y = DrawTileRow(rect, y, "Pickup tile",  ref _escortPickupTile);
@@ -334,8 +354,9 @@ namespace KMHPatch.Features.Quests
                 case QuestEntry.KindDeliverItem:
                     if (!int.TryParse((_targetItemQty ?? "").Trim(), out int dq) || dq <= 0)
                     { Notifications.KmhNotifications.Rejected("Target item qty: enter a positive whole number"); return; }
-                    draft.TargetItemDefName = (_targetItemDefName ?? "").Trim();
-                    draft.TargetItemQty     = dq;
+                    draft.TargetItemDefName  = (_targetItemDefName ?? "").Trim();
+                    draft.TargetItemQty      = dq;
+                    draft.TargetQualityIndex = _targetQualityIdx;
                     break;
 
                 case QuestEntry.KindEscort:

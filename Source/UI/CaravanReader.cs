@@ -50,7 +50,8 @@ namespace KMHPatch.UI
                 foreach (Thing t in items)
                 {
                     if (t?.def == null) continue;
-                    string key = t.def.defName;
+                    // composed key so different material/quality stacks never merge
+                    string key = ItemKeys.Compose(t.def.defName, t.Stuff?.defName, ItemKeys.QualityIndexOf(t));
                     if (!result.TryGetValue(key, out int cur)) cur = 0;
                     result[key] = cur + t.stackCount;
                 }

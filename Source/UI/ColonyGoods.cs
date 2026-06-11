@@ -120,29 +120,102 @@ namespace KMHPatch.UI
 
         public static void DeliverSilver(int amount) => Deliver(Silver, amount);
 
-        private static List<Thing> MakeStacks(ThingDef def, int qty)
+        // -- composed-key paths (def|stuff|quality) so material + quality survive every transfer --
+
+        public static int CountKey(Caravan caravan, string key)
+        {
+            if (caravan == null || string.IsNullOrEmpty(key)) return 0;
+            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            int total = 0;
+            try
+            {
+                foreach (Thing t in CaravanInventoryUtility.AllInventoryItems(caravan))
+                    if (MatchesKey(t, defName, stuff, q)) total += t.stackCount;
+            }
+            catch { /* weird container - treat as 0 */ }
+            return total;
+        }
+
+        // Removes exactly qty of stacks matching the key's def + stuff + quality; all-or-nothing like TryRemove
+        public static bool TryRemoveKey(Caravan caravan, string key, int qty)
+        {
+            if (caravan == null || string.IsNullOrEmpty(key) || qty <= 0) return false;
+            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+
+            List<Thing> matches;
+            try { matches = CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q)).ToList(); }
+            catch { return false; }
+
+            int total = matches.Sum(t => t.stackCount);
+            if (total < qty) return false;
+
+            int remaining = qty;
+            foreach (Thing t in matches)
+            {
+                if (remaining <= 0) break;
+                int take = Math.Min(t.stackCount, remaining);
+                remaining -= take;
+                if (take >= t.stackCount) t.Destroy(DestroyMode.Vanish);
+                else                      t.stackCount -= take;
+            }
+            return remaining <= 0;
+        }
+
+        // Deliver a composed key: spawn with the right material and stamp the quality back on
+        public static void DeliverKey(string key, int qty)
+        {
+            if (string.IsNullOrEmpty(key) || qty <= 0) return;
+            ItemKeys.Split(key, out string defName, out string stuffName, out int q);
+            ThingDef def = Def(defName);
+            if (def == null) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: unknown def '{defName}'"); return; }
+            ThingDef stuff = string.IsNullOrEmpty(stuffName) ? null : Def(stuffName);
+
+            Caravan caravan = CaravanReader.GetSelectedCaravan();
+            if (caravan != null)
+            {
+                foreach (Thing t in MakeStacks(def, stuff, q, qty))
+                    CaravanInventoryUtility.GiveThing(caravan, t);
+                return;
+            }
+            DropToHomeMap(def, stuff, q, qty);
+        }
+
+        private static bool MatchesKey(Thing t, string defName, string stuffName, int qualityIndex)
+        {
+            if (t?.def == null || !string.Equals(t.def.defName, defName, StringComparison.Ordinal)) return false;
+            string ts = t.Stuff?.defName ?? "";
+            if (!string.Equals(ts, stuffName ?? "", StringComparison.Ordinal)) return false;
+            return ItemKeys.QualityIndexOf(t) == qualityIndex;
+        }
+
+        private static List<Thing> MakeStacks(ThingDef def, int qty) => MakeStacks(def, null, 0, qty);
+
+        private static List<Thing> MakeStacks(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
         {
             List<Thing> things = new List<Thing>();
             int remaining = qty, stackLimit = Math.Max(1, def.stackLimit);
             while (remaining > 0)
             {
                 int take = Math.Min(stackLimit, remaining);
-                Thing t  = ThingMaker.MakeThing(def, def.MadeFromStuff ? GenStuff.DefaultStuffFor(def) : null);
+                Thing t  = ThingMaker.MakeThing(def, def.MadeFromStuff ? (stuff ?? GenStuff.DefaultStuffFor(def)) : null);
                 t.stackCount = take;
+                ItemKeys.ApplyQuality(t, qualityIndex);
                 things.Add(t);
                 remaining -= take;
             }
             return things;
         }
 
-        private static void DropToHomeMap(ThingDef def, int qty)
+        private static void DropToHomeMap(ThingDef def, int qty) => DropToHomeMap(def, null, 0, qty);
+
+        private static void DropToHomeMap(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
         {
             try
             {
                 Map map = Find.AnyPlayerHomeMap ?? Find.CurrentMap;
                 if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.Deliver: no map for a drop pod"); return; }
                 IntVec3 cell = DropCellFinder.TradeDropSpot(map);
-                DropPodUtility.DropThingsNear(cell, map, MakeStacks(def, qty), forbid: false);
+                DropPodUtility.DropThingsNear(cell, map, MakeStacks(def, stuff, qualityIndex, qty), forbid: false);
             }
             catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); }
         }

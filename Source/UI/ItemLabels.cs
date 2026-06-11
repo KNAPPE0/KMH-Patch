@@ -28,6 +28,9 @@ namespace KMHPatch.UI
         {
             if (string.IsNullOrEmpty(defName)) return "?";
 
+            // composed keys (def|stuff|quality) resolve through the key-aware path
+            if (defName.IndexOf(ItemKeys.Sep) >= 0) return ItemKeys.LabelForKey(defName);
+
             if (Cache.TryGetValue(defName, out string cached)) return cached;
 
             string resolved = ResolveUncached(defName);

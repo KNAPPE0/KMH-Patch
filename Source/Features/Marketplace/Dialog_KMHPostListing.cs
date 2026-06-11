@@ -63,7 +63,7 @@ namespace KMHPatch.Features.Marketplace
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Item");
             string itemDisplay = string.IsNullOrEmpty(_itemDefName)
                 ? "<color=grey>(pick from treasury)</color>"
-                : $"{ItemLabels.ResolveLabel(_itemDefName)}  <color=grey>(available x{_itemAvailable})</color>";
+                : $"{ItemKeys.LabelForKey(_itemDefName)}  <color=grey>(available x{_itemAvailable})</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
                 Find.WindowStack.Add(new Dialog_KMHItemPicker(
