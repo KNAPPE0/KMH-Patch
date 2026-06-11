@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- KMH payload, built once per RWT generation (dotnet build -p:RwtFlavor=Old|New).
+       The assembly name doubles as the loader's probe key: it matches the RWT
+       client assembly the payload binds (GameClient = 26.5.24.1, RTClient =
+       26.6.9.1+). Payloads land in 1.6/KMHLib - NOT Assemblies - so RimWorld
+       doesn't auto-load both; the loader picks the right one at runtime. -->
+  <PropertyGroup>
+    <RwtFlavor Condition="'$(RwtFlavor)' == ''">Old</RwtFlavor>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>KMHPatch</RootNamespace>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <OutputPath>..\1.6\KMHLib</OutputPath>
+    <IntermediateOutputPath>obj\$(RwtFlavor)\$(Configuration)\</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <AppendConfigurationToOutputPath>false</AppendConfigurationToOutputPath>
+    <DebugType>embedded</DebugType>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RwtFlavor)' == 'Old'">
+    <AssemblyName>KMHPatch.GameClient</AssemblyName>
+    <DefineConstants>$(DefineConstants);RWT_OLD</DefineConstants>
+    <RwtAssembliesPath Condition="'$(RwtAssembliesPath)' == ''">E:\RWT Related\rwt-26.5.24.1\1.6\Assemblies</RwtAssembliesPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RwtFlavor)' == 'New'">
+    <AssemblyName>KMHPatch.RTClient</AssemblyName>
+    <DefineConstants>$(DefineConstants);RWT_NEW</DefineConstants>
+    <RwtAssembliesPath Condition="'$(RwtAssembliesPath)' == ''">E:\RWT Related\rwt-26.6.9.1\1.6\Assemblies</RwtAssembliesPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4633" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Loader (ships in Assemblies as KMHPatch.dll) + extension SDK. Private=False:
+       both ship from their own builds, never copied into KMHLib. -->
+  <ItemGroup>
+    <ProjectReference Include="Loader\KMHPatchLoader.csproj"><Private>False</Private></ProjectReference>
+    <ProjectReference Include="KMH.Sdk.Client\KMH.Sdk.Client.csproj"><Private>False</Private></ProjectReference>
+  </ItemGroup>
+
+  <!-- Sibling projects live under Source/ - keep their sources out of this build. -->
+  <ItemGroup>
+    <Compile          Remove="KMH.Sdk.Client\**\*.cs;Loader\**\*.cs" />
+    <Content          Remove="KMH.Sdk.Client\**;Loader\**" />
+    <EmbeddedResource Remove="KMH.Sdk.Client\**;Loader\**" />
+    <None             Remove="KMH.Sdk.Client\**;Loader\**" />
+  </ItemGroup>
+
+  <!-- RWT references, Private=False: players resolve them against their own
+       Workshop copy at runtime; nothing of RWT's is redistributed. -->
+  <ItemGroup Condition="'$(RwtFlavor)' == 'Old'">
+    <Reference Include="GameClient"><HintPath>$(RwtAssembliesPath)\GameClient.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Shared"><HintPath>$(RwtAssembliesPath)\Shared.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="TCPNetwork"><HintPath>$(RwtAssembliesPath)\TCPNetwork.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(RwtFlavor)' == 'New'">
+    <Reference Include="RTClient"><HintPath>$(RwtAssembliesPath)\RTClient.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="RTShared"><HintPath>$(RwtAssembliesPath)\RTShared.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="RTNetwork"><HintPath>$(RwtAssembliesPath)\RTNetwork.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(RwtAssembliesPath)\Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <!-- Framework zip + xml for config enforcement; RimWorld's runtime ships these. -->
+    <Reference Include="System.IO.Compression"><Private>False</Private></Reference>
+    <Reference Include="System.IO.Compression.FileSystem"><Private>False</Private></Reference>
+    <Reference Include="System.Xml.Linq"><Private>False</Private></Reference>
+  </ItemGroup>
+
+</Project>

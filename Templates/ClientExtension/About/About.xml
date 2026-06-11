@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  KMH Client Extension - example About.xml
+
+  Substitute your own values:
+    - <packageId> must be globally unique (reverse-DNS)
+    - <name> is what shows up in the mods list
+    - <author> + <description> as you like
+
+  modDependencies + loadAfter together ensure KMHPatch is loaded
+  BEFORE your extension so its host singleton is available when
+  your assembly's IKmhClientExtension.Register fires.
+
+  Update <supportedVersions> to whatever RimWorld versions you've
+  actually tested against.
+-->
+<ModMetaData>
+  <packageId>yourname.kmhext.myaccent</packageId>
+  <name>My KMH Accent</name>
+  <author>Your Name</author>
+  <description>Example KMH client extension. Cheers the player whenever they post a marketplace listing.</description>
+  <url>https://github.com/yourname/my-kmh-accent</url>
+
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+
+  <modDependencies>
+    <li>
+      <packageId>knappe.kmh.patch</packageId>
+      <displayName>KMH Patch</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/PLACEHOLDER</steamWorkshopUrl>
+      <downloadUrl>https://github.com/KNAPPE0/KMH-Patch/releases</downloadUrl>
+    </li>
+  </modDependencies>
+
+  <loadAfter>
+    <li>knappe.kmh.patch</li>
+  </loadAfter>
+</ModMetaData>

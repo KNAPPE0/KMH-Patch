@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Public SDK for client-side (RimWorld-mod) KMH extensions.
+       Mirrors KMH.Sdk.Server's stability contract. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>KMH.Sdk.Client</RootNamespace>
+    <AssemblyName>KMH.Sdk.Client</AssemblyName>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Output goes into KMHPatch's mod Assemblies folder so a Build of
+         either project ships everything in one place. -->
+    <OutputPath>..\..\1.6\Assemblies</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <AppendConfigurationToOutputPath>false</AppendConfigurationToOutputPath>
+    <DebugType>embedded</DebugType>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <!-- NuGet metadata. `dotnet pack -c Debug` emits .nupkg + .snupkg under Releases/. -->
+  <PropertyGroup>
+    <PackageId>KMH.Sdk.Client</PackageId>
+    <Title>KMH Client SDK</Title>
+    <Description>Public API for writing client-side (RimWorld-mod) extensions that plug into KMH-Patch for RimWorld Together. Stable contract that absorbs RWT release upgrades.</Description>
+    <Authors>KNAPPE0</Authors>
+    <Company>KMH Project</Company>
+    <Product>KMH Client SDK</Product>
+    <Copyright>Copyright (c) 2026 KNAPPE0</Copyright>
+    <PackageTags>rimworld;rimworld-together;rwt;kmh;multiplayer;sdk;mod</PackageTags>
+    <PackageProjectUrl>https://github.com/KNAPPE0/KMH-Patch</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/KNAPPE0/KMH-Patch</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>EXTENSIONS.md</PackageReadmeFile>
+    <PackageReleaseNotes>1.0.0 - initial release. See EXTENSIONS.md.</PackageReleaseNotes>
+    <PackageOutputPath>..\..\Releases</PackageOutputPath>
+    <!-- Debug symbols are embedded in the DLL (DebugType=embedded above)
+         so no separate .snupkg is produced. -->
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE"        Pack="true" PackagePath="\" Condition="Exists('..\..\LICENSE')" />
+    <None Include="..\..\EXTENSIONS.md"  Pack="true" PackagePath="\" Condition="Exists('..\..\EXTENSIONS.md')" />
+  </ItemGroup>
+
+</Project>
