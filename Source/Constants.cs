@@ -14,7 +14,7 @@ namespace KMHPatch
         public const string GitHubUrl              = "https://github.com/KNAPPE0/KMH-Patch";
         public const string GitHubServerUrl        = "https://github.com/KNAPPE0/KMH-Server-Addon";
         public const string DiscordUrl             = "https://discord.gg/gDwmsy7VVy";
-        public const string SteamWorkshopUrl       = "https://steamcommunity.com/sharedfiles/filedetails/?id=3638751319";
+        public const string SteamWorkshopUrl       = "https://steamcommunity.com/sharedfiles/filedetails/?id=3743150682";
 
         // Official RimWorld Together upstream - KMH is a downstream patch of their work. Always credit the upstream
         // alongside our own links
