@@ -8,7 +8,7 @@
   </supportedVersions>
   <modVersion>1.0.0</modVersion>
 
-  <description>KMH is a community feature pack for the official RimWorld Together mod - a player-driven economy layer for multiplayer.
+  <description>KMH is a community feature pack for the official RimWorld Together mod
 
 It adds an in-game KMH tab with:
 - a player marketplace (buy/sell, search, guild-only listings)
@@ -20,7 +20,7 @@ It adds an in-game KMH tab with:
 - player and guild leaderboards
 - an optional Discord bridge
 
-Clean-room patch: it contains no RimWorld Together source code and adds its features via Harmony at runtime. RimWorld Together must be installed separately. KMH only activates when you connect to a KMH-enabled server.
+KMH only activates when you connect to a KMH-enabled server.
 
 Client mod (this): https://github.com/KNAPPE0/KMH-Patch
 Server addon: https://github.com/KNAPPE0/KMH-Server-Addon
