@@ -10,20 +10,29 @@ using Verse;
 
 namespace KMHPatch.Features.Quests
 {
-    // Auto-reports verifiable claimed quests so the player needn't click Report. Slow-tick poll: hunt = matching
-    // non-colonist kills since claim >= target, build = target count standing on a player map. Report stays the
-    // manual fallback for kinds we can't observe (escort, defend), category-only hunt targets, or missed detection
-    //
-    // Auto-instantiated by RimWorld for every GameComponent subclass.
+    // Auto-reports observable claimed quests, while Report stays the fallback for quests we can't verify.
     public class QuestAutoVerify : GameComponent
     {
         private const int IntervalTicks = 250; // ~4s at 1x
         private int _next;
 
-        private readonly HashSet<long>        _sent         = new HashSet<long>();
-        private readonly Dictionary<long, int> _huntBaseline = new Dictionary<long, int>();
+        private HashSet<long>        _sent         = new HashSet<long>();
+        private Dictionary<long, int> _huntBaseline = new Dictionary<long, int>();
 
         public QuestAutoVerify(Game game) { }
+
+        // Persist quest progress so reloads don't replay completions or reset hunt baselines.
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Collections.Look(ref _sent, "kmhQavSent", LookMode.Value);
+            Scribe_Collections.Look(ref _huntBaseline, "kmhQavHuntBaseline", LookMode.Value, LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                _sent ??= new HashSet<long>();
+                _huntBaseline ??= new Dictionary<long, int>();
+            }
+        }
 
         public override void GameComponentTick()
         {
@@ -55,6 +64,8 @@ namespace KMHPatch.Features.Quests
                 {
                     QuestHandler.TryVerify(q.Id);
                     _sent.Add(q.Id);
+                    // Confirms the player-quest auto-verify pipeline fired (the manual Report button is the fallback).
+                    KmhLog.Info($"KMH: auto-verified claimed quest #{q.Id} ({q.Kind}).");
                 }
             }
         }
@@ -70,7 +81,9 @@ namespace KMHPatch.Features.Quests
         private static bool BuildDone(QuestEntry q)
         {
             if (string.IsNullOrEmpty(q.BuildStructureDefName) || q.BuildCount <= 0) return false;
-            ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(q.BuildStructureDefName);
+            // Exact match, then a case-insensitive fallback so a "sandbags" vs "Sandbags" typo still tracks.
+            ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(q.BuildStructureDefName)
+                        ?? DefDatabase<ThingDef>.AllDefsListForReading.Find(d => string.Equals(d.defName, q.BuildStructureDefName, StringComparison.OrdinalIgnoreCase));
             if (def == null) return false;
 
             int count = 0;

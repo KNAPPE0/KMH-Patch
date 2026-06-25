@@ -5,17 +5,10 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Source for "pick from all known item defs" pickers (Quest Post target, future Bounty composer, etc.). Returns
-    // a Dictionary<defName, int> shaped for Dialog_KMHItemPicker, with value = -1 to signal "unlimited"
-    // - picker hides the count and the qty prompt skips the Available line.
-    //
-    // Filter: only ThingDef with category == Item that are tradeable and have a non-zero market value. Drops
-    // chunks, raw filth, structures, pawns, plants, terrain, etc. - the things a player would actually want to
-    // specify as a quest delivery target
+    // Builds picker options from tradeable item defs only, using -1 as unlimited/no available-count display.
     internal static class ItemDefBrowser
     {
-        // Cache the result - DefDatabase doesn't change after load, and we want to avoid rescanning ~1000 defs on
-        // every picker open
+        // Cache item picker defs once; DefDatabase is stable after load and rescanning every open is wasteful.
         private static Dictionary<string, int> _cache;
 
         public static Dictionary<string, int> AllPickableItems()
@@ -41,8 +34,7 @@ namespace KMHPatch.UI
             }
             catch
             {
-                // DefDatabase access can fail pre-game-load. Return whatever we built so the picker shows partial
-                // data rather than crashing
+                // DefDatabase can fail before game load, so return partial picker data instead of crashing.
             }
 
             _cache = result;

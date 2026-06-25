@@ -31,7 +31,7 @@ KMH-Server-Addon/EXTENSIONS.md).
         │   Source/MyExtension.cs          │
         │   1.6/Assemblies/MyExtension.dll │
         │   About/About.xml (loadAfter:    │
-        │                    knappe.kmh.patch) │
+        │        knappe.kmh.patch)         │
         └──────────────┬───────────────────┘
                        │ stable interfaces
                        ▼
@@ -137,6 +137,8 @@ The stable surface you get in `Register`. Holds:
 | `IPlayerStatsCache` | `HasSnapshot`, `Entries`, `LastUpdatedUtc`, `RequestRefresh()` |
 | `ILinkedAccountsCache` | `HasSnapshot`, `IsLinked`, `DiscordDisplayFor`, `FormatUsername`, `LastUpdatedUtc` |
 | `IItemLabelResolver` | `LabelFor`, `ResolveStuffedLabel` |
+| `IAuctionCache` | `HasSnapshot`, `Auctions`, `LastUpdatedUtc`, `RequestRefresh()`, `TryPost`, `TryBid`, `TryCancel` |
+| `IWorldCache` | `HasSnapshot`, `Events`, `ServerQuests`, `LastUpdatedUtc`, `RequestRefresh()`, `TryDeliver` |
 
 All snapshot/list reads return immutable record DTOs from
 `KMH.Sdk.Client.Records.*`. Mutations are fire-and-forget - the
@@ -155,6 +157,8 @@ event Action<GuildCacheUpdatedEvent>            GuildCacheUpdated;
 event Action<GuildLeaderboardCacheUpdatedEvent> GuildLeaderboardCacheUpdated;
 event Action<PlayerStatsCacheUpdatedEvent>      PlayerStatsCacheUpdated;
 event Action<LinkedAccountsCacheUpdatedEvent>   LinkedAccountsCacheUpdated;
+event Action<AuctionCacheUpdatedEvent>          AuctionCacheUpdated;
+event Action<WorldCacheUpdatedEvent>            WorldCacheUpdated;
 ```
 
 Handlers fire on RimWorld's main thread (snapshot callbacks arrive

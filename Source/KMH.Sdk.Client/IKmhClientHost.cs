@@ -53,6 +53,8 @@ namespace KMH.Sdk.Client
         IPlayerStatsCache      PlayerStats     { get; }
         ILinkedAccountsCache   LinkedAccounts  { get; }
         IItemLabelResolver     ItemLabels      { get; }
+        IAuctionCache          Auctions        { get; }
+        IWorldCache            World           { get; }
 
         IClientLog       Log        { get; }
         INotifications   Toast      { get; }

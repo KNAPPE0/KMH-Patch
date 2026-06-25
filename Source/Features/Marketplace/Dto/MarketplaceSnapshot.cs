@@ -3,8 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Marketplace.Dto
 {
-    // JSON wire mirror of the marketplace + listings (snake_case names). Server is the source of truth - the client
-    // never mutates a listing locally.
+    // Wire DTO for marketplace snapshots; server stays authoritative.
     public class MarketplaceSnapshot
     {
         [JsonProperty("listings")]
@@ -20,15 +19,14 @@ namespace KMHPatch.Features.Marketplace.Dto
         public long LifetimeSilverTraded { get; set; } = 0;
     }
 
-    // One open listing in the marketplace.
     public class MarketplaceListing
     {
-        // Server-assigned monotonic id. Used as the key for cancel / buy mutation envelopes when those land
+        // Server id used for buy/cancel requests.
         [JsonProperty("id")]                  public long   Id              { get; set; } = 0;
 
         [JsonProperty("seller_username")]     public string SellerUsername  { get; set; } = "";
 
-        // Empty → deliveries go to seller's caravan; otherwise to their treasury at this key
+        // Empty means delivery goes to the seller's caravan.
         [JsonProperty("seller_treasury_key")] public string SellerTreasuryKey { get; set; } = "";
 
         [JsonProperty("item_def_name")]       public string ItemDefName     { get; set; } = "";
@@ -38,18 +36,21 @@ namespace KMHPatch.Features.Marketplace.Dto
         [JsonProperty("unit_price_silver")]   public int    UnitPriceSilver { get; set; } = 0;
 
         [JsonProperty("listed_utc_ticks")]    public long   ListedUtcTicks  { get; set; } = 0;
+
         // 0 = never expires.
         [JsonProperty("expires_utc_ticks")]   public long   ExpiresUtcTicks { get; set; } = 0;
 
-        // Auto-listings come from sites with RewardDestination=Marketplace (server-side concept). Useful to badge
-        // separately in the UI later
+        // Server-created listing from site output; useful for future UI badges.
         [JsonProperty("is_auto_listing")]     public bool   IsAutoListing   { get; set; } = false;
 
-        // 1=Awful..7=Legendary; 0 = no quality (bulk resources).
+        // 1=Awful..7=Legendary; 0 = no quality.
         [JsonProperty("quality_index")]       public int    QualityIndex    { get; set; } = 0;
 
-        // Empty for non-stuffable items (Steel, Wood, etc).
+        // Empty for non-stuffable items.
         [JsonProperty("stuff_def_name")]      public string StuffDefName    { get; set; } = "";
+
+        // Server already filters visibility; client keeps this for badges and wire parity.
+        [JsonProperty("visibility")]          public string Visibility      { get; set; } = "public";
 
         public int TotalAskingSilver(int qty) => UnitPriceSilver * (qty < 0 ? 0 : qty);
     }

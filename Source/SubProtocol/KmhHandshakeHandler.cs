@@ -1,15 +1,13 @@
 using System;
+using GameClient.Misc;
 using KMHPatch.Diagnostics;
 using KMHPatch.Notifications;
 
 namespace KMHPatch.SubProtocol
 {
-    // First and only built-in handler shipped with the dispatcher itself. Everything else (treasury, marketplace,
-    // quests...) registers its own handlers as those features port over
-    //
-    // The handshake flips KmhDispatcher.IsKmhServer to true once the server announces compatible KMH support, which
-    // is the gate that allows outbound KMH traffic. Without this, a patched client connected to a stock RWT server
-    // would never reach the .Send() path - fail-safe by design
+    // Built-in handshake handler. Flips KmhDispatcher.IsKmhServer to true once the server announces compatible KMH
+    // support - the gate that allows outbound KMH traffic, so a patched client on a stock RWT server never reaches
+    // the .Send() path (fail-safe by design).
     internal static class KmhHandshakeHandler
     {
         // Last time SendPing was called - used by OnPong to compute round-trip. Volatile because Send happens on
@@ -31,49 +29,70 @@ namespace KMHPatch.SubProtocol
             return KmhDispatcher.Send(KmhProtocol.Kind.Ping, null);
         }
 
+        // Chat-transport handshake. Activates the session, acks, and (if the API didn't already come up on connect)
+        // dials it using the one-time token the server advertised.
         private static void OnHello(KmhEnvelope env)
         {
-            int serverVersion = env.GetInt("v", 0);
-
-            // For now we only support exact-match on protocol version. Loosen to "compatible range" once we have
-            // more than one shipped version
-            if (serverVersion != KmhProtocol.CurrentVersion)
-            {
-                KmhLog.Warn(
-                    $"Server KMH version {serverVersion} does not match " +
-                    $"client {KmhProtocol.CurrentVersion} - disabling KMH features for this session"
-                );
-                KmhDispatcher.IsKmhServer = false;
+            if (!ActivateSession(env.GetInt("v", 0), env.GetString("build") ?? "", KmhTransportStatus.ChatFallback))
                 return;
-            }
 
-            KmhDispatcher.IsKmhServer = true;
-            KmhDispatcher.ServerProtocolVersion = serverVersion;
-            KmhLog.Info($"KMH server detected (protocol v{serverVersion}) - features enabled");
-
-            // Visible confirmation for the player. Flash (not Letter) because it's transient - the persistent state
-            // is shown in the KMH tab
-            KmhNotifications.Positive($"KMH server connected (protocol v{serverVersion})");
-
-            // Acknowledge so server-side can log the successful handshake too.
             KmhDispatcher.Send(KmhProtocol.Kind.HelloAck, new { v = KmhProtocol.CurrentVersion });
 
-            // Tell client extensions the KMH session is live (subscriptions are wired at startup, so they're in
-            // place by now)
-            string endpoint = string.IsNullOrEmpty(TCPNetwork.Network.Ip)
-                ? "" : $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}";
-            Extensibility.KmhClientEventBus.Instance.RaiseKmhServerConnected(
-                new KMH.Sdk.Client.Events.KmhServerConnectedEvent
+            // The client also dials the API directly on RWT-connect (Patch_PM_GlobalData), so only connect here if that
+            // hasn't already brought it up - this lets the stronger chat-issued token be used when chat works.
+            try
+            {
+                if (KMHPatchMod.Settings?.UseKmhApiTransport == true && env.GetBool("api_enabled") && !KmhApiClient.Active)
                 {
-                    ServerProtocolVersion = serverVersion,
-                    Endpoint              = endpoint
-                });
+                    string host = string.IsNullOrEmpty(KMHPatchMod.Settings.KmhApiHostOverride)
+                        ? TCPNetwork.Network.Ip : KMHPatchMod.Settings.KmhApiHostOverride;
+                    int port = env.GetInt("api_port", KMHPatchMod.Settings.KmhApiPort);
+                    if (port <= 0) port = KMHPatchMod.Settings.KmhApiPort;
+                    KmhApiClient.Connect(host, port, SessionHandler.Username, env.GetString("api_token") ?? "",
+                        KMHPatchMod.Settings.AllowChatTransportFallback);
+                }
+            }
+            catch (Exception ex) { KmhLog.Warn($"KMH API: connect attempt threw: {ex.Message}"); }
+        }
 
-            // Push our local DefDatabase item catalog so the server can resolve friendly labels for Discord-side
-            // commands. Best- effort - failure is logged and the rest of the session continues using raw defNames
-            // for Discord output
+        // Activate (or refresh) the KMH session once the server is confirmed - shared by the chat hello and the API ack
+        // so either transport lights up KMH. Idempotent: the one-time notify/catalog work runs on first activate only,
+        // and a live API link is never downgraded to chat.
+        internal static bool ActivateSession(int serverVersion, string serverBuild, KmhTransportStatus status)
+        {
+            if (serverVersion != KmhProtocol.CurrentVersion)
+            {
+                KmhLog.Warn($"Server KMH version {serverVersion} does not match client {KmhProtocol.CurrentVersion} - disabling KMH features for this session");
+                KmhDispatcher.IsKmhServer = false;
+                KmhTransport.Status = KmhTransportStatus.VersionMismatch;
+                return false;
+            }
+
+            bool first = !KmhDispatcher.IsKmhServer;
+            KmhDispatcher.IsKmhServer = true;
+            KmhDispatcher.ServerProtocolVersion = serverVersion;
+            KmhDispatcher.ServerBuild = serverBuild ?? "";
+            if (status == KmhTransportStatus.ApiConnected || KmhTransport.Status != KmhTransportStatus.ApiConnected)
+                KmhTransport.Status = status;   // don't downgrade a live API link to chat
+
+            if (!first) return true;
+
+            string buildLabel = string.IsNullOrEmpty(KmhDispatcher.ServerBuild) ? "<pre-1.1.0>" : KmhDispatcher.ServerBuild;
+            KmhLog.Info($"KMH server detected (protocol v{serverVersion}, build '{buildLabel}', via {(status == KmhTransportStatus.ApiConnected ? "API" : "chat")}) - features enabled");
+            KmhNotifications.Positive($"KMH server connected (protocol v{serverVersion})");
+
+            if (string.IsNullOrEmpty(KmhDispatcher.ServerBuild))
+                KmhNotifications.Neutral("This server runs an older KMH build (pre-1.1.0). New features (auctions, want board, world events) stay hidden until the server owner updates.");
+            else if (KmhDispatcher.ServerBuild != KmhProtocol.BuildVersion)
+                KmhNotifications.Neutral($"KMH version mismatch - server is {KmhDispatcher.ServerBuild}, your mod is {KmhProtocol.BuildVersion}. Update so both sides match for full compatibility.");
+
+            string endpoint = string.IsNullOrEmpty(TCPNetwork.Network.Ip) ? "" : $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}";
+            Extensibility.KmhClientEventBus.Instance.RaiseKmhServerConnected(
+                new KMH.Sdk.Client.Events.KmhServerConnectedEvent { ServerProtocolVersion = serverVersion, Endpoint = endpoint });
+
             try { Features.Catalog.ItemLabelsSender.PushOnce(); }
             catch (Exception ex) { KmhLog.Warn($"ItemLabels: push at handshake threw: {ex.Message}"); }
+            return true;
         }
 
         // Server-pushed transient toast { level, text }. Feature handlers on the server use it for action feedback
@@ -96,13 +115,12 @@ namespace KMHPatch.SubProtocol
             if (sentBox is DateTime sent)
             {
                 double ms = (DateTime.UtcNow - sent).TotalMilliseconds;
-                KmhLog.Info($"Pong received from server (round-trip {ms:F1} ms)");
+                KmhLog.Debug($"Pong received from server (round-trip {ms:F1} ms)");
             }
             else
             {
-                // Pong without a matching SendPing - probably a server-initiated heartbeat or a stale reply. Still
-                // worth logging
-                KmhLog.Info("Pong received from server (unsolicited)");
+                // unsolicited pong (server-initiated heartbeat or stale reply)
+                KmhLog.Debug("Pong received from server (unsolicited)");
             }
         }
     }

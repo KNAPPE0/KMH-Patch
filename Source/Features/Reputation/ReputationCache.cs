@@ -39,6 +39,18 @@ namespace KMHPatch.Features.Reputation
             return _byUser.TryGetValue(username, out ReputationEntryDto e) ? e.Tier : "";
         }
 
+        // Coloured trust badge to append after a username. Only the trusted and the unreliable are called out;
+        // neutral / unknown players get nothing, so boards stay uncluttered.
+        public static string Badge(string username)
+        {
+            switch (TierFor(username))
+            {
+                case "Trusted":    return " <color=#80ff80>[Trusted]</color>";
+                case "Unreliable": return " <color=#ff8080>[Unreliable]</color>";
+                default:           return "";
+            }
+        }
+
         public static int ScoreFor(string username)
         {
             if (string.IsNullOrEmpty(username)) return 0;

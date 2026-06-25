@@ -4,9 +4,7 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.UI
 {
-    // Lazy-loaded texture cache for icon buttons. Drop PNGs at Textures/KMHPatch/UI/{slot}.png - 64x64 transparent
-    // single-color silhouettes (RimWorld tints, so colored art ends up muddy). Missing files return null and
-    // IconButton degrades to text-only
+    // Lazy icon cache for KMH buttons. Missing 64x64 UI PNGs return null, so buttons fall back to text.
     [StaticConstructorOnStartup]
     internal static class KMHTextures
     {
@@ -30,8 +28,7 @@ namespace KMHPatch.UI
         public static readonly Texture2D Deposit     = Load("KMHPatch/UI/Deposit");
         public static readonly Texture2D Withdraw    = Load("KMHPatch/UI/Withdraw");
 
-        // Boot diagnostic: counts how many of the 16 slots actually resolved a file at startup, lets admins confirm
-        // their PNG drop landed where expected without having to open every dialog
+        // Startup check for KMH UI icons, so admins can see how many PNG slots loaded without opening every dialog.
         public static int LoadedCount { get; private set; }
         public static int TotalSlots  => 16;
 

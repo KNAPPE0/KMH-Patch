@@ -3,22 +3,13 @@ using KMH.Sdk.Client.Records;
 
 namespace KMH.Sdk.Client.Apis
 {
-    // Read-only views over the client-side caches. Each cache is populated by the patch from server-pushed
-    // snapshots. Extensions observe via these interfaces; mutations go through the wire (see IKmhClientHost.Send
-    // and the action helpers on each cache)
-    //
-    // None of these interfaces expose mutating operations on the cache itself - the cache is a *projection* of
-    // authoritative server state, never the source of truth. Extensions that want to mutate
-    // marketplace/treasury/etc state should fire wire kinds via IKmhClientHost.Send and let the server respond with
-    // a fresh snapshot
-
+    // Read-only cache views for extensions; mutations go through the wire and fresh server snapshots.
     public interface ITreasuryCache
     {
         bool HasSnapshot { get; }
         TreasurySnapshotRecord Snapshot { get; }
         System.DateTime LastUpdatedUtc { get; }
 
-        /// <summary>Ask the server for a fresh treasury snapshot. Returns false if not connected to a KMH server.</summary>
         bool RequestRefresh();
     }
 
@@ -30,13 +21,10 @@ namespace KMH.Sdk.Client.Apis
 
         bool RequestRefresh();
 
-        /// <summary>Send a buy intent. Server responds with snapshot + treasury push.</summary>
         bool TryBuy(long listingId, int qty);
 
-        /// <summary>Cancel one of your own listings.</summary>
         bool TryCancel(long listingId);
 
-        /// <summary>Post a new listing. Items get escrowed from your treasury.</summary>
         bool TryPost(string defName, int qty, int unitPriceSilver,
                      string visibility = "public", int expiresHours = 0);
     }
@@ -97,20 +85,43 @@ namespace KMH.Sdk.Client.Apis
         bool   IsLinked(string username);
         string DiscordDisplayFor(string username);
 
-        /// <summary>
-        /// Format a username with the standard "Discord-aware" treatment
-        /// (linked users get the Discord brand color in RimWorld rich-text).
-        /// Safe to call for unknown / unlinked usernames.
-        /// </summary>
         string FormatUsername(string username);
     }
 
     public interface IItemLabelResolver
     {
-        /// <summary>Look up a friendly label for a RimWorld defName via the local DefDatabase.</summary>
         string LabelFor(string defName);
 
-        /// <summary>Combine stuff + item labels ("plasteel" + "knife" → "plasteel knife"). Falls back to plain label when stuff is empty.</summary>
         string ResolveStuffedLabel(string itemDefName, string stuffDefName);
+    }
+
+    public interface IAuctionCache
+    {
+        bool HasSnapshot { get; }
+        IReadOnlyList<AuctionRecord> Auctions { get; }
+        System.DateTime LastUpdatedUtc { get; }
+
+        bool RequestRefresh();
+
+        bool TryPost(string itemDefName, string stuffDefName, int quality, int qty,
+                     long startingBid, long minIncrement, long buyoutSilver, int durationHours,
+                     string visibility = "public");
+
+        bool TryBid(long auctionId, long amount);
+
+        bool TryCancel(long auctionId);
+    }
+
+    public interface IWorldCache
+    {
+        bool HasSnapshot { get; }
+        IReadOnlyList<WorldEventRecord> Events { get; }
+
+        IReadOnlyList<ServerQuestRecord> ServerQuests { get; }
+        System.DateTime LastUpdatedUtc { get; }
+
+        bool RequestRefresh();
+
+        bool TryDeliver(long questId, string targetDefName, int qty);
     }
 }

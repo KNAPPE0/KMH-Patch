@@ -138,6 +138,18 @@ namespace KMHPatch.Features.Enforcement
                 y += 100f;
             }
 
+            if (EnforcementFlow.IsApplyPending)
+            {
+                Color pc = GUI.color; GUI.color = new Color(1f, 0.81f, 0.30f);
+                Widgets.Label(new Rect(0f, y, rect.width, 40f),
+                    "This server's config profile hasn't been applied yet. Apply it to play here (RimWorld restarts), or disconnect.");
+                GUI.color = pc;
+                y += 44f;
+                if (Widgets.ButtonText(new Rect(0f, y, 360f, 30f), "Apply the server's config profile (restarts RimWorld)"))
+                    EnforcementFlow.ApplyNow();
+                y += 38f;
+            }
+
             if (EnforcementProfileApplier.IsApplied)
             {
                 if (Widgets.ButtonText(new Rect(0f, y, 280f, 30f), "Restore my original configs"))

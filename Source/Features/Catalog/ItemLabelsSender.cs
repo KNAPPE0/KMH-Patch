@@ -3,33 +3,21 @@ using KMHPatch.Diagnostics;
 using KMHPatch.Features.Catalog.Dto;
 using KMHPatch.SubProtocol;
 using KMHPatch.UI;
+using Verse;
 
 namespace KMHPatch.Features.Catalog
 {
-    // Builds and sends the local DefDatabase item catalog to the server at handshake completion. Server caches the
-    // union across all reporting clients so Discord-side market commands can show friendly labels ("packaged
-    // survival meal" instead of "MealSurvivalPack") and accept friendly-name input ("plasteel" / "power armor")
-    //
-    // Send-once-per-session: the catalog doesn't change after RimWorld finishes loading. Re-sending on every
-    // handshake (e.g., reconnect) is fine - server's Apply is idempotent for unchanged entries (cheap dirty check;
-    // SaveToDisk only fires on real changes)
-    //
-    // Size cap: server router enforces 64KB / envelope. We cap input at ~1200 entries (estimated ~55 bytes each =
-    // ~66KB raw) and log if we
-    // have to truncate. Heavily-modded clients can lose tail entries;
-    // chunked push is a follow-up if anyone hits that.
+    // Sends the local item catalog once per session so the server can cache friendly names for Discord commands.
     internal static class ItemLabelsSender
     {
-        // Conservative upper bound - leaves headroom under the 64KB envelope cap. Each entry averages ~55 bytes
-        // serialized ("MealSurvivalPack":"packaged survival meal",) so 1200 * 55 = ~66KB raw which lands well
-        // inside the 64KB cap after JSON overhead trimming
+        // Keep the push under the 64KB router cap; chunked catalog sends can come later.
         private const int MaxEntries = 1200;
 
         public static bool PushOnce()
         {
             if (!KmhDispatcher.IsKmhServer) return false;
 
-            Dictionary<string, string> labels = BuildCatalog(out int discovered);
+            Dictionary<string, string> labels = BuildCatalog(out int discovered, out Dictionary<string, long> values);
             if (labels.Count == 0)
             {
                 KmhLog.Warn("ItemLabels: no items resolved from DefDatabase, skipping push");
@@ -40,23 +28,26 @@ namespace KMHPatch.Features.Catalog
                 new ItemLabelsPush { Labels = labels });
             if (sent)
             {
-                KmhLog.Info(
+                KmhLog.Debug(
                     $"ItemLabels: pushed {labels.Count} labels to server" +
                     (discovered > labels.Count
                         ? $" (capped from {discovered} for size - server side won't have the tail)"
                         : ""));
+
+                // Send market values separately so the label push stays under the 64KB envelope cap.
+                if (values.Count > 0 && KmhDispatcher.Send(KmhProtocol.Kind.ItemValues, new ItemLabelsPush { Values = values }))
+                    KmhLog.Debug($"ItemLabels: pushed {values.Count} base market values to server");
             }
             return sent;
         }
 
-        // Gathers tradeable ThingDef items via the existing ItemDefBrowser filter (skips chunks / corpses /
-        // structures / debug-only items). The label comes from ItemLabels.ResolveLabel which already handles the
-        // DefDatabase lookup + fallback
-        private static Dictionary<string, string> BuildCatalog(out int discovered)
+        // Gather tradeable ThingDefs using the shared item filter; labels already handle lookup + fallback.
+        private static Dictionary<string, string> BuildCatalog(out int discovered, out Dictionary<string, long> values)
         {
             discovered = 0;
             Dictionary<string, string> result = new Dictionary<string, string>(
                 System.StringComparer.OrdinalIgnoreCase);
+            values = new Dictionary<string, long>(System.StringComparer.OrdinalIgnoreCase);
             try
             {
                 Dictionary<string, int> pickable = ItemDefBrowser.AllPickableItems();
@@ -65,11 +56,14 @@ namespace KMHPatch.Features.Catalog
                 {
                     if (string.IsNullOrEmpty(defName)) continue;
                     string label = ItemLabels.ResolveLabel(defName);
-                    // ResolveLabel returns the defName on miss - only ship entries where we actually have a label
-                    // distinct from the defName (no value in shipping identity mappings)
+                    // Only ship real labels; identity mappings add noise with no value.
                     if (string.IsNullOrEmpty(label)) continue;
                     if (string.Equals(label, defName, System.StringComparison.Ordinal)) continue;
                     result[defName] = label;
+                    // Include RimWorld's canonical price when the def has a positive market value.
+                    ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
+                    if (def != null && def.BaseMarketValue > 0f)
+                        values[defName] = (long)System.Math.Round(def.BaseMarketValue);
                     if (result.Count >= MaxEntries) break;
                 }
             }

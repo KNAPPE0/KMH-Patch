@@ -1,6 +1,6 @@
 using UnityEngine;
 using Verse;
-
+// I will never remove these comments (:
 namespace KMHPatch.UI
 {
     // Shared layout constants + helpers for the KMH dialog family, so every dialog keeps a pixel-consistent look.
@@ -47,6 +47,38 @@ namespace KMHPatch.UI
         public static readonly Color MutedColor = new Color(0.72f, 0.72f, 0.72f);
 
         // -- Helpers --
+
+        // Row virtualization: which row indices are actually inside the scroll viewport, so a list draws only the
+        // ~visible handful instead of every row (keeps big modded item/quest/auction lists at a flat per-frame cost).
+        // Keep the scroll viewRect height at count*rowH so the scrollbar stays correct; loop only [first, last).
+        public static void VisibleRange(Vector2 scroll, float viewportHeight, float rowH, int count,
+                                        out int first, out int last)
+        {
+            if (rowH <= 0f || count <= 0) { first = 0; last = 0; return; }
+            first = Mathf.Max(0, (int)(scroll.y / rowH) - 1);
+            if (first > count) first = count;
+            last = Mathf.Min(count, first + (int)(viewportHeight / rowH) + 2);
+        }
+
+        // Placeholder for a feature list still waiting on its first server snapshot. A pre-1.1.0 server never sends
+        // the v1.1.0 snapshots, so its empty ServerBuild means the snapshot will never arrive - say that plainly
+        // instead of spinning on "Loading…" forever. Caller wraps the result in its own colour tags.
+        public static string AwaitingSnapshot(string loadingLabel, string featureName)
+            => string.IsNullOrEmpty(SubProtocol.KmhDispatcher.ServerBuild)
+                ? $"{featureName} need a newer server (KMH {SubProtocol.KmhProtocol.BuildVersion}+)."
+                : loadingLabel;
+
+        // Shared "ends in …" countdown label for expiry rows (auctions, want-board, etc.). "—" when there's no expiry.
+        public static string TimeLeft(long endsTicks, long now)
+        {
+            if (endsTicks <= 0) return "—";
+            if (now >= endsTicks) return "<color=#ff8080>closing…</color>";
+            System.TimeSpan s = System.TimeSpan.FromTicks(endsTicks - now);
+            if (s.TotalDays    >= 1) return $"{(int)s.TotalDays}d {s.Hours}h";
+            if (s.TotalHours   >= 1) return $"{(int)s.TotalHours}h {s.Minutes}m";
+            if (s.TotalMinutes >= 1) return $"{(int)s.TotalMinutes}m";
+            return $"{(int)s.TotalSeconds}s";
+        }
 
         public static float DrawTitle(Rect rect, string title)
         {

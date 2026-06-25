@@ -20,7 +20,8 @@ namespace KMHPatch.Features.Sites
         private const int IntervalTicks = 120; // ~2s
         private int _next;
 
-        public WorldComponent_KMHSiteMarkers(World world) : base(world) { }
+        // RimWorld.Planet.World qualified - the KMHPatch.Features.World namespace would otherwise shadow bare 'World'
+        public WorldComponent_KMHSiteMarkers(RimWorld.Planet.World world) : base(world) { }
 
         public override void WorldComponentTick()
         {

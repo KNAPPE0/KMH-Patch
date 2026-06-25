@@ -27,6 +27,10 @@ namespace KMHPatch.UI
         private Vector2 _scroll;
         private string  _filter = "";
 
+        // Cached filtered+sorted view, rebuilt only when the filter changes (the source is fixed at construction).
+        private List<KeyValuePair<string, int>> _visible;
+        private string _visibleFilter;
+
         public Dialog_KMHItemPicker(
             string                        title,
             string                        pickActionLabel,
@@ -71,39 +75,26 @@ namespace KMHPatch.UI
 
             string filterLower = (_filter ?? "").Trim().ToLower();
 
-            // Filtered + alphabetically-ordered view. Filter against the resolved label rather than defName so
-            // 'plasteel knife' matches a defName like 'Knife' (with Stuff=Plasteel) even though the stack key is
-            // just the item defName
-            //
-            // Source value semantics: > 0 real available count (shown 'x N', max-hint enforced in the qty prompt) =
-            // 0 item excluded entirely (zero stock) < 0 "unlimited" - no count shown, no max in the qty prompt.
-            // Used by ItemDefBrowser-style sources (Quest target picker, etc.) where the player picks an item def
-            // and any positive qty is fine
-            List<KeyValuePair<string, int>> visible = new List<KeyValuePair<string, int>>();
-            foreach (KeyValuePair<string, int> kv in _source)
+            // Build the filtered + alphabetically-ordered view ONCE per filter change (not every frame). Filter
+            // against the resolved label so 'plasteel knife' matches defName 'Knife' (Stuff=Plasteel). Source value:
+            // >0 = real count (shown 'x N'); 0 = excluded; <0 = unlimited (no count, no max in the qty prompt).
+            if (_visible == null || _visibleFilter != filterLower)
             {
-                if (kv.Value == 0) continue;
-                if (filterLower.Length > 0)
-                {
-                    string label = ItemLabels.ResolveLabel(kv.Key).ToLower();
-                    if (!label.Contains(filterLower) && !kv.Key.ToLower().Contains(filterLower))
-                        continue;
-                }
-                visible.Add(kv);
+                _visible = Build(filterLower);
+                _visibleFilter = filterLower;
             }
-            visible.Sort((a, b) =>
-                string.Compare(ItemLabels.ResolveLabel(a.Key), ItemLabels.ResolveLabel(b.Key),
-                    StringComparison.OrdinalIgnoreCase));
+            List<KeyValuePair<string, int>> visible = _visible;
 
             float viewH    = Mathf.Max(inner.height, visible.Count * rowH + 8f);
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            float ly = 0f;
-
-            for (int i = 0; i < visible.Count; i++)
+            // Draw only the rows actually in view - a modded catalog can be thousands of items.
+            DialogLayout.VisibleRange(_scroll, inner.height, rowH, visible.Count, out int first, out int last);
+            for (int i = first; i < last; i++)
             {
                 KeyValuePair<string, int> kv = visible[i];
+                float ly = i * rowH;
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
@@ -113,18 +104,13 @@ namespace KMHPatch.UI
                 ItemLabels.DrawIcon(new Rect(6f, ly + 4f, iconSize, iconSize), kv.Key);
 
                 string label = ItemLabels.ResolveLabel(kv.Key);
-                // Count text: show 'x N' for finite stock, nothing for unlimited entries (value < 0)
                 string countText = kv.Value > 0 ? $"<color=grey>x{kv.Value}</color>" : "";
                 DialogLayout.LabelTrunc(new Rect(6f + iconSize + 8f, ly + 6f, viewRect.width - btnW - iconSize - 24f, rowH - 12f),
                     $"{label}   {countText}");
 
-                // capture loop locals before the lambda
-                string capturedDefName  = kv.Key;
-                // Map source semantics to maxHint: unlimited entries pass 0 (Dialog_KMHAmountInput hides the
-                // 'Available' line on 0)
-                int    capturedMax      = kv.Value > 0 ? kv.Value : 0;
-                Rect   btn              = new Rect(viewRect.width - btnW - 4f, ly + 3f, btnW, rowH - 6f);
-
+                string capturedDefName = kv.Key;
+                int    capturedMax     = kv.Value > 0 ? kv.Value : 0;
+                Rect   btn             = new Rect(viewRect.width - btnW - 4f, ly + 3f, btnW, rowH - 6f);
                 if (Widgets.ButtonText(btn, $"{_pickActionLabel}…"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHAmountInput(
@@ -134,8 +120,6 @@ namespace KMHPatch.UI
                         maxHint:      capturedMax,
                         onConfirm:    qty => _onPick?.Invoke(capturedDefName, qty)));
                 }
-
-                ly += rowH;
             }
 
             if (visible.Count == 0)
@@ -147,6 +131,24 @@ namespace KMHPatch.UI
             }
 
             Widgets.EndScrollView();
+        }
+
+        private List<KeyValuePair<string, int>> Build(string filterLower)
+        {
+            List<KeyValuePair<string, int>> outList = new List<KeyValuePair<string, int>>();
+            foreach (KeyValuePair<string, int> kv in _source)
+            {
+                if (kv.Value == 0) continue;
+                if (filterLower.Length > 0)
+                {
+                    string label = ItemLabels.ResolveLabel(kv.Key).ToLower();
+                    if (!label.Contains(filterLower) && !kv.Key.ToLower().Contains(filterLower)) continue;
+                }
+                outList.Add(kv);
+            }
+            outList.Sort((a, b) => string.Compare(ItemLabels.ResolveLabel(a.Key), ItemLabels.ResolveLabel(b.Key),
+                StringComparison.OrdinalIgnoreCase));
+            return outList;
         }
     }
 }

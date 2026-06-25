@@ -32,6 +32,21 @@ namespace KMHPatch.Features.Marketplace
         private bool   _onlyMine       = false;
         private bool   _onlyMyGuild    = false;
 
+        private enum SortMode { Newest, PriceAsc, PriceDesc, QtyDesc, NameAsc }
+        private SortMode _sort = SortMode.Newest;
+
+        private static string SortLabel(SortMode m)
+        {
+            switch (m)
+            {
+                case SortMode.PriceAsc:  return "Price ↑";
+                case SortMode.PriceDesc: return "Price ↓";
+                case SortMode.QtyDesc:   return "Qty ↓";
+                case SortMode.NameAsc:   return "Name A-Z";
+                default:                 return "Newest";
+            }
+        }
+
         private static readonly string[] CommonCategories =
         {
             "All", "Resources", "Manufactured", "Foods", "Drugs",
@@ -43,6 +58,7 @@ namespace KMHPatch.Features.Marketplace
         private string                   _visibleFilter;
         private string                   _visibleCategory;
         private bool                     _vcMine, _vcMyGuild;
+        private SortMode                 _vcSort;
 
         public Dialog_KMHMarketplace()
         {
@@ -134,12 +150,31 @@ namespace KMHPatch.Features.Marketplace
                 MarketplaceHandler.RequestSnapshot();
                 _lastRefreshUtc = DateTime.UtcNow;
             }
+            if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 3f, y, toolbarBtnW - 4f, 28f), "Auctions…"))
+            {
+                Find.WindowStack.Add(new Features.Auctions.Dialog_KMHAuctions());
+            }
+            if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 4f, y, toolbarBtnW - 4f, 28f), "Want board…"))
+            {
+                Find.WindowStack.Add(new Features.WantBoard.Dialog_KMHWantBoard());
+            }
             y += 32f;
 
-            // Row 2: scope toggles.
+            // Row 2: scope toggles (left) + sort (right).
             float cbx = 0f;
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Only mine",    ref _onlyMine);
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "My guild only", ref _onlyMyGuild);
+
+            if (Widgets.ButtonText(new Rect(rect.width - 160f, y, 156f, 26f), $"Sort: {SortLabel(_sort)}"))
+            {
+                List<FloatMenuOption> sortOpts = new List<FloatMenuOption>();
+                foreach (SortMode m in (SortMode[])Enum.GetValues(typeof(SortMode)))
+                {
+                    SortMode captured = m;
+                    sortOpts.Add(new FloatMenuOption(SortLabel(captured), () => _sort = captured));
+                }
+                Find.WindowStack.Add(new FloatMenu(sortOpts));
+            }
             y += 30f;
 
             DrawHeader(new Rect(0f, y, rect.width, 22f));
@@ -195,7 +230,8 @@ namespace KMHPatch.Features.Marketplace
                 || _visibleFilter   != filterLower
                 || _visibleCategory != _categoryFilter
                 || _vcMine          != _onlyMine
-                || _vcMyGuild       != _onlyMyGuild;
+                || _vcMyGuild       != _onlyMyGuild
+                || _vcSort          != _sort;
 
             if (inputsChanged)
             {
@@ -229,7 +265,16 @@ namespace KMHPatch.Features.Marketplace
                     filtered.Add(r);
                 }
 
-                filtered.Sort((a, b) => b.ListedUtcTicks.CompareTo(a.ListedUtcTicks));
+                switch (_sort)
+                {
+                    case SortMode.PriceAsc:  filtered.Sort((a, b) => a.UnitPriceSilver.CompareTo(b.UnitPriceSilver)); break;
+                    case SortMode.PriceDesc: filtered.Sort((a, b) => b.UnitPriceSilver.CompareTo(a.UnitPriceSilver)); break;
+                    case SortMode.QtyDesc:   filtered.Sort((a, b) => b.RemainingQty.CompareTo(a.RemainingQty));       break;
+                    case SortMode.NameAsc:   filtered.Sort((a, b) => string.Compare(
+                                                 ItemLabels.ResolveLabel(a.ItemDefName), ItemLabels.ResolveLabel(b.ItemDefName),
+                                                 StringComparison.OrdinalIgnoreCase));                                break;
+                    default:                 filtered.Sort((a, b) => b.ListedUtcTicks.CompareTo(a.ListedUtcTicks));   break;
+                }
 
                 _visible          = filtered;
                 _visibleSource    = s.Listings;
@@ -237,6 +282,7 @@ namespace KMHPatch.Features.Marketplace
                 _visibleCategory  = _categoryFilter;
                 _vcMine           = _onlyMine;
                 _vcMyGuild        = _onlyMyGuild;
+                _vcSort           = _sort;
             }
 
             List<MarketplaceListing> rows = _visible;
@@ -244,24 +290,31 @@ namespace KMHPatch.Features.Marketplace
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            float   ly   = 0f;
             float[] cols = ColumnXs(viewRect.width);
             long    now  = DateTime.UtcNow.Ticks;
             // 'mine' already computed above for the filter pass; reused here for the per-row 'is mine?' check
 
-            for (int i = 0; i < rows.Count; i++)
+            // Draw only the rows in view - a busy/modded marketplace can have hundreds of listings.
+            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int firstRow, out int lastRow);
+            for (int i = firstRow; i < lastRow; i++)
             {
                 MarketplaceListing r = rows[i];
+                float ly = i * rowH;
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
+                if (Mouse.IsOver(row))
+                {
+                    string demandTip = MarketDemand.Tip(r.ItemDefName);
+                    if (!string.IsNullOrEmpty(demandTip)) TooltipHandler.TipRegion(row, demandTip);
+                }
 
                 // Icon + label in the Item column. Icon reserved as a 22px square; rest of the column is the
                 // (possibly stuff+quality prefixed) label
                 const float iconSize = 22f;
                 ItemLabels.DrawIcon(new Rect(cols[0] + 2f, ly + 1f, iconSize, iconSize), r.ItemDefName);
 
-                string itemLabel = FormatItemName(r);
+                string itemLabel = FormatItemName(r) + MarketDemand.Arrow(r.ItemDefName);
                 if (r.IsAutoListing) itemLabel = $"<color=#9090ff>[auto]</color> {itemLabel}";
                 DialogLayout.LabelTrunc(new Rect(cols[0] + iconSize + 6f, ly + 2f, cols[1] - cols[0] - iconSize - 8f, rowH - 4f), itemLabel);
 
@@ -303,7 +356,6 @@ namespace KMHPatch.Features.Marketplace
                     }
                 }
 
-                ly += rowH;
             }
             if (rows.Count == 0)
             {

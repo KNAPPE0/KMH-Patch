@@ -3,11 +3,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Composed item keys carry material + quality through every item flow (treasury, marketplace, quests):
-    //   "Steel"                          plain item, no stuff/quality
-    //   "MeleeWeapon_LongSword|Plasteel|5"  def | stuff defName (may be empty) | quality index
-    // Quality index: 0 = none/any, 1..7 = Awful..Legendary (QualityCategory + 1). Mirrors the server's
-    // Util/ItemKey.cs - same format on both sides or vault keys stop matching
+    // Item keys preserve stuff + quality across treasury, market, and quest flows; format must match server ItemKey.cs or vault lookups break.
     public static class ItemKeys
     {
         public const char Sep = '|';

@@ -183,8 +183,6 @@ namespace KMHPatch.Features.Enforcement
                 EnsureBackup();                              // one-time full backup of originals
                 File.WriteAllText(CrashMark, DateTime.UtcNow.ToString("o"));
 
-                bool autoRestart = ShouldAutoRestart(hash, _state.LastRestartHash, _state.LastRestartUtc);
-
                 IsInternalApplyInProgress = true;
                 int copied;
                 try
@@ -203,7 +201,6 @@ namespace KMHPatch.Features.Enforcement
                 _state.ActiveProfileUpdatedUtcTicks = updatedTicks;
                 _state.LastAppliedUtcTicks         = DateTime.UtcNow.Ticks;
                 _state.LastAppliedFileCount        = copied;
-                if (autoRestart) { _state.LastRestartHash = hash; _state.LastRestartUtc = DateTime.UtcNow.ToString("o"); }
                 SaveState();
                 WriteActiveMarker(hash, copied);
                 StartWatcher();
@@ -211,8 +208,8 @@ namespace KMHPatch.Features.Enforcement
                 KmhLog.Info($"Enforcement: applied profile {hash} - {copied} file(s) into '{ConfigPath}'. " +
                             $"Originals backed up in '{BackupPath}'.");
 
-                if (autoRestart) LongEventHandler.ExecuteWhenFinished(ForceRestart);
-                else             LongEventHandler.ExecuteWhenFinished(PromptRestart);
+                // The player already consented (Apply & restart) - restart so launch-only mod configs take effect.
+                LongEventHandler.ExecuteWhenFinished(RestartNow);
             }
             catch (Exception ex)
             {
@@ -437,7 +434,7 @@ namespace KMHPatch.Features.Enforcement
 
         // ---- restart ----
 
-        private static void ForceRestart()
+        private static void RestartNow()
         {
             try
             {
@@ -445,32 +442,7 @@ namespace KMHPatch.Features.Enforcement
                     MessageTypeDefOf.NeutralEvent, historical: false);
                 GenCommandLine.Restart();
             }
-            catch (Exception ex) { KmhLog.Warn($"Enforcement: auto-restart failed: {ex.Message}"); }
-        }
-
-        private static void PromptRestart()
-        {
-            try
-            {
-                if (Find.WindowStack == null) return;
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    "This server enforces mod configs. Some mods only apply new settings after a full restart.\n\n" +
-                    "Restart RimWorld now? Your personal configs are backed up and restore when you leave.",
-                    "Restart now", () => { try { GenCommandLine.Restart(); } catch (Exception ex) { KmhLog.Warn($"Restart failed: {ex.Message}"); } },
-                    "Later", null,
-                    "KMH config enforcement"));
-            }
-            catch (Exception ex) { KmhLog.Warn($"Enforcement: restart prompt failed: {ex.Message}"); }
-        }
-
-        // Don't restart twice for the same profile within 10 min - a mod that re-normalizes its config on load
-        // would otherwise boot-loop the player
-        private static bool ShouldAutoRestart(string hash, string lastHash, string lastUtc)
-        {
-            if (string.IsNullOrEmpty(lastHash) || lastHash != hash) return true;
-            if (DateTime.TryParse(lastUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime t))
-                return (DateTime.UtcNow - t.ToUniversalTime()) > TimeSpan.FromMinutes(10);
-            return true;
+            catch (Exception ex) { KmhLog.Warn($"Enforcement: restart failed: {ex.Message}"); }
         }
 
         // ---- helpers ----

@@ -28,13 +28,15 @@ namespace KMHPatch.UI
             string confirmLabel,
             string unitLabel,
             int    maxHint,
-            Action<int> onConfirm)
+            Action<int> onConfirm,
+            string initial = "")   // pre-fills the field (e.g. an auction's minimum bid)
         {
             _title        = title;
             _confirmLabel = confirmLabel;
             _unitLabel    = unitLabel ?? "";
             _maxHint      = maxHint;
             _onConfirm    = onConfirm;
+            _input        = initial ?? "";
 
             doCloseX                = true;
             absorbInputAroundWindow = true;

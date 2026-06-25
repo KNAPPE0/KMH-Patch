@@ -61,11 +61,10 @@ namespace KMHPatch.Features.Sites
             Rect view = new Rect(0f, y, rect.width, rect.height - y - 6f);
             Rect content = new Rect(0f, 0f, view.width - 16f, snap.Sites.Count * rowH);
             Widgets.BeginScrollView(view, ref _scroll, content);
-            float ry = 0f;
-            foreach (SiteEntry s in snap.Sites)
+            DialogLayout.VisibleRange(_scroll, view.height, rowH, snap.Sites.Count, out int first, out int last);
+            for (int i = first; i < last; i++)
             {
-                DrawRow(new Rect(0f, ry, content.width, rowH - 4f), s, mine);
-                ry += rowH;
+                DrawRow(new Rect(0f, i * rowH, content.width, rowH - 4f), snap.Sites[i], mine);
             }
             Widgets.EndScrollView();
             AutoRefresh();

@@ -13,31 +13,32 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Live "at a glance" dashboard rendered on the main KMH tab. Pulls stats from the per-feature caches and lays
-    // them out as a compact two-column status grid so the player sees what's happening on the server without having
-    // to open every feature dialog
-    //
-    // Stats covered (each line skips when its source cache is empty):
-    //   - Treasury silver + owner label
-    //   - Quests claimable on the board / your in-flight claims /
-    //     your posted quests still active
-    //   - Your marketplace listings (count + total escrowed value)
-    //   - Guild membership (name + rank, or "none")
-    //   - Discord link status (yes + handle, or "not linked")
-    //
-    // Pure read-only - never triggers network traffic. The caches refresh themselves on their own cadence; the
-    // dashboard just observes them
+    // Read-only KMH dashboard for the main tab. Shows cached server/player stats at a glance without making network calls.
     internal static class KMHDashboard
     {
-        // Two columns side-by-side: left = label, right = value. Drawn as a single block so the labels and values
-        // align without each line having to compute its own widths
+        // Draw labels and values as one two-column block so everything lines up cleanly.
         public static void Draw(Listing_Standard listing, Rect parentRect)
         {
             string me = SessionHandler.Username ?? "";
 
-            // Gather every line in one pass, then render in one block - skipping empty/unknowns keeps the dashboard
-            // tight on first-connect when caches haven't filled yet
+            // Build the dashboard lines first, skipping empty cache data so first-connect stays clean.
             List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
+
+            // Only when the player opted into the API - default chat players don't need a "fallback" label.
+            if (KMHPatchMod.Settings?.UseKmhApiTransport == true)
+            {
+                string c;
+                switch (SubProtocol.KmhTransport.Status)
+                {
+                    case SubProtocol.KmhTransportStatus.ApiConnected:    c = "#7CD37C"; break;
+                    case SubProtocol.KmhTransportStatus.ApiConnecting:   c = "#E2C16B"; break;
+                    case SubProtocol.KmhTransportStatus.ChatFallback:    c = "#E2C16B"; break;
+                    case SubProtocol.KmhTransportStatus.VersionMismatch:
+                    case SubProtocol.KmhTransportStatus.AuthFailed:      c = "#D37C7C"; break;
+                    default:                                             c = "grey";    break;
+                }
+                lines.Add(("Transport", $"<color={c}>{SubProtocol.KmhTransport.StatusLabel}</color>", Color.white));
+            }
 
             // Treasury
             if (TreasuryCache.HasSnapshot)
@@ -70,8 +71,7 @@ namespace KMHPatch.UI
                            Color.white));
             }
 
-            // quests - board total + my claims + my posts; always rendered so the dashboard height stays constant
-            // while caches fill
+            // Quest counts stay visible so the dashboard height doesn't jump while caches load.
             {
                 string text;
                 if (!QuestCache.HasSnapshot)
@@ -108,7 +108,7 @@ namespace KMHPatch.UI
                 lines.Add(("Quests", text, Color.white));
             }
 
-            // Marketplace - my listings count + total value (always rendered).
+            // Marketplace counts stay visible: your listings and their total value.
             {
                 string text;
                 if (!MarketplaceCache.HasSnapshot)
@@ -138,7 +138,7 @@ namespace KMHPatch.UI
                 lines.Add(("Marketplace", text, Color.white));
             }
 
-            // Discord link (always rendered).
+            // Discord link status, always shown.
             {
                 string text;
                 if (!LinkedAccountsCache.HasSnapshot || string.IsNullOrEmpty(me))
@@ -150,8 +150,55 @@ namespace KMHPatch.UI
                 lines.Add(("Discord", text, Color.white));
             }
 
-            // Render. Two-column layout with fixed left column width so every label lines up regardless of value
-            // width
+            // Show world events only while one is active, keeping the dashboard quiet otherwise.
+            if (Features.World.WorldCache.HasEvents)
+            {
+                var ev = Features.World.WorldCache.Snapshot.Events;
+                string text = ev.Count == 1
+                    ? $"<b><color=#7CD37C>{ev[0].Title}</color></b>  <color=grey>{ev[0].Description}</color>"
+                    : $"<b><color=#7CD37C>{ev.Count} active</color></b>  <color=grey>{string.Join(", ", ev.ConvertAll(e => e.Title))}</color>";
+                lines.Add(("Events", text, Color.white));
+            }
+
+            // Show active global quests with live progress and reward.
+            if (Features.World.WorldCache.HasServerQuests)
+            {
+                var qs = Features.World.WorldCache.ActiveServerQuests();
+                string text;
+                if (qs.Count == 1)
+                {
+                    var q = qs[0];
+                    string reward = q.RewardPool > 0 ? $" · <b>{q.RewardPool:N0}s</b>" : "";
+                    text = $"<b><color=#E2C16B>{q.Title}</color></b>  <color=grey>{q.ProgressQty}/{q.GoalQty} {q.TargetDefName}{reward}</color>";
+                }
+                else
+                {
+                    text = $"<b><color=#E2C16B>{qs.Count} active</color></b>  <color=grey>{string.Join(", ", qs.ConvertAll(q => q.Title))}</color>";
+                }
+                lines.Add(("Global Quests", text, Color.white));
+            }
+
+            // Show live auctions only, with your own bids/listings called out.
+            if (Features.Auctions.AuctionCache.HasSnapshot
+                && Features.Auctions.AuctionCache.Snapshot.Auctions != null
+                && Features.Auctions.AuctionCache.Snapshot.Auctions.Count > 0)
+            {
+                var aucs = Features.Auctions.AuctionCache.Snapshot.Auctions;
+                int myLead = 0, myListed = 0;
+                if (!string.IsNullOrEmpty(me))
+                    foreach (var a in aucs)
+                    {
+                        if (a == null) continue;
+                        if (string.Equals(a.SellerUsername, me, System.StringComparison.OrdinalIgnoreCase)) myListed++;
+                        else if (string.Equals(a.HighBidder, me, System.StringComparison.OrdinalIgnoreCase)) myLead++;
+                    }
+                string mine = (myLead > 0 || myListed > 0)
+                    ? $"  <color=grey>· you: {(myLead > 0 ? $"leading {myLead}" : "")}{(myLead > 0 && myListed > 0 ? ", " : "")}{(myListed > 0 ? $"{myListed} listed" : "")}</color>"
+                    : "";
+                lines.Add(("Auctions", $"<b>{aucs.Count}</b> live{mine}", Color.white));
+            }
+
+            // Render as two columns with a fixed label width so everything lines up cleanly.
             const float labelW    = 120f;
             const float rowH      = 22f;
             const float rowGap    = 2f;
@@ -175,9 +222,7 @@ namespace KMHPatch.UI
             }
         }
 
-        // Walk the guild member list looking for the caller's rank label. Returns empty when the guild snapshot
-        // doesn't include the caller (shouldn't happen in v1 - server scopes the snapshot to the caller's guild -
-        // but guards against future cross-guild snapshots)
+        // Find the caller's guild rank, or empty if this snapshot doesn't include them.
         private static string ResolveMyRank(string me)
         {
             if (string.IsNullOrEmpty(me)) return "";

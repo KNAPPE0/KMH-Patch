@@ -80,23 +80,22 @@ namespace KMHPatch.Features.Enforcement
         // re-notifies
         private static bool _joinNoticeShown;
 
-        public static void ResetConnectionState() => _joinNoticeShown = false;
+        public static void ResetConnectionState() { _joinNoticeShown = false; EnforcementFlow.ResetForNewConnection(); }
 
         private static void ShowJoinNotice(EnforcementSnapshotDto dto)
         {
             if (_joinNoticeShown || dto == null || !dto.Enabled) return;
-            _joinNoticeShown = true;
 
             bool exempt = dto.AdminBypass && dto.IsAdmin;
             string msg;
             if (exempt)
                 msg = $"Config enforcement is ON ({dto.ProfileFiles} mod config(s)). You're exempt as an admin.";
-            else if (dto.HasProfile)
-                msg = $"This server enforces mod configs ({dto.ProfileFiles} locked to the server's profile). " +
-                      "RimWorld may restart once to apply them; your Mod Options stay locked while you're connected.";
-            else
+            else if (!dto.HasProfile)
                 msg = "This server enforces mod configs - your Mod Options are locked to the server while you're connected.";
+            else
+                return; // enforced WITH a profile + not exempt: the Apply-&-restart / Disconnect consent dialog is the notice
 
+            _joinNoticeShown = true;
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 try { Messages.Message(msg, MessageTypeDefOf.NeutralEvent, historical: false); }
@@ -108,27 +107,28 @@ namespace KMHPatch.Features.Enforcement
         {
             EnforcementSnapshotDto dto = env?.DataAs<EnforcementSnapshotDto>();
             if (dto == null) return;
-            EnforcementCache.Apply(dto.Enabled, dto.AdminBypass, dto.PreservePersonal, dto.IsAdmin, dto.HasProfile, dto.SafeMods);
+            EnforcementCache.Apply(dto.Enabled, dto.AdminBypass, dto.PreservePersonal, dto.IsAdmin, dto.HasProfile, dto.SafeMods, dto.ProfileHash);
 
             ShowJoinNotice(dto);
 
             if (!dto.Enabled)
             {
-                // Joined a non-enforcing server: lift any still-applied profile.
+                // Non-enforcing server: lift any still-applied profile.
                 if (EnforcementProfileApplier.IsApplied)
                 {
-                    KmhLog.Info("Enforcement: joined a non-enforcing server with configs applied - restoring originals.");
+                    KmhLog.Info("Enforcement: server isn't enforcing but a profile is applied - restoring originals.");
                     EnforcementProfileApplier.Restore();
                 }
+                EnforcementFlow.Clear();
             }
-            else if (dto.HasProfile && !(dto.AdminBypass && dto.IsAdmin))
+            else
             {
-                // Pull + re-assert on connect (re-applies/restarts only on a hash change). Exempt admins are
-                // skipped - they own the profile
-                KmhDispatcher.Send(KmhProtocol.Kind.EnforcementProfileRequest, null);
+                // EnforcementFlow decides: exempt admins do nothing; an already-applied profile re-asserts quietly; a
+                // new/changed profile shows the Apply-now/Disconnect consent dialog (no silent apply or restart).
+                EnforcementFlow.Evaluate();
             }
 
-            KmhLog.Info(
+            KmhLog.Debug(
                 $"Enforcement snapshot: {(EnforcementCache.IsLockActive() ? "LOCK active" : "unlocked")} " +
                 $"(enabled={dto.Enabled}, admin={dto.IsAdmin}, safe={dto.SafeMods?.Count ?? 0})");
         }

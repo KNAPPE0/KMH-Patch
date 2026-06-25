@@ -6,18 +6,21 @@
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
-  <modVersion>1.0.0</modVersion>
+  <modVersion>1.1.0</modVersion>
 
   <description>KMH is a community feature pack for the official RimWorld Together mod
 
 It adds an in-game KMH tab with:
 - a player marketplace (buy/sell, search, guild-only listings)
+- timed auctions and a want-to-buy board
 - treasury vaults, personal and guild
 - a quest board: deliver, bounty, hunt, build, escort, defend, and custom quests
+- server-wide events and co-op/competitive global quests (Living World)
 - guilds with ranks, buyable perks, alliances, and a shared vault
 - a reputation system with quest-trust scoring
 - custom production sites with workers and reward routing
-- player and guild leaderboards
+- Server Standings: player, guild, colony, colonist, trade, battle, and site records with profiles and a season archive
+- offline mail for outcomes that happen while you're away
 - an optional Discord bridge
 
 KMH only activates when you connect to a KMH-enabled server.

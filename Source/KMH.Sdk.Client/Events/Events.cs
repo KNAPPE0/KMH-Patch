@@ -21,4 +21,6 @@ namespace KMH.Sdk.Client.Events
     public sealed class GuildLeaderboardCacheUpdatedEvent  { }
     public sealed class PlayerStatsCacheUpdatedEvent       { }
     public sealed class LinkedAccountsCacheUpdatedEvent    { }
+    public sealed class AuctionCacheUpdatedEvent           { }
+    public sealed class WorldCacheUpdatedEvent             { }
 }
