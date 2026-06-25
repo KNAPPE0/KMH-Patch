@@ -2,12 +2,14 @@ using System;
 using KMH.Sdk.Client.Apis;
 using KMH.Sdk.Client.Events;
 using KMHPatch.Diagnostics;
+using KMHPatch.Features.Auctions;
 using KMHPatch.Features.Guilds;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.Marketplace;
 using KMHPatch.Features.PlayerStats;
 using KMHPatch.Features.Quests;
 using KMHPatch.Features.Treasury;
+using KMHPatch.Features.World;
 
 namespace KMHPatch.Extensibility
 {
@@ -31,6 +33,8 @@ namespace KMHPatch.Extensibility
             GuildLeaderboardCache.Updated += () => SafeRaise(GuildLeaderboardCacheUpdated, new GuildLeaderboardCacheUpdatedEvent(), nameof(GuildLeaderboardCacheUpdated));
             PlayerStatsCache.Updated      += () => SafeRaise(PlayerStatsCacheUpdated,      new PlayerStatsCacheUpdatedEvent(),      nameof(PlayerStatsCacheUpdated));
             LinkedAccountsCache.Updated   += () => SafeRaise(LinkedAccountsCacheUpdated,   new LinkedAccountsCacheUpdatedEvent(),   nameof(LinkedAccountsCacheUpdated));
+            AuctionCache.Updated          += () => SafeRaise(AuctionCacheUpdated,          new AuctionCacheUpdatedEvent(),          nameof(AuctionCacheUpdated));
+            WorldCache.Updated            += () => SafeRaise(WorldCacheUpdated,            new WorldCacheUpdatedEvent(),            nameof(WorldCacheUpdated));
         }
 
         public event Action<KmhServerConnectedEvent>             KmhServerConnected;
@@ -42,6 +46,8 @@ namespace KMHPatch.Extensibility
         public event Action<GuildLeaderboardCacheUpdatedEvent>   GuildLeaderboardCacheUpdated;
         public event Action<PlayerStatsCacheUpdatedEvent>        PlayerStatsCacheUpdated;
         public event Action<LinkedAccountsCacheUpdatedEvent>     LinkedAccountsCacheUpdated;
+        public event Action<AuctionCacheUpdatedEvent>           AuctionCacheUpdated;
+        public event Action<WorldCacheUpdatedEvent>             WorldCacheUpdated;
 
         // Called by KmhHandshakeHandler when the server's Hello arrives.
         internal void RaiseKmhServerConnected(KmhServerConnectedEvent e)

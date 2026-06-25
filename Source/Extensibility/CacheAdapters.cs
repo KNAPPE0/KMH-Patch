@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using KMH.Sdk.Client.Apis;
 using KMH.Sdk.Client.Records;
+using KMHPatch.Features.Auctions;
 using KMHPatch.Features.Guilds;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.Marketplace;
 using KMHPatch.Features.PlayerStats;
 using KMHPatch.Features.Quests;
 using KMHPatch.Features.Treasury;
+using KMHPatch.Features.World;
 
 namespace KMHPatch.Extensibility
 {
@@ -284,5 +286,123 @@ namespace KMHPatch.Extensibility
     {
         public string LabelFor(string defName)                                    => UI.ItemLabels.ResolveLabel(defName);
         public string ResolveStuffedLabel(string itemDefName, string stuffDefName) => UI.ItemLabels.ResolveStuffedLabel(itemDefName, stuffDefName);
+    }
+
+    internal sealed class AuctionCacheAdapter : IAuctionCache
+    {
+        public bool HasSnapshot        => AuctionCache.HasSnapshot;
+        public DateTime LastUpdatedUtc => AuctionCache.LastUpdatedUtc;
+        public bool RequestRefresh()   => AuctionHandler.RequestSnapshot();
+
+        public bool TryPost(string itemDefName, string stuffDefName, int quality, int qty,
+                            long startingBid, long minIncrement, long buyoutSilver, int durationHours, string visibility = "public")
+            => AuctionHandler.TryPost(itemDefName, stuffDefName, quality, qty, startingBid, minIncrement, buyoutSilver, durationHours, visibility);
+
+        public bool TryBid(long auctionId, long amount) => AuctionHandler.TryBid(auctionId, amount);
+        public bool TryCancel(long auctionId)           => AuctionHandler.TryCancel(auctionId);
+
+        public IReadOnlyList<AuctionRecord> Auctions
+        {
+            get
+            {
+                List<AuctionRecord> result = new List<AuctionRecord>();
+                Features.Auctions.Dto.AuctionSnapshot s = AuctionCache.Snapshot;
+                if (s?.Auctions != null)
+                {
+                    foreach (Features.Auctions.Dto.AuctionDto a in s.Auctions)
+                    {
+                        result.Add(new AuctionRecord
+                        {
+                            Id                = a.Id,
+                            SellerUsername    = a.SellerUsername    ?? "",
+                            SellerTreasuryKey = a.SellerTreasuryKey ?? "",
+                            ItemDefName       = a.ItemDefName       ?? "",
+                            StuffDefName      = a.StuffDefName      ?? "",
+                            QualityIndex      = a.QualityIndex,
+                            Qty               = a.Qty,
+                            StartingBid       = a.StartingBid,
+                            MinIncrement      = a.MinIncrement,
+                            BuyoutSilver      = a.BuyoutSilver,
+                            CurrentBid        = a.CurrentBid,
+                            HighBidder        = a.HighBidder        ?? "",
+                            BidCount          = a.BidCount,
+                            ListedUtcTicks    = a.ListedUtcTicks,
+                            EndsUtcTicks      = a.EndsUtcTicks,
+                            Visibility        = a.Visibility        ?? "public",
+                        });
+                    }
+                }
+                return result;
+            }
+        }
+    }
+
+    internal sealed class WorldCacheAdapter : IWorldCache
+    {
+        public bool HasSnapshot        => WorldCache.HasSnapshot;
+        public DateTime LastUpdatedUtc => WorldCache.LastUpdatedUtc;
+        public bool RequestRefresh()   => WorldHandler.RequestSnapshot();
+        public bool TryDeliver(long questId, string targetDefName, int qty) => WorldHandler.TryDeliver(questId, targetDefName, qty);
+
+        public IReadOnlyList<WorldEventRecord> Events
+        {
+            get
+            {
+                List<WorldEventRecord> result = new List<WorldEventRecord>();
+                Features.World.Dto.WorldSnapshot s = WorldCache.Snapshot;
+                if (s?.Events != null)
+                {
+                    foreach (Features.World.Dto.WorldEventDto e in s.Events)
+                    {
+                        result.Add(new WorldEventRecord
+                        {
+                            Id              = e.Id,
+                            Type            = e.Type        ?? "",
+                            Title           = e.Title       ?? "",
+                            Description     = e.Description ?? "",
+                            Magnitude       = e.Magnitude,
+                            Target          = e.Target      ?? "",
+                            StartedUtcTicks = e.StartedUtcTicks,
+                            EndsUtcTicks    = e.EndsUtcTicks,
+                        });
+                    }
+                }
+                return result;
+            }
+        }
+
+        public IReadOnlyList<ServerQuestRecord> ServerQuests
+        {
+            get
+            {
+                List<ServerQuestRecord> result = new List<ServerQuestRecord>();
+                Features.World.Dto.WorldSnapshot s = WorldCache.Snapshot;
+                if (s?.ServerQuests != null)
+                {
+                    foreach (Features.World.Dto.ServerQuestDto q in s.ServerQuests)
+                    {
+                        result.Add(new ServerQuestRecord
+                        {
+                            Id            = q.Id,
+                            Kind          = q.Kind          ?? "",
+                            Objective     = q.Objective     ?? "",
+                            Title         = q.Title         ?? "",
+                            Description   = q.Description   ?? "",
+                            TargetDefName = q.TargetDefName ?? "",
+                            GoalQty       = q.GoalQty,
+                            ProgressQty   = q.ProgressQty,
+                            RewardPool    = q.RewardPool,
+                            State         = q.State         ?? "",
+                            Winner        = q.Winner        ?? "",
+                            EndsUtcTicks  = q.EndsUtcTicks,
+                            Contributors  = q.Contributors != null
+                                ? new Dictionary<string, int>(q.Contributors, StringComparer.OrdinalIgnoreCase)
+                                : new Dictionary<string, int>(),
+                        });
+                    }
+                }
+                return result;
+            }
+        }
     }
 }

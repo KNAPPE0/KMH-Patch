@@ -6,19 +6,12 @@ using Verse;
 
 namespace KMHPatch.Dialogs
 {
-    // In-game viewer for the KMH diagnostic log file. Reads the tail of kmh-patch.log so you can see what the patch
-    // + sub-protocol are doing without alt-tabbing to find Player.log
-    //
-    // Future-useful: once we start building the server-side router, this is the fastest way to verify packets are
-    // arriving, handlers fire, and handshake/version negotiation completes - all from inside the game
-    //
-    // The viewer reads the file fresh on open and on every Refresh click. We don't subscribe to log writes live
-    // (would require a tail-following file watcher, which is overkill for a debug surface)
+    // In-game tail viewer for kmh-patch.log.
     public class Dialog_KMHLogViewer : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(820f, 540f);
 
-        // Cap the tail to keep the dialog responsive on large log files.
+        // Keep large logs responsive.
         private const int MaxLines = 400;
 
         private List<string> _lines = new List<string>();
@@ -42,7 +35,6 @@ namespace KMHPatch.Dialogs
             const float footerH = 38f;
             const float padding = 6f;
 
-            // Header
             Text.Font   = GameFont.Medium;
             Widgets.Label(new Rect(0f, 0f, inRect.width, headerH), "KMH Log");
             Text.Font   = GameFont.Small;
@@ -56,7 +48,6 @@ namespace KMHPatch.Dialogs
 
             Widgets.DrawLineHorizontal(0f, headerH, inRect.width);
 
-            // Scrollable log body
             Rect bodyRect = new Rect(
                 0f,
                 headerH + padding,
@@ -91,7 +82,6 @@ namespace KMHPatch.Dialogs
                 Widgets.EndScrollView();
             }
 
-            // Footer
             Rect footerRect = new Rect(0f, inRect.height - footerH, inRect.width, footerH);
 
             float btnH = 30f;
@@ -126,8 +116,7 @@ namespace KMHPatch.Dialogs
 
             try
             {
-                // Open with FileShare.ReadWrite so we don't conflict with the KmhLog writer if it happens to be
-                // appending concurrently
+                // Read safely while KMH may still be writing.
                 using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (StreamReader sr = new StreamReader(fs))
                 {
@@ -143,7 +132,7 @@ namespace KMHPatch.Dialogs
 
                 _statusLine = $"<color=grey>{_lines.Count} line(s), tail of {Path.GetFileName(path)}</color>";
 
-                // Scroll to bottom on reload so latest entries are visible.
+                // Show newest entries first after reload.
                 _scroll = new Vector2(0f, float.MaxValue);
             }
             catch (System.Exception ex)

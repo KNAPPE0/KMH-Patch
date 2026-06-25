@@ -26,6 +26,8 @@ namespace KMHPatch.Extensibility
             PlayerStats      = new PlayerStatsCacheAdapter();
             LinkedAccounts   = new LinkedAccountsCacheAdapter();
             ItemLabels       = new ItemLabelResolverAdapter();
+            Auctions         = new AuctionCacheAdapter();
+            World            = new WorldCacheAdapter();
             Events           = KmhClientEventBus.Instance;
         }
 
@@ -44,6 +46,8 @@ namespace KMHPatch.Extensibility
         public IPlayerStatsCache      PlayerStats      { get; }
         public ILinkedAccountsCache   LinkedAccounts   { get; }
         public IItemLabelResolver     ItemLabels       { get; }
+        public IAuctionCache          Auctions         { get; }
+        public IWorldCache            World            { get; }
 
         public IClientLog             Log              { get; }
         public INotifications         Toast            { get; }

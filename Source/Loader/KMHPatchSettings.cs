@@ -14,10 +14,25 @@ namespace KMHPatch
         // dialog if they do
         public bool ShowWelcomeOnLaunch = true;
 
+        // Verbose KMH logging (KmhLog.Debug / KmhLog.Protocol). Off by default so normal play stays quiet.
+        public bool DebugLogging = false;
+
+        // KMH API transport (experimental, off by default): talk to the addon over its own port instead of RWT chat.
+        public bool   UseKmhApiTransport         = false;
+        public int    KmhApiPort                 = 5099;
+        public bool   AllowChatTransportFallback = true;
+        public string KmhApiHostOverride         = "";   // blank = same host as the RWT server connection
+
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref ShowWelcomeOnLaunch, "ShowWelcomeOnLaunch", defaultValue: true);
+            Scribe_Values.Look(ref ShowWelcomeOnLaunch,        "ShowWelcomeOnLaunch",        defaultValue: true);
+            Scribe_Values.Look(ref DebugLogging,               "DebugLogging",               defaultValue: false);
+            Scribe_Values.Look(ref UseKmhApiTransport,         "UseKmhApiTransport",         defaultValue: false);
+            Scribe_Values.Look(ref KmhApiPort,                 "KmhApiPort",                 defaultValue: 5099);
+            Scribe_Values.Look(ref AllowChatTransportFallback, "AllowChatTransportFallback", defaultValue: true);
+            Scribe_Values.Look(ref KmhApiHostOverride,         "KmhApiHostOverride",         defaultValue: "");
+            // Note: KmhLog.DebugEnabled is applied from the payload (KmhEntry) - the loader assembly can't see it.
         }
     }
 }

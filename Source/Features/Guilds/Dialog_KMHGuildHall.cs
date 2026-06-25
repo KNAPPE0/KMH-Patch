@@ -9,13 +9,7 @@ using Verse;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Guild Hall: 940x640 two-pane (Members / Perks) dialog with an MOTD banner and a diplomacy summary line.
-    //
-    // Mutation buttons wired: per-member Manage ▾ (Promote/Demote/Kick), per-perk Buy, MOTD Edit…, Diplomacy ▾
-    // (Propose / Accept / Break alliance, Declare / Clear hostile). Dialog_KMHGuildSettings opens via the Settings
-    // row's Edit… button.
-    //
-    // Dialog_KMHGuildLeaderboard opens separately from the main KMH tab.
+    // Guild Hall dialog for members, perks, MOTD, settings, and diplomacy; guild rankings live in Server Standings.
     public class Dialog_KMHGuildHall : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(940f, 640f);
@@ -244,10 +238,11 @@ namespace KMHPatch.Features.Guilds
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _membersScroll, viewRect);
-            float ly = 0f;
-            for (int i = 0; i < rows.Count; i++)
+            DialogLayout.VisibleRange(_membersScroll, inner.height, rowH, rows.Count, out int firstM, out int lastM);
+            for (int i = firstM; i < lastM; i++)
             {
                 GuildMemberDto m = rows[i];
+                float ly = i * rowH;
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
@@ -270,8 +265,6 @@ namespace KMHPatch.Features.Guilds
                 DrawMemberActionButton(
                     new Rect(viewRect.width - actionW + 2f, ly + 2f, actionW - 6f, rowH - 4f),
                     m, myRank, mine);
-
-                ly += rowH;
             }
             if (rows.Count == 0)
             {
@@ -281,9 +274,7 @@ namespace KMHPatch.Features.Guilds
             Widgets.EndScrollView();
         }
 
-        // Diplomacy actions menu - admin-only. Always offers the "propose alliance" / "declare hostile" actions
-        // targeting a typed-in other guild name (via Dialog_KMHTextInput). For existing relationships we add
-        // per-relationship reverse actions: AlliedRequested -> Accept | Allied -> Break | Hostile -> Clear
+        // Admin diplomacy menu: propose/declare by guild name, plus accept/break/clear actions for existing relationships.
         private void OpenDiplomacyMenu(GuildSnapshot g)
         {
             List<FloatMenuOption> opts = new List<FloatMenuOption>();
@@ -335,9 +326,7 @@ namespace KMHPatch.Features.Guilds
             Find.WindowStack.Add(new FloatMenu(opts));
         }
 
-        // Member-row action picker. Only Admins/Moderators can act on others; you can never act on yourself;
-        // promotions stop at the next rung below the caller's own rank (no promoting to your level or above).
-        // Server enforces - we just hide buttons that would clearly fail to avoid confusion
+        // Member actions: admins/mods can manage others, never themselves, and only promote below their own rank.
         private static void DrawMemberActionButton(Rect rect, GuildMemberDto target, string myRank, string mine)
         {
             // No caller rank known -> caller isn't in this guild's roster.
@@ -357,8 +346,7 @@ namespace KMHPatch.Features.Guilds
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>();
 
-                // Promote: only if target is below max-promotable rank (Mod is the highest non-Admin rank we expose
-                // for promotion)
+                // Promote: only if target is below max-promotable rank (Mod is the highest non-Admin rank we expose for promotion)
                 if (targetOrder > RankOrder(GuildMemberDto.RankModerator))
                 {
                     opts.Add(new FloatMenuOption("Promote",
@@ -385,8 +373,7 @@ namespace KMHPatch.Features.Guilds
             // Buy button only for Admin (server enforces; we hide to avoid dangling no-op affordance for Members)
             bool canBuy = string.Equals(MyRank(GuildCache.Guild), GuildMemberDto.RankAdmin, StringComparison.OrdinalIgnoreCase);
 
-            // Four perks, each with current/max level, an effect summary, and the perk_key the GuildBuyPerk
-            // envelope expects
+            // Four perks, each with current/max level, an effect summary, and the perk_key the GuildBuyPerk envelope expects
             (string label, int level, string effect, string key)[] perks = new[]
             {
                 ("Site Max Workers", p.SiteMaxWorkersBonusLevel,    $"+{p.SiteMaxWorkersBonusLevel * 2} workers/site",       GuildHandler.PerkSiteMaxWorkers),

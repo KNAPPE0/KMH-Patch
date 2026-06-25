@@ -11,6 +11,11 @@ namespace KMHPatch.SubProtocol
         // clients refuse to send if mismatched
         public const int CurrentVersion = 1;
 
+        // Human-readable release version, carried in kmh.hello purely so each side can DETECT a version gap and
+        // nudge the player. It never gates the connection (that's CurrentVersion's job) and stays additive: a
+        // pre-1.1.0 server omits it, so an empty value received here reliably means "older server".
+        public const string BuildVersion = "1.1.0";
+
         // Identifiers stamped into PKT_Chat.Username. The chat handler intercept matches on these to recognize KMH
         // protocol traffic
         public const string SystemUsername = "​[KMH-SYS]"; // server -> client
@@ -32,9 +37,19 @@ namespace KMHPatch.SubProtocol
             // Action feedback that doesn't warrant a full snapshot
             public const string Notice      = "kmh.notice";          // server -> client
 
+            // Batch of notices that piled up while offline; delivered once on login, shown as letters.
+            public const string NotifyQueued = "kmh.notify.queued";  // server -> client
+
             // Player stats / leaderboard
             public const string PlayerStatsRequest  = "kmh.player_stats.request";   // client -> server
             public const string PlayerStatsSnapshot = "kmh.player_stats.snapshot";  // server -> client
+            public const string ColonyReport        = "kmh.colony.report";          // client -> server (colony summary + top colonist)
+            public const string ColonistRequest     = "kmh.colonist.request";       // client -> server
+            public const string ColonistProfile     = "kmh.colonist.profile";       // server -> client
+            public const string ColonistRosterRequest = "kmh.records.colonists.request"; // client -> server
+            public const string ColonistRoster        = "kmh.records.colonists";         // server -> client
+            public const string SeasonArchiveRequest  = "kmh.archive.season.request";    // client -> server
+            public const string SeasonArchive         = "kmh.archive.season";            // server -> client
 
             // Treasury - server figures out which (guild or personal) from the authenticated caller
             public const string TreasuryRequest        = "kmh.treasury.request";          // client -> server
@@ -127,6 +142,30 @@ namespace KMHPatch.SubProtocol
             public const string ReputationRequest   = "kmh.reputation.request";      // client -> server
             public const string ReputationSnapshot  = "kmh.reputation.snapshot";     // server -> client
 
+            // World Engine - server-wide events + server-owned quests (same snapshot for everyone).
+            public const string WorldRequest        = "kmh.world.request";          // client -> server
+            public const string WorldSnapshot       = "kmh.world.snapshot";         // server -> client
+            // Global-quest contribution report: { quest_id, total }. total is our cumulative tally (kills since we
+            // first saw the quest, or our current standing build count). Server keeps the max per user
+            public const string WorldContribute     = "kmh.world.contribute";       // client -> server
+            // Global-quest item delivery: { quest_id, item_def_name, qty }. We remove the goods from the caravan
+            // first; the server credits an active matching deliver quest and ignores anything else (no give-back)
+            public const string WorldDeliver        = "kmh.world.deliver";          // client -> server
+
+            // Marketplace auctions - timed bidding on treasury items.
+            public const string AuctionRequest      = "kmh.auction.request";        // client -> server
+            public const string AuctionSnapshot     = "kmh.auction.snapshot";       // server -> client
+            public const string AuctionPost         = "kmh.auction.post";           // client -> server
+            public const string AuctionBid          = "kmh.auction.bid";            // client -> server
+            public const string AuctionCancel       = "kmh.auction.cancel";         // client -> server
+
+            // Want-to-buy board - buyers escrow silver, sellers fulfill from treasury.
+            public const string WantRequest         = "kmh.want.request";           // client -> server
+            public const string WantSnapshot        = "kmh.want.snapshot";          // server -> client
+            public const string WantPost            = "kmh.want.post";              // client -> server
+            public const string WantFulfill         = "kmh.want.fulfill";           // client -> server
+            public const string WantCancel          = "kmh.want.cancel";            // client -> server
+
             // KMH custom sites - player-built production nodes with workers.
             public const string SiteRequest         = "kmh.site.request";           // client -> server
             public const string SiteSnapshot        = "kmh.site.snapshot";          // server -> client
@@ -142,6 +181,9 @@ namespace KMHPatch.SubProtocol
             // and show readable item labels in market browse output. Server accumulates the union across all
             // reporting clients - players with different loaded mods contribute their slice
             public const string ItemLabels             = "kmh.item_labels";              // client -> server
+            // defName -> BaseMarketValue (RimWorld's canonical prices). Separate envelope so it never bloats the
+            // already near-cap labels push; lets the server value-scale quest rewards / pricing.
+            public const string ItemValues             = "kmh.item_values";              // client -> server
 
             // Config enforcement. The server pushes the enforcement snapshot (on/off + admin-bypass + safe-mods
             // allowlist) on handshake and on change; the patch locks the Mod Options screen for non-admins

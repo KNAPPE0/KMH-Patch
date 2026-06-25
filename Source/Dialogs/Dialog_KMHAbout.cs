@@ -4,9 +4,7 @@ using Verse;
 
 namespace KMHPatch.Dialogs
 {
-    // Persistent on-demand info / settings panel for KMH Patch.
-    //
-    // On-demand main-menu dialog: links, diagnostics, and client settings (vs Welcome, the brief first-launch intro)
+    // Main-menu KMH info panel for links, diagnostics, and client settings.
     public class Dialog_KMHAbout : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(560f, 420f);
@@ -21,7 +19,7 @@ namespace KMHPatch.Dialogs
 
         protected override void DrawContents(Rect inRect)
         {
-            // Reserve the bottom for the close button.
+            // Leave room for the close button.
             Rect content = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - 45f);
 
             Listing_Standard listing = new Listing_Standard();
@@ -45,8 +43,7 @@ namespace KMHPatch.Dialogs
 
             listing.Gap(12f);
 
-            // Link buttons. Application.OpenURL is RimWorld's standard pattern
-            // for opening external URLs from a mod dialog.
+            // External links and KMH utility actions.
             const float gap = 6f;
 
             if (listing.ButtonText("Patch GitHub (client mod)"))
@@ -75,8 +72,7 @@ namespace KMHPatch.Dialogs
 
             if (listing.ButtonText("Open KMH log folder"))
             {
-                // Application.OpenURL on a folder path opens it in the OS file manager - Explorer on Windows,
-                // Finder on macOS, default on Linux
+                // Opens the log folder in the OS file manager.
                 Application.OpenURL(KmhLog.LogFolderPath);
             }
             listing.Gap(gap);

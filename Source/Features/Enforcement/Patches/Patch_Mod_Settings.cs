@@ -65,7 +65,7 @@ namespace KMHPatch.Features.Enforcement.Patches
             if (!_diagLogged)
             {
                 _diagLogged = true;
-                KmhLog.Info($"Enforcement: mod-settings patch firing for '{__instance?.Content?.Name}' - {EnforcementCache.DiagState(__instance?.Content)}");
+                KmhLog.Debug($"Enforcement: mod-settings patch firing for '{__instance?.Content?.Name}' - {EnforcementCache.DiagState(__instance?.Content)}");
             }
 
             if (EnforcementCache.IsModEditable(__instance)) return true;

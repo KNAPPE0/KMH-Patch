@@ -46,6 +46,7 @@ namespace KMHPatch.Features.Quests
 
             QuestHandler.RequestSnapshot();
             ReputationCache.RequestSnapshot();
+            Features.World.WorldHandler.RequestSnapshot(); // pull active global quests for the banner
             _lastRefreshUtc   = DateTime.UtcNow;
             QuestCache.Updated += OnSnapshotUpdated;
         }
@@ -70,6 +71,7 @@ namespace KMHPatch.Features.Quests
             {
                 _refreshTimer = DialogLayout.AutoRefreshSeconds;
                 QuestHandler.RequestSnapshot();
+                Features.World.WorldHandler.RequestSnapshot();
                 _lastRefreshUtc = DateTime.UtcNow;
             }
         }
@@ -124,11 +126,104 @@ namespace KMHPatch.Features.Quests
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Personal only", ref _onlyPersonal);
             y += 30f;
 
+            // Server-driven global quests, shown as a banner above the player-posted list (only when active).
+            y = DrawGlobalQuests(rect, y);
+
             Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
             Widgets.DrawMenuSection(listBox);
             DrawQuestList(listBox, s);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
+        }
+
+        // Banner of active server-driven global quests above the player-posted list. Returns the y to continue at.
+        // Drawn only when at least one is active; capped at a few rows so the player list keeps the space
+        private float DrawGlobalQuests(Rect rect, float y)
+        {
+            List<Features.World.Dto.ServerQuestDto> gqs = Features.World.WorldCache.ActiveServerQuests();
+            if (gqs.Count == 0) return y;
+
+            const float rowH = 38f;
+            int   shown  = Mathf.Min(gqs.Count, 3);
+            float panelH = 24f + shown * (rowH + 2f) + 4f;
+            Rect  panel  = new Rect(0f, y, rect.width, panelH);
+            Widgets.DrawMenuSection(panel);
+
+            float px = panel.x + 8f, pw = panel.width - 16f, py = panel.y + 4f;
+            Color old = GUI.color;
+            GUI.color = new Color(0.886f, 0.757f, 0.420f); // gold
+            DialogLayout.LabelTrunc(new Rect(px, py, pw, 18f),
+                "<b>Global Quests</b>" + (gqs.Count > shown ? $"  <color=grey>(+{gqs.Count - shown} more)</color>" : ""));
+            GUI.color = old;
+            py += 22f;
+
+            string me  = SessionHandler.Username ?? string.Empty;
+            long   now = DateTime.UtcNow.Ticks;
+            for (int i = 0; i < shown; i++)
+            {
+                DrawGlobalQuestRow(new Rect(px, py, pw, rowH), gqs[i], me, now);
+                py += rowH + 2f;
+            }
+            return y + panelH + 6f;
+        }
+
+        private static void DrawGlobalQuestRow(Rect row, Features.World.Dto.ServerQuestDto q, string me, long now)
+        {
+            bool   comp    = string.Equals(q.Kind, Features.World.Dto.ServerQuestDto.KindCompetitive, StringComparison.OrdinalIgnoreCase);
+            bool   deliver = string.Equals(q.Objective, Features.World.Dto.ServerQuestDto.ObjDeliver, StringComparison.OrdinalIgnoreCase);
+            string kindTag = comp ? "<color=#F5C242>RACE</color>" : "<color=#7CD37C>CO-OP</color>";
+            string objVerb = string.Equals(q.Objective, Features.World.Dto.ServerQuestDto.ObjBuild, StringComparison.OrdinalIgnoreCase) ? "Build"
+                           : deliver ? "Deliver" : "Hunt";
+            string reward  = q.RewardPool > 0 ? $"<color=yellow>{SilverFmt.Format(q.RewardPool)}</color>" : "<color=grey>glory</color>";
+            string time    = q.EndsUtcTicks > 0 ? $"  <color=grey>•</color>  {FormatTimeRemaining(q.EndsUtcTicks, now)}" : "";
+
+            // Line 1: kind + title + reward + time remaining
+            DialogLayout.LabelTrunc(new Rect(row.x, row.y, row.width, 18f),
+                $"[{kindTag}] <b>{q.Title}</b>  <color=grey>•</color> {reward}{time}");
+
+            // Line 2: progress bar with goal label, this player's contribution, and a Deliver button on deliver quests
+            int mine = 0;
+            if (!string.IsNullOrEmpty(me) && q.Contributors != null) q.Contributors.TryGetValue(me, out mine);
+            float pct = q.GoalQty > 0 ? Mathf.Clamp01((float)q.ProgressQty / q.GoalQty) : 0f;
+
+            float rightW = deliver ? 168f : 110f;
+            Rect bar = new Rect(row.x, row.y + 20f, row.width - rightW, 14f);
+            Widgets.DrawBoxSolid(bar, new Color(0.16f, 0.16f, 0.16f));
+            Widgets.DrawBoxSolid(new Rect(bar.x, bar.y, bar.width * pct, bar.height),
+                comp ? new Color(0.96f, 0.76f, 0.26f) : new Color(0.34f, 0.55f, 0.45f));
+
+            GameFont    pf = Text.Font;   Text.Font   = GameFont.Tiny;
+            TextAnchor  pa = Text.Anchor; Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(bar, $"{q.ProgressQty}/{q.GoalQty} {objVerb} {q.TargetDefName}");
+            Text.Anchor = pa; Text.Font = pf;
+
+            Color old = GUI.color;
+            GUI.color = DialogLayout.MutedColor;
+            DialogLayout.LabelTrunc(new Rect(bar.xMax + 8f, row.y + 18f, deliver ? 58f : 102f, 18f),
+                mine > 0 ? $"you: <color=white>{mine}</color>" : "<color=grey>you: 0</color>");
+            GUI.color = old;
+
+            if (deliver)
+            {
+                Rect btn = new Rect(row.xMax - 66f, row.y + 16f, 66f, 20f);
+                if (Widgets.ButtonText(btn, "Deliver…"))
+                {
+                    long   id     = q.Id;
+                    string target = q.TargetDefName;
+                    var    car    = CaravanReader.GetSelectedCaravan();
+                    var    def    = ColonyGoods.Def(target);
+                    // Cap to what the source actually holds: the selected caravan, else the colony's stockpiles.
+                    int    have   = def == null ? 0
+                                  : (car != null ? ColonyGoods.Count(car, def)
+                                                 : ColonyGoods.CountOnMap(ColonyGoods.DepositMap(), def));
+                    Find.WindowStack.Add(new Dialog_KMHAmountInput(
+                        title:        $"Deliver to {q.Title}",
+                        confirmLabel: "Deliver",
+                        unitLabel:    def != null ? def.label : target,
+                        maxHint:      have,
+                        onConfirm:    n => Features.World.WorldHandler.TryDeliver(id, target, n)));
+                }
+            }
         }
 
         private void DrawQuestList(Rect box, QuestSnapshot s)
@@ -207,19 +302,18 @@ namespace KMHPatch.Features.Quests
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            float ly  = 0f;
             long  now = DateTime.UtcNow.Ticks;
             // 'mine' already computed above for the filter pass; reused here for the per-row 'is me?' check
 
-            for (int i = 0; i < rows.Count; i++)
+            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int first, out int last);
+            for (int i = first; i < last; i++)
             {
                 QuestEntry q = rows[i];
-                Rect row = new Rect(0f, ly, viewRect.width, rowH);
+                Rect row = new Rect(0f, i * rowH, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
 
                 DrawQuestRow(row, q, now, mine);
-                ly += rowH;
             }
             if (rows.Count == 0)
             {
@@ -254,12 +348,10 @@ namespace KMHPatch.Features.Quests
                 ? "  <color=#ffce4d>guild-only</color>"
                 : "";
 
-            string poster = string.IsNullOrEmpty(q.PosterUsername)
-                ? "<color=grey>(unknown)</color>"
-                : LinkedAccountsCache.Format(q.PosterUsername);
+            string poster = LinkedAccountsCache.Format(q.PosterUsername);   // Format() already renders empty as "(unknown)"
 
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, 18f),
-                $"<b>#{q.Id}  {q.Title}</b>  {stateTag}{visTag}  <color=grey>{kindTag} • by</color> {poster}{RepBadge(q.PosterUsername)} <color=grey>•</color> {ownership}");
+                $"<b>#{q.Id}  {q.Title}</b>  {stateTag}{visTag}  <color=grey>{kindTag} • by</color> {poster}{ReputationCache.Badge(q.PosterUsername)} <color=grey>•</color> {ownership}");
 
             // Line 2: detail (per-kind summary OR description-trimmed)
             string detail;
@@ -412,18 +504,6 @@ namespace KMHPatch.Features.Quests
                 case QuestEntry.StateExpired:   return "<color=grey>EXPIRED</color>";
                 case QuestEntry.StatePendingReview: return "<color=#ffce4d>REVIEW</color>";
                 default:                        return string.IsNullOrEmpty(state) ? "?" : state.ToUpper();
-            }
-        }
-
-        // Tier badge after a username. Neutral / unknown players get nothing, so the board only calls out the
-        // trusted and the unreliable
-        private static string RepBadge(string username)
-        {
-            switch (ReputationCache.TierFor(username))
-            {
-                case "Trusted":    return " <color=#80ff80>[Trusted]</color>";
-                case "Unreliable": return " <color=#ff8080>[Unreliable]</color>";
-                default:           return "";
             }
         }
 

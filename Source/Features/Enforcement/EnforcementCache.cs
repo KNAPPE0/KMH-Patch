@@ -14,19 +14,21 @@ namespace KMHPatch.Features.Enforcement
         public static bool PreservePersonal { get; private set; }
         public static bool IsAdmin         { get; private set; }
         public static bool HasProfile      { get; private set; }
+        public static string ServerProfileHash { get; private set; } = ""; // the profile the server currently holds
 
         private static HashSet<string> _safe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Raised whenever a fresh snapshot lands, so any open UI can refresh.
         public static event Action Updated;
 
-        public static void Apply(bool enabled, bool adminBypass, bool preservePersonal, bool isAdmin, bool hasProfile, IEnumerable<string> safeMods)
+        public static void Apply(bool enabled, bool adminBypass, bool preservePersonal, bool isAdmin, bool hasProfile, IEnumerable<string> safeMods, string serverProfileHash = "")
         {
             Enabled         = enabled;
             AdminBypass     = adminBypass;
             PreservePersonal = preservePersonal;
             IsAdmin         = isAdmin;
             HasProfile      = hasProfile;
+            ServerProfileHash = serverProfileHash ?? "";
 
             HashSet<string> set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (safeMods != null)

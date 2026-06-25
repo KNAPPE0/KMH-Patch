@@ -101,4 +101,54 @@ namespace KMH.Sdk.Client.Records
         public long   WorkerXp           { get; init; }
         public long   EconomyScore       { get; init; }
     }
+
+    public sealed class AuctionRecord
+    {
+        public long   Id                { get; init; }
+        public string SellerUsername    { get; init; } = "";
+        public string SellerTreasuryKey { get; init; } = "";
+        public string ItemDefName       { get; init; } = "";
+        public string StuffDefName      { get; init; } = "";
+        public int    QualityIndex      { get; init; }
+        public int    Qty               { get; init; }
+        public long   StartingBid       { get; init; }
+        public long   MinIncrement      { get; init; }
+        public long   BuyoutSilver      { get; init; }   // 0 = no buyout
+        public long   CurrentBid        { get; init; }   // 0 = no bids yet
+        public string HighBidder        { get; init; } = "";
+        public int    BidCount          { get; init; }
+        public long   ListedUtcTicks    { get; init; }
+        public long   EndsUtcTicks      { get; init; }
+        public string Visibility        { get; init; } = "public";
+    }
+
+    public sealed class WorldEventRecord
+    {
+        public long   Id              { get; init; }
+        public string Type            { get; init; } = "";
+        public string Title           { get; init; } = "";
+        public string Description     { get; init; } = "";
+        public double Magnitude       { get; init; }
+        public string Target          { get; init; } = "";
+        public long   StartedUtcTicks { get; init; }
+        public long   EndsUtcTicks    { get; init; }
+    }
+
+    public sealed class ServerQuestRecord
+    {
+        public long   Id            { get; init; }
+        public string Kind          { get; init; } = "";   // cooperative / competitive
+        public string Objective     { get; init; } = "";   // hunt / build / deliver
+        public string Title         { get; init; } = "";
+        public string Description   { get; init; } = "";
+        public string TargetDefName { get; init; } = "";
+        public int    GoalQty       { get; init; }
+        public int    ProgressQty   { get; init; }
+        public long   RewardPool    { get; init; }
+        public string State         { get; init; } = "";   // active / completed / expired
+        public string Winner        { get; init; } = "";
+        public long   EndsUtcTicks  { get; init; }
+        public IReadOnlyDictionary<string, int> Contributors { get; init; }
+            = new Dictionary<string, int>();
+    }
 }

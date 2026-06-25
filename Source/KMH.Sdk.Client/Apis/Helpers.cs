@@ -77,5 +77,11 @@ namespace KMH.Sdk.Client.Apis
 
         /// <summary>Discord linked-accounts map refreshed.</summary>
         event Action<LinkedAccountsCacheUpdatedEvent> LinkedAccountsCacheUpdated;
+
+        /// <summary>Auction cache refreshed.</summary>
+        event Action<AuctionCacheUpdatedEvent> AuctionCacheUpdated;
+
+        /// <summary>World cache refreshed (events + global quests).</summary>
+        event Action<WorldCacheUpdatedEvent> WorldCacheUpdated;
     }
 }

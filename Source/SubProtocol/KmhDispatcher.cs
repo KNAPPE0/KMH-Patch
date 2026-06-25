@@ -4,16 +4,10 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.SubProtocol
 {
-    // Central router for KMH sub-protocol messages.
-    //
-    // Inbound: Patch_PM_Chat_KmhIntercept calls Receive() with the deserialized envelope; we look up the Kind in
-    // the handler registry and invoke it
-    //
-    // Outbound: feature code calls Send(kind, data); we serialize an envelope, wrap it in PKT_Chat (with the client
-    // identifier so the server-side router recognizes it), and enqueue it on the existing TCP connection
-    //
-    // The IsKmhServer flag flips true after the server sends kmh.hello. Until then we DO NOT send outbound -
-    // otherwise a patched client connected to a stock RWT server would broadcast KMH JSON as visible chat
+    // Central router for KMH sub-protocol messages. Inbound: Patch_PM_Chat_KmhIntercept calls Receive() with the
+    // envelope; we dispatch by Kind. Outbound: Send(kind, data) serializes an envelope into a PKT_Chat tagged so the
+    // server router recognizes it. IsKmhServer flips true after the server's kmh.hello - until then we send nothing,
+    // or a patched client on a stock RWT server would broadcast KMH JSON as visible chat.
     public static class KmhDispatcher
     {
         private static readonly Dictionary<string, Action<KmhEnvelope>> Handlers
@@ -21,6 +15,14 @@ namespace KMHPatch.SubProtocol
 
         public static bool IsKmhServer { get; internal set; } = false;
         public static int  ServerProtocolVersion { get; internal set; } = 0;
+
+        // Server's human-readable release (from kmh.hello). Empty = pre-1.1.0 server that doesn't advertise a build.
+        public static string ServerBuild { get; internal set; } = "";
+
+        // True once we've confirmed the server is at least this client's build, i.e. it speaks the v1.1.0 feature
+        // set (auctions / want board / world events). A pre-1.1.0 server leaves ServerBuild empty.
+        public static bool ServerSupportsCurrentBuild
+            => !string.IsNullOrEmpty(ServerBuild) && ServerBuild == KmhProtocol.BuildVersion;
 
         // Cheapest possible "is the protocol alive?" signal. Updated by every successful Receive - feature UI /
         // diagnostics surfaces can read it without subscribing to anything. Cleared by ResetSession on disconnect
@@ -86,14 +88,19 @@ namespace KMHPatch.SubProtocol
                 KmhLog.Warn($"Refusing to send '{kind}' - server has not announced KMH support yet");
                 return false;
             }
+
+            KmhEnvelope env = new KmhEnvelope(kind, data);
+
+            // prefer the API transport when connected; else chat
+            if (KmhApiClient.TrySend(env)) return true;
+
             if (Network.ServerEndpoint == null)
             {
                 KmhLog.Warn($"Refusing to send '{kind}' - no active server connection");
                 return false;
             }
 
-            KmhEnvelope env = new KmhEnvelope(kind, data);
-            PKT_Chat    pkt = new PKT_Chat
+            PKT_Chat pkt = new PKT_Chat
             {
                 Username  = KmhProtocol.ClientUsername,
                 Message   = env.Serialize(),
@@ -127,6 +134,9 @@ namespace KMHPatch.SubProtocol
             }
             IsKmhServer = false;
             ServerProtocolVersion = 0;
+            ServerBuild = "";
+            KmhApiClient.Disconnect();   // drop the KMH API link too, if it was up
+            KmhTransport.Status = KmhTransportStatus.Offline;
 
             // Clear diagnostics so a fresh session doesn't show stale state.
             LastReceivedKind = null;

@@ -25,6 +25,10 @@ namespace KMHPatch.UI
         private Vector2 _scroll;
         private string  _filter = "";
 
+        // Cached filtered+sorted view, rebuilt only when the filter changes (the source is fixed at construction).
+        private List<Entry> _visible;
+        private string _visibleFilter;
+
         public Dialog_KMHDefPicker(string title, List<Entry> source, Action<string, string> onPick)
         {
             _title  = title;
@@ -59,26 +63,23 @@ namespace KMHPatch.UI
             const float rowH = 30f;
             const float btnW = 90f;
             string filterLower = (_filter ?? "").Trim().ToLower();
-
-            List<Entry> visible = new List<Entry>();
-            foreach (Entry e in _source)
+            if (_visible == null || _visibleFilter != filterLower)
             {
-                if (filterLower.Length > 0
-                    && !(e.Label ?? "").ToLower().Contains(filterLower)
-                    && !(e.DefName ?? "").ToLower().Contains(filterLower))
-                    continue;
-                visible.Add(e);
+                _visible = Build(filterLower);
+                _visibleFilter = filterLower;
             }
-            visible.Sort((a, b) => string.Compare(a.Label, b.Label, StringComparison.OrdinalIgnoreCase));
+            List<Entry> visible = _visible;
 
             float viewH    = Mathf.Max(inner.height, visible.Count * rowH + 8f);
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            float ly = 0f;
-            for (int i = 0; i < visible.Count; i++)
+            // Draw only on-screen rows - a modded server can expose thousands of defs.
+            DialogLayout.VisibleRange(_scroll, inner.height, rowH, visible.Count, out int first, out int last);
+            for (int i = first; i < last; i++)
             {
                 Entry e = visible[i];
+                float ly = i * rowH;
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
@@ -99,7 +100,6 @@ namespace KMHPatch.UI
                     _onPick?.Invoke(capturedDef, capturedLabel);
                     Close();
                 }
-                ly += rowH;
             }
             if (visible.Count == 0)
             {
@@ -107,6 +107,20 @@ namespace KMHPatch.UI
                     _source.Count == 0 ? "<color=grey>Nothing available.</color>" : "<color=grey>No matches.</color>");
             }
             Widgets.EndScrollView();
+        }
+
+        private List<Entry> Build(string filterLower)
+        {
+            List<Entry> outList = new List<Entry>();
+            foreach (Entry e in _source)
+            {
+                if (filterLower.Length > 0
+                    && !(e.Label ?? "").ToLower().Contains(filterLower)
+                    && !(e.DefName ?? "").ToLower().Contains(filterLower)) continue;
+                outList.Add(e);
+            }
+            outList.Sort((a, b) => string.Compare(a.Label, b.Label, StringComparison.OrdinalIgnoreCase));
+            return outList;
         }
     }
 }

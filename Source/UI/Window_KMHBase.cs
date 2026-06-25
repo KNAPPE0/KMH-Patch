@@ -5,12 +5,7 @@ using Verse;
 
 namespace KMHPatch
 {
-    // Base for every KMH dialog. Wraps content drawing so a single exception can never blank the window, crash the
-    // game, or flood the log every frame: it logs once per open and draws a readable fallback instead. Subclasses
-    // override DrawContents rather than DoWindowContents
-    //
-    // Lives in the root KMHPatch namespace so every dialog (KMHPatch.UI, KMHPatch.Features.*, KMHPatch.Dialogs,
-    // ...) sees it without a using
+    // Safe base for KMH dialogs. If drawing breaks, it logs once and shows a fallback instead of killing the window.
     public abstract class Window_KMHBase : Window
     {
         private bool _loggedThisOpen;
@@ -19,8 +14,7 @@ namespace KMHPatch
 
         public sealed override void DoWindowContents(Rect inRect)
         {
-            // Snapshot the text state so a half-finished draw can't leak an anchor/font into the rest of the
-            // frame's UI
+            // Snapshot text state so a broken draw can't leak anchor/font settings into the rest of the UI.
             TextAnchor anchor = Text.Anchor;
             GameFont   font   = Text.Font;
             try

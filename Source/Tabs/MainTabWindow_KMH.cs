@@ -99,24 +99,10 @@ namespace KMHPatch.Tabs
                 }
                 listing.Gap(6f);
 
-                if (IconButton.DrawListingButton(listing, KMHTextures.Leaderboard, "Player Leaderboard",
-                        tooltip: "Top players by economy score, quests completed, silver donated, etc."))
+                if (IconButton.DrawListingButton(listing, KMHTextures.Leaderboard, "Server Standings",
+                        tooltip: "Player & guild standings plus colony, colonist, trade, contract, battle, site and reputation records."))
                 {
-                    Find.WindowStack.Add(new Dialog_KMHPlayerLeaderboard());
-                }
-                listing.Gap(6f);
-
-                if (IconButton.DrawListingButton(listing, KMHTextures.Leaderboard, "Guild Leaderboard",
-                        tooltip: "Top guilds on the server by members and treasury silver."))
-                {
-                    Find.WindowStack.Add(new Dialog_KMHGuildLeaderboard());
-                }
-                listing.Gap(6f);
-
-                if (IconButton.DrawListingButton(listing, KMHTextures.Leaderboard, "Reputation Board",
-                        tooltip: "Players ranked by quest reputation - trusted to unreliable."))
-                {
-                    Find.WindowStack.Add(new Features.Reputation.Dialog_KMHReputationLeaderboard());
+                    Find.WindowStack.Add(new Features.Standings.Dialog_KMHStandings());
                 }
                 listing.Gap(6f);
 

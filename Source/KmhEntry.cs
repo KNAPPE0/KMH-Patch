@@ -14,8 +14,7 @@ using Verse;
 
 namespace KMHPatch
 {
-    // Payload entry, invoked by the loader (Assemblies/KMHPatch.dll) once it knows which RWT generation is
-    // installed. Owns Harmony + handler registration; the loader owns the Mod instance + settings
+    // Payload entry from the loader; owns Harmony and handlers after the loader detects the installed RWT version.
     public static class KmhEntry
     {
         public static Harmony HarmonyInstance { get; private set; }
@@ -23,10 +22,10 @@ namespace KMHPatch
         public static void Init(ModContentPack content, Mod mod)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
+            KmhLog.DebugEnabled = KMHPatchMod.Settings?.DebugLogging ?? false;   // payload wires the loader's setting
             KmhLog.Info($"Bootstrap starting ({typeof(KmhEntry).Assembly.GetName().Name} {typeof(KmhEntry).Assembly.GetName().Version})");
 
-            // Crash recovery first - if we died mid config-apply last session, restore the player's personal
-            // configs before other mods read theirs
+            // Crash recovery first - if we died mid config-apply last session, restore the player's personal configs before other mods read theirs
             SafeRun("enforce-recovery", Features.Enforcement.EnforcementProfileApplier.Bootstrap);
 
             // Each registration is isolated so one failure can't skip the rest.
@@ -38,7 +37,12 @@ namespace KMHPatch
             SafeRun("quests",       QuestHandler.Register);
             SafeRun("guilds",       GuildHandler.Register);
             SafeRun("sites",        Features.Sites.SiteHandler.Register);
+            SafeRun("world",        Features.World.WorldHandler.Register);
+            SafeRun("auctions",     Features.Auctions.AuctionHandler.Register);
+            SafeRun("wantboard",    Features.WantBoard.WantHandler.Register);
+            SafeRun("seasons",      Features.Seasons.SeasonHandler.Register);
             SafeRun("reputation",   Features.Reputation.ReputationCache.Register);
+            SafeRun("notifications", Features.OfflineMail.NotificationHandler.Register);
             SafeRun("enforcement",  Features.Enforcement.EnforcementHandler.Register);
             SafeRun("extensions",   Extensibility.ExtensionLoader.DiscoverAndLoad);
 
@@ -55,17 +59,29 @@ namespace KMHPatch
         private static void ApplyPatches()
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            try
+            HarmonyInstance = new Harmony(Constants.HarmonyId);
+
+            // Patch classes one-by-one so one missing RWT type only skips that patch instead of killing the whole batch.
+            int skipped = 0;
+            foreach (System.Type type in AccessTools.GetTypesFromAssembly(typeof(KmhEntry).Assembly))
             {
-                HarmonyInstance = new Harmony(Constants.HarmonyId);
-                HarmonyInstance.PatchAll(typeof(KmhEntry).Assembly);
+                try { HarmonyInstance.CreateClassProcessor(type).Patch(); }
+                catch (System.Exception ex)
+                {
+                    skipped++;
+                    KmhLog.Warn($"KMH: skipped patch class '{type?.FullName}' (RWT type missing in this build?) - {ex.Message.Split('\n')[0]}");
+                }
             }
-            catch (System.Exception ex)
-            {
-                KmhLog.Error($"Harmony PatchAll failed - some KMH features may be inactive: {ex}");
-            }
-            int patched = HarmonyInstance?.GetPatchedMethods().Count() ?? 0;
-            KmhLog.Info($"Patches applied - {patched} method(s), {sw.ElapsedMilliseconds}ms (deferred off the mod ctor)");
+
+            // Manual, version-safe patches: resolve RWT types by name and skip cleanly if absent on this build (RWT
+            // removed/renamed some types in newer releases). Kept out of the attribute loop so a missing type can't
+            // trip ReflectionTypeLoadException during type scanning.
+            Patch_DLG_GuildList_KmhRedirect.TryApply(HarmonyInstance);
+            Patch_DLG_Leaderboard_KmhRedirect.TryApply(HarmonyInstance);
+
+            int patched = HarmonyInstance.GetPatchedMethods().Count();
+            KmhLog.Info($"Patches applied - {patched} method(s)" + (skipped > 0 ? $", {skipped} class(es) skipped" : "") +
+                        $", {sw.ElapsedMilliseconds}ms (deferred off the mod ctor)");
         }
 
         private static void SafeRun(string step, System.Action action)
@@ -110,6 +126,37 @@ namespace KMHPatch
             {
                 Application.OpenURL(KmhLog.LogFolderPath);
             }
+
+            listing.Gap(6f);
+            bool prevDebug = settings.DebugLogging;
+            listing.CheckboxLabeled("Verbose debug logging",
+                ref settings.DebugLogging,
+                "Logs detailed KMH diagnostics and per-packet protocol traces. Off by default so normal play stays quiet.");
+            if (prevDebug != settings.DebugLogging) KmhLog.DebugEnabled = settings.DebugLogging;   // apply live
+
+            listing.GapLine(12f);
+
+            Text.Font = GameFont.Medium;
+            listing.Label("KMH API transport (experimental)");
+            Text.Font = GameFont.Small;
+            listing.Gap(4f);
+            listing.CheckboxLabeled("Use KMH API transport",
+                ref settings.UseKmhApiTransport,
+                "Off by default. When on AND the server enables it, KMH talks to the server over its own port instead " +
+                "of RWT chat (needed where RWT chat is unavailable, e.g. some newer RWT builds). Falls back to chat if " +
+                "the port can't be reached. Reconnect for changes to take effect.");
+            listing.CheckboxLabeled("Allow chat fallback",
+                ref settings.AllowChatTransportFallback,
+                "If the KMH API port can't be reached, keep using the RWT-chat transport so KMH still works.");
+
+            listing.Gap(4f);
+            listing.Label("API port (must match the server; default 5099):");
+            string portText = listing.TextEntry(settings.KmhApiPort.ToString());
+            if (int.TryParse(portText, out int newPort) && newPort >= 1 && newPort <= 65535) settings.KmhApiPort = newPort;
+
+            listing.Gap(4f);
+            listing.Label("Host override (blank = the RWT server's address):");
+            settings.KmhApiHostOverride = listing.TextEntry(settings.KmhApiHostOverride ?? "");
 
             listing.GapLine(12f);
 
