@@ -23,7 +23,9 @@ namespace KMHPatch.Patches
         {
             try
             {
-                Type t = AccessTools.TypeByName("GameClient.Dialogs.DLG_GuildList");
+                // 26.6.23.1 moved it under .Guild; ResolveType also simple-name-searches for any future move.
+                Type t = RwtCompat.ResolveType("GameClient.Dialogs", "DLG_GuildList",
+                    "GameClient.Dialogs.DLG_GuildList", "GameClient.Dialogs.Guild.DLG_GuildList");
                 if (t == null)
                 {
                     KmhLog.Info("Guild redirect: DLG_GuildList not present in this RWT build - skipped (use the KMH tab's Guild Hall).");

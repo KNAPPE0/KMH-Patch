@@ -19,6 +19,9 @@ global using SessionHandler = GameClient.Misc.SessionHandler;
 global using MainThreadHandler = GameClient.Misc.MainThreadHandler;
 #endif
 
+using System;
+using HarmonyLib;
+
 namespace KMHPatch
 {
     // Wire-level names that differ between generations.
@@ -43,6 +46,20 @@ namespace KMHPatch
                 catch { _chatHeader = ChatHeaderFallback; }
                 return _chatHeader.Value;
             }
+        }
+
+        // Resolve an RWT type across versions: known full names first, else any matching simple name under nsRoot (RWT moves dialogs between namespaces)
+        public static Type ResolveType(string nsRoot, string simpleName, params string[] fullNames)
+        {
+            foreach (string fn in fullNames)
+            {
+                Type t = AccessTools.TypeByName(fn);
+                if (t != null) return t;
+            }
+            foreach (Type t in AccessTools.AllTypes())
+                if (t.Name == simpleName && (t.Namespace?.StartsWith(nsRoot, StringComparison.Ordinal) ?? false))
+                    return t;
+            return null;
         }
     }
 }

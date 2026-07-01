@@ -33,6 +33,7 @@ namespace KMHPatch.SubProtocol
         // dials it using the one-time token the server advertised.
         private static void OnHello(KmhEnvelope env)
         {
+            Features.KmhFeatures.SetDisabled(env.GetString("disabled") ?? "");
             if (!ActivateSession(env.GetInt("v", 0), env.GetString("build") ?? "", KmhTransportStatus.ChatFallback))
                 return;
 
@@ -84,16 +85,37 @@ namespace KMHPatch.SubProtocol
             if (string.IsNullOrEmpty(KmhDispatcher.ServerBuild))
                 KmhNotifications.Neutral("This server runs an older KMH build (pre-1.1.0). New features (auctions, want board, world events) stay hidden until the server owner updates.");
             else if (KmhDispatcher.ServerBuild != KmhProtocol.BuildVersion)
-                KmhNotifications.Neutral($"KMH version mismatch - server is {KmhDispatcher.ServerBuild}, your mod is {KmhProtocol.BuildVersion}. Update so both sides match for full compatibility.");
+            {
+                int cmp = CompareBuilds(KmhDispatcher.ServerBuild, KmhProtocol.BuildVersion);
+                if (cmp > 0)
+                    KmhNotifications.Neutral($"This server runs a newer KMH build ({KmhDispatcher.ServerBuild}) than your mod ({KmhProtocol.BuildVersion}) - update your KMH Patch to use its newer features.");
+                else if (cmp < 0)
+                    KmhNotifications.Neutral($"Your KMH Patch ({KmhProtocol.BuildVersion}) is newer than this server ({KmhDispatcher.ServerBuild}) - some features may not work until the owner updates the addon.");
+                else
+                    KmhNotifications.Neutral($"KMH build differs - server {KmhDispatcher.ServerBuild}, your mod {KmhProtocol.BuildVersion}. Update so both sides match.");
+            }
 
             string endpoint = string.IsNullOrEmpty(TCPNetwork.Network.Ip) ? "" : $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}";
             Extensibility.KmhClientEventBus.Instance.RaiseKmhServerConnected(
                 new KMH.Sdk.Client.Events.KmhServerConnectedEvent { ServerProtocolVersion = serverVersion, Endpoint = endpoint });
 
+            // Remember this KMH server + its versions for the local server directory (RWT version = ours, matched at login).
+            try
+            {
+                string rwt = ""; try { rwt = CommonValues.ExecutableVersion ?? ""; } catch { }
+                Features.Servers.SeenServersStore.Record(endpoint, KmhDispatcher.ServerBuild, rwt);
+            }
+            catch (Exception ex) { KmhLog.Warn($"Seen-servers record threw: {ex.Message}"); }
+
             try { Features.Catalog.ItemLabelsSender.PushOnce(); }
             catch (Exception ex) { KmhLog.Warn($"ItemLabels: push at handshake threw: {ex.Message}"); }
             return true;
         }
+
+        // Compare KMH build strings ("1.1.0"). >0 server newer, <0 client newer, 0 if equal or unparseable.
+        private static int CompareBuilds(string serverBuild, string clientBuild)
+            => Version.TryParse(serverBuild, out Version sv) && Version.TryParse(clientBuild, out Version cv)
+                ? sv.CompareTo(cv) : 0;
 
         // Server-pushed transient toast { level, text }. Feature handlers on the server use it for action feedback
         // (e.g. a failed guild invite)

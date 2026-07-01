@@ -70,6 +70,12 @@ namespace KMHPatch.Dialogs
             }
             listing.Gap(gap);
 
+            if (listing.ButtonText("What's new in this version"))
+            {
+                Find.WindowStack.Add(new Dialog_KMHWhatsNew());
+            }
+            listing.Gap(gap);
+
             if (listing.ButtonText("Open KMH log folder"))
             {
                 // Opens the log folder in the OS file manager.

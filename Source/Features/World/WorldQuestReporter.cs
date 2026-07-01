@@ -15,8 +15,9 @@ namespace KMHPatch.Features.World
         private const int IntervalTicks = 250; // ~4s at 1x
 
         private int _next;
-        private Dictionary<long, int> _huntBaseline = new Dictionary<long, int>(); // kills-at-first-sight per quest
-        private Dictionary<long, int> _lastSent     = new Dictionary<long, int>(); // last value we reported per quest
+        private Dictionary<long, int> _huntBaseline  = new Dictionary<long, int>(); // kills-at-first-sight per quest
+        private Dictionary<long, int> _buildBaseline = new Dictionary<long, int>(); // standing count at first sight per quest
+        private Dictionary<long, int> _lastSent      = new Dictionary<long, int>(); // last value we reported per quest
 
         public WorldQuestReporter(Game game) { }
 
@@ -25,10 +26,12 @@ namespace KMHPatch.Features.World
         {
             base.ExposeData();
             Scribe_Collections.Look(ref _huntBaseline, "kmhWqHuntBaseline", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref _buildBaseline, "kmhWqBuildBaseline", LookMode.Value, LookMode.Value);
             Scribe_Collections.Look(ref _lastSent, "kmhWqLastSent", LookMode.Value, LookMode.Value);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 _huntBaseline ??= new Dictionary<long, int>();
+                _buildBaseline ??= new Dictionary<long, int>();
                 _lastSent ??= new Dictionary<long, int>();
             }
         }
@@ -72,6 +75,7 @@ namespace KMHPatch.Features.World
 
             // Forget quests that are gone so the maps don't grow unbounded across a long session.
             Prune(_huntBaseline, seen);
+            Prune(_buildBaseline, seen);
             Prune(_lastSent, seen);
         }
 
@@ -85,8 +89,9 @@ namespace KMHPatch.Features.World
             return delta < 0 ? 0 : delta;
         }
 
-        // Player-faction structures of the target def currently standing across all our maps.
-        private static int BuildContribution(ServerQuestDto q)
+        // Structures of the target built since this quest first appeared (baseline = standing count at first sight),
+        // so things the player already had placed never count - only new builds after the quest went live do.
+        private int BuildContribution(ServerQuestDto q)
         {
             if (string.IsNullOrEmpty(q.TargetDefName)) return -1;
             // Exact match first; fall back to a case-insensitive scan so a "sandbags" vs "Sandbags" typo in the
@@ -95,6 +100,15 @@ namespace KMHPatch.Features.World
                         ?? DefDatabase<ThingDef>.AllDefsListForReading.Find(d => string.Equals(d.defName, q.TargetDefName, StringComparison.OrdinalIgnoreCase));
             if (def == null) return -1;
 
+            int now = CountStanding(def);
+            if (!_buildBaseline.TryGetValue(q.Id, out int baseline)) { _buildBaseline[q.Id] = now; baseline = now; }
+            int delta = now - baseline;
+            return delta < 0 ? 0 : delta;
+        }
+
+        // Player-faction structures of the def currently standing across all our maps.
+        private static int CountStanding(ThingDef def)
+        {
             int count = 0;
             List<Map> maps = Find.Maps;
             for (int i = 0; i < maps.Count; i++)

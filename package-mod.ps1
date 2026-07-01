@@ -1,54 +1,155 @@
-# KMH Patch - client mod packaging
+# KMH Patch - build the official GitHub release assets.
 #
-# Builds the patch in Release and stages a clean RimWorld mod folder (only what
-# the game needs: About, 1.6, Textures, LoadFolders.xml, LICENSE) plus a zip.
-# Dev folders (Source, .vs, .git, Releases, Templates) are left out.
-#
-# Usage:  .\package-mod.ps1
-
+# Usage:
+#   .\package-mod.ps1
+#   .\package-mod.ps1 -Stage "E:\RWT Related\KMH-Patch\Releases\KMHPatch"
 param(
     [string]$Stage = (Join-Path $PSScriptRoot "Releases\KMHPatch")
 )
+
 $ErrorActionPreference = "Stop"
 
-# --- build Release so 1.6\Assemblies is current ---
-$Proj = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
-Write-Host "[mod] Building patch (Release): $Proj"
-& dotnet build "$Proj" -c Release | Out-Host
-if ($LASTEXITCODE -ne 0) { throw "Patch build failed (exit $LASTEXITCODE)" }
+function Get-ModVersion {
+    $about = Join-Path $PSScriptRoot "About\About.xml"
+    if (Test-Path $about) {
+        $m = Select-String -Path $about -Pattern "<modVersion>([^<]+)</modVersion>" -List
+        if ($m -and $m.Matches.Count -gt 0) {
+            return $m.Matches[0].Groups[1].Value
+        }
+    }
 
-# --- stage a clean mod folder ---
-if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
+    $project = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
+    if (Test-Path $project) {
+        $m = Select-String -Path $project -Pattern "<Version>([^<]+)</Version>" -List
+        if ($m -and $m.Matches.Count -gt 0) {
+            return $m.Matches[0].Groups[1].Value
+        }
+    }
+
+    return "0.0.0"
+}
+
+function Assert-OnlyExpectedBinaries {
+    param([string]$Path)
+
+    $allowedDll = @(
+        "KMHPatch.dll",
+        "KMH.Sdk.Client.dll",
+        "KMHPatch.GameClient.dll",
+        "KMHPatch.RTClient.dll"
+    )
+
+    $stray = Get-ChildItem $Path -Recurse -File -Include *.dll,*.exe -ErrorAction SilentlyContinue |
+        Where-Object { $allowedDll -notcontains $_.Name }
+
+    if ($stray) {
+        Write-Host ""
+        Write-Host "[mod] Binary check failed - unexpected binaries were staged:" -ForegroundColor Red
+        $stray | ForEach-Object { Write-Host "       $($_.FullName)" -ForegroundColor Red }
+        throw "Release blocked: unexpected binary in staged mod folder."
+    }
+
+    Write-Host "[mod] Binary check OK - only expected KMH assemblies staged."
+}
+
+function Remove-IfExists {
+    param([string]$Path)
+
+    if (Test-Path $Path) {
+        Remove-Item $Path -Recurse -Force
+    }
+}
+
+$project = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
+$releases = Join-Path $PSScriptRoot "Releases"
+$version = Get-ModVersion
+
+if (-not (Test-Path $project)) {
+    throw "Project not found: $project"
+}
+
+if (-not (Test-Path $releases)) {
+    New-Item -ItemType Directory -Path $releases -Force | Out-Null
+}
+
+Write-Host "[mod] Building KMH Patch v${version}:"
+Write-Host "      $project"
+
+& dotnet build $project -c Release | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "Build failed with exit code $LASTEXITCODE."
+}
+
+Remove-IfExists $Stage
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null
 
 foreach ($item in @("About", "1.6", "Textures", "LoadFolders.xml", "LICENSE")) {
     $src = Join-Path $PSScriptRoot $item
     if (Test-Path $src) {
         Write-Host "[mod] Staging $item"
-        Copy-Item -Path $src -Destination $Stage -Recurse -Force
-    } else {
-        Write-Host "[mod] (skip - not found) $item"
+        Copy-Item $src $Stage -Recurse -Force
     }
 }
 
-# --- read version from About.xml for the zip name ---
-$ver = "0.0.0"
-$about = Join-Path $PSScriptRoot "About\About.xml"
-if (Test-Path $about) {
-    $m = Select-String -Path $about -Pattern "<modVersion>([^<]+)</modVersion>" -List
-    if ($m -and $m.Matches.Count -gt 0) { $ver = $m.Matches[0].Groups[1].Value }
+Assert-OnlyExpectedBinaries -Path $Stage
+
+# Clean only current-version generated assets. Older release zips are left alone.
+Get-ChildItem $releases -File -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Name -eq "KMH-Patch-v$version.zip" -or
+        $_.Name -eq "KMH-Sdk-Client-v$version.zip" -or
+        $_.Name -eq "KMHPatch-mod-v$version.zip" -or
+        $_.Name -like "KMH-Patch-v$version-source.*" -or
+        $_.Name -like "KMHPatch-v$version-source.*"
+    } |
+    Remove-Item -Force
+
+# Mod zip. This zips the folder itself so it extracts as a normal RimWorld mod folder.
+$modZip = Join-Path $releases "KMH-Patch-v$version.zip"
+Compress-Archive -Path $Stage -DestinationPath $modZip -Force
+$modKb = [Math]::Round((Get-Item $modZip).Length / 1KB, 1)
+
+# Client SDK zip for extension authors.
+$sdkStage = Join-Path ([System.IO.Path]::GetTempPath()) ("kmh_sdk_client_" + [Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $sdkStage -Force | Out-Null
+
+try {
+    $sdkRequired = @(
+        @{ Source = (Join-Path $PSScriptRoot "1.6\Assemblies\KMH.Sdk.Client.dll"); Name = "KMH.Sdk.Client.dll" },
+        @{ Source = (Join-Path $PSScriptRoot "1.6\Assemblies\KMH.Sdk.Client.xml"); Name = "KMH.Sdk.Client.xml" }
+    )
+
+    foreach ($f in $sdkRequired) {
+        if (-not (Test-Path $f.Source)) {
+            throw "SDK file missing: $($f.Source)"
+        }
+
+        Copy-Item $f.Source (Join-Path $sdkStage $f.Name) -Force
+    }
+
+    foreach ($optional in @("LICENSE", "EXTENSIONS.md")) {
+        $src = Join-Path $PSScriptRoot $optional
+        if (Test-Path $src) {
+            Copy-Item $src (Join-Path $sdkStage $optional) -Force
+        }
+    }
+
+    $sdkZip = Join-Path $releases "KMH-Sdk-Client-v$version.zip"
+    Compress-Archive -Path (Join-Path $sdkStage "*") -DestinationPath $sdkZip -Force
+    $sdkKb = [Math]::Round((Get-Item $sdkZip).Length / 1KB, 1)
+}
+finally {
+    Remove-IfExists $sdkStage
 }
 
-# --- zip it ---
-$Releases = Join-Path $PSScriptRoot "Releases"
-if (-not (Test-Path $Releases)) { New-Item -ItemType Directory -Path $Releases -Force | Out-Null }
-$Zip = Join-Path $Releases "KMHPatch-mod-v$ver.zip"
-if (Test-Path $Zip) { Remove-Item $Zip -Force }
-Compress-Archive -Path $Stage -DestinationPath $Zip -Force   # zip the folder itself so it extracts as a mod dir
-$kb = [Math]::Round(((Get-Item $Zip).Length / 1KB), 1)
-
 $count = (Get-ChildItem $Stage -Recurse -File).Count
+
 Write-Host ""
-Write-Host "[mod] Done. Clean mod folder: $Stage ($count files)"
-Write-Host "[mod] Mod zip:               $Zip (${kb} KB)"
-Write-Host "[mod] Drop the folder in RimWorld\Mods\, or upload the zip."
+Write-Host "[mod] Done." -ForegroundColor Green
+Write-Host "[mod] Clean mod folder: $Stage ($count files)"
+Write-Host "[mod] Release asset:   $modZip ($modKb KB)"
+Write-Host "[mod] SDK asset:       $sdkZip ($sdkKb KB)"
+Write-Host ""
+Write-Host "[mod] Upload these manually to GitHub Releases:"
+Write-Host "       KMH-Patch-v$version.zip"
+Write-Host "       KMH-Sdk-Client-v$version.zip"
