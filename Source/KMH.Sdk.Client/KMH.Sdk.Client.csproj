@@ -8,9 +8,9 @@
     <AssemblyName>KMH.Sdk.Client</AssemblyName>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.1.1</Version>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
@@ -39,7 +39,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>EXTENSIONS.md</PackageReadmeFile>
-    <PackageReleaseNotes>1.1.0 - Living World update (auctions, want board, server standings, world events/global quests, offline mail). See EXTENSIONS.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>1.1.1 - Transport hardening hotfix (loopback-by-default API, auth, connection caps, failed-auth throttle, reconnect-race fix). 1.1.0 - Living World update (auctions, want board, server standings, world events/global quests, offline mail). See EXTENSIONS.md.</PackageReleaseNotes>
     <PackageOutputPath>..\..\Releases</PackageOutputPath>
     <!-- Debug symbols are embedded in the DLL (DebugType=embedded above)
          so no separate .snupkg is produced. -->

@@ -20,7 +20,7 @@ namespace KMHPatch.Patches
         {
             try
             {
-                Type t = AccessTools.TypeByName("GameClient.Dialogs.DLG_Leaderboard");
+                Type t = RwtCompat.ResolveType("GameClient.Dialogs", "DLG_Leaderboard", "GameClient.Dialogs.DLG_Leaderboard");
                 if (t == null)
                 {
                     KmhLog.Info("Standings redirect: DLG_Leaderboard not present in this RWT build - skipped (use the KMH tab's Server Standings).");

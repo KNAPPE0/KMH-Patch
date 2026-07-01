@@ -23,8 +23,35 @@ namespace KMHPatch.Tabs
         private Vector2 _scroll;
         private float   _viewHeight = 800f; // updated on Layout only - see below
         private bool    _drawErrorLogged;   // one-shot so a draw failure can't flood the log
+        private bool    _dashErrorLogged;   // one-shot for a dashboard-specific failure
 
         public override void DoWindowContents(Rect rect)
+        {
+            // Last-resort guard so a GUI-group imbalance can never leave the tab a blank panel; the inner guard in
+            // DrawScrollingBody still handles single-feature failures.
+            try
+            {
+                DrawScrollingBody(rect);
+            }
+            catch (System.Exception ex)
+            {
+                if (!_drawErrorLogged)
+                {
+                    _drawErrorLogged = true;
+                    KMHPatch.Diagnostics.KmhLog.Error($"KMH tab draw failed (top-level): {ex}");
+                }
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.Font   = GameFont.Medium;
+                Widgets.Label(new Rect(0f, 0f, rect.width, 32f), Constants.DisplayName);
+                Text.Font   = GameFont.Small;
+                Widgets.Label(new Rect(0f, 38f, rect.width, rect.height - 38f),
+                    "<color=#ff8080>The KMH tab hit an error and couldn't draw.</color>\n\n" +
+                    "It's safe to close and reopen it. Open the KMH log (Mod Options → KMH Patch → Open KMH log folder) " +
+                    "and send the line starting with \"KMH tab draw failed\".");
+            }
+        }
+
+        private void DrawScrollingBody(Rect rect)
         {
             // whole tab scrolls so the growing dashboard can't push buttons off; height updates ONLY on Layout -
             // changing it between Layout and Repaint blanks the window
@@ -34,8 +61,10 @@ namespace KMHPatch.Tabs
             Listing_Standard listing = new Listing_Standard();
             listing.Begin(viewRect);
 
-            // Guard the whole body: a single feature/dashboard draw failure must never blank the tab or crash the
-            // game. End()/EndScrollView() still run below so the GUI groups stay balanced
+            float contentH = _viewHeight - 16f;   // fallback if the body throws before we measure
+
+            // A single feature/dashboard failure must never blank the tab. The finally always closes the listing +
+            // scroll view, so the GUI groups stay balanced even if the catch itself throws.
             try
             {
 
@@ -51,7 +80,13 @@ namespace KMHPatch.Tabs
             if (KmhDispatcher.IsKmhServer)
             {
                 listing.Gap(8f);
-                KMHDashboard.Draw(listing, rect);
+                // Isolated from the rest of the tab: a dashboard failure must never cost the feature buttons below it.
+                try { KMHDashboard.Draw(listing, rect); }
+                catch (System.Exception ex)
+                {
+                    if (!_dashErrorLogged) { _dashErrorLogged = true; KMHPatch.Diagnostics.KmhLog.Error($"KMH dashboard draw failed: {ex}"); }
+                    listing.Label("<color=#E2C16B>(dashboard unavailable - see KMH log)</color>");
+                }
             }
 
             listing.GapLine(12f);
@@ -64,29 +99,29 @@ namespace KMHPatch.Tabs
             // Gated on IsKmhServer so we don't surface features a stock server can't serve
             if (KmhDispatcher.IsKmhServer)
             {
-                if (IconButton.DrawListingButton(listing, KMHTextures.Guild, "Guild Hall",
-                        tooltip: "Manage your guild - members, ranks, alliances, perks, MOTD."))
+                if (FeatureButton(listing, "guilds", KMHTextures.Guild, "Guild Hall",
+                        "Manage your guild - members, ranks, alliances, perks, MOTD."))
                 {
                     Find.WindowStack.Add(new Dialog_KMHGuildHall());
                 }
                 listing.Gap(6f);
 
-                if (IconButton.DrawListingButton(listing, KMHTextures.Quests, "Quest Board",
-                        tooltip: "Browse, claim, post, and submit cross-server quests."))
+                if (FeatureButton(listing, "quests", KMHTextures.Quests, "Quest Board",
+                        "Browse, claim, post, and submit cross-server quests."))
                 {
                     Find.WindowStack.Add(new Dialog_KMHQuestBoard());
                 }
                 listing.Gap(6f);
 
-                if (IconButton.DrawListingButton(listing, KMHTextures.Marketplace, "Marketplace",
-                        tooltip: "Browse and buy from open listings; post your own from a selected caravan."))
+                if (FeatureButton(listing, "marketplace", KMHTextures.Marketplace, "Marketplace",
+                        "Browse and buy from open listings; post your own from a selected caravan."))
                 {
                     Find.WindowStack.Add(new Dialog_KMHMarketplace());
                 }
                 listing.Gap(6f);
 
-                if (IconButton.DrawListingButton(listing, KMHTextures.Treasury, "Treasury",
-                        tooltip: "View your personal or guild treasury; deposit and withdraw silver and items."))
+                if (FeatureButton(listing, "treasury", KMHTextures.Treasury, "Treasury",
+                        "View your personal or guild treasury; deposit and withdraw silver and items."))
                 {
                     Find.WindowStack.Add(new Dialog_KMHTreasury());
                 }
@@ -99,8 +134,8 @@ namespace KMHPatch.Tabs
                 }
                 listing.Gap(6f);
 
-                if (IconButton.DrawListingButton(listing, KMHTextures.Leaderboard, "Server Standings",
-                        tooltip: "Player & guild standings plus colony, colonist, trade, contract, battle, site and reputation records."))
+                if (FeatureButton(listing, "standings", KMHTextures.Leaderboard, "Server Standings",
+                        "Player & guild standings plus colony, colonist, trade, contract, battle, site and reputation records."))
                 {
                     Find.WindowStack.Add(new Features.Standings.Dialog_KMHStandings());
                 }
@@ -120,6 +155,17 @@ namespace KMHPatch.Tabs
                         tooltip: "Admin: lock players' Mod Options to the server and manage the safe-mods list."))
                 {
                     Find.WindowStack.Add(new Features.Enforcement.Dialog_KMHEnforcement());
+                }
+
+                // Only when not yet linked - mint a one-time code via a button instead of typing /kmh link.
+                if (!Features.LinkedAccounts.LinkedAccountsCache.IsLinked(SessionHandler.Username ?? ""))
+                {
+                    listing.Gap(6f);
+                    if (IconButton.DrawListingButton(listing, KMHTextures.About, "Link Discord",
+                            tooltip: "Get a one-time code to link your Discord account - no chat commands needed."))
+                    {
+                        Features.LinkedAccounts.LinkedAccountsHandler.RequestCode();
+                    }
                 }
             }
             else
@@ -142,6 +188,13 @@ namespace KMHPatch.Tabs
                 Find.WindowStack.Add(new Dialog_KMHLogViewer());
             }
 
+            listing.Gap(6f);
+            if (IconButton.DrawListingButton(listing, KMHTextures.About, "KMH Servers",
+                    tooltip: "KMH servers you've connected to, with their KMH and RWT versions."))
+            {
+                Find.WindowStack.Add(new Features.Servers.Dialog_KMHServers());
+            }
+
             }
             catch (System.Exception ex)
             {
@@ -152,15 +205,28 @@ namespace KMHPatch.Tabs
                 }
                 listing.Label("<color=#ff8080>The KMH tab hit an error and couldn't finish drawing. See the KMH log.</color>");
             }
-
-            float contentH = listing.CurHeight;
-            listing.End();
-            Widgets.EndScrollView();
+            finally
+            {
+                contentH = listing.CurHeight;
+                listing.End();
+                Widgets.EndScrollView();
+            }
 
             // Resize the scroll content to fit, but ONLY on Layout so viewRect is identical between the Layout and
             // Repaint passes of the same frame. (Resizing every frame is what blanked the tab before.)
             if (Event.current.type == EventType.Layout)
                 _viewHeight = contentH + 16f;
+        }
+
+        // Feature button, or a muted "disabled by server" line when the server has that feature switched off.
+        private static bool FeatureButton(Listing_Standard listing, string feature, Texture2D icon, string label, string tooltip)
+        {
+            if (!Features.KmhFeatures.IsEnabled(feature))
+            {
+                listing.Label($"<color=#9A9A9A>{label} - disabled by server</color>");
+                return false;
+            }
+            return IconButton.DrawListingButton(listing, icon, label, tooltip: tooltip);
         }
 
         private static void DrawConnectionStatus(Listing_Standard listing)

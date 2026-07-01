@@ -84,6 +84,20 @@ namespace KMHPatch.Features.Guilds
             return sent;
         }
 
+        public static bool CreateGuild(string name)
+        {
+            name = (name ?? "").Trim();
+            if (string.IsNullOrEmpty(name))
+            {
+                KmhNotifications.Rejected("Enter a guild name");
+                return false;
+            }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildCreate, new { name = name });
+            if (sent) KmhNotifications.Positive($"Creating guild {name}…");
+            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
         public static bool TryBuyPerk(string perkKey)
         {
             if (string.IsNullOrEmpty(perkKey))

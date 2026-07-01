@@ -35,6 +35,9 @@ namespace KMHPatch.Patches
                 return;
             }
 
+            // Let the what's-new changelog take the slot this launch so the two don't stack.
+            if (Dialogs.KmhMainMenuPopups.WhatsNewPending) return;
+
             // Defer one frame so any menu-startup tasks finish first.
             LongEventHandler.ExecuteWhenFinished(() =>
             {

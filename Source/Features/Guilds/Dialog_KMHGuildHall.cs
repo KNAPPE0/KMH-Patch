@@ -82,8 +82,18 @@ namespace KMHPatch.Features.Guilds
                 DialogLayout.LabelTrunc(new Rect(0f, y + 6f, rect.width, 22f),
                     "<color=grey>You're not currently in a guild.</color>");
                 DialogLayout.LabelTrunc(new Rect(0f, y + 30f, rect.width, 22f),
-                    "<color=grey>Join an open guild below, or ask an admin to invite you. Create one with /kmh guild create.</color>");
-                if (Widgets.ButtonText(new Rect(0f, y + 58f, 160f, 30f), "Join a guild…"))
+                    "<color=grey>Create your own guild, join an open one below, or ask an admin to invite you.</color>");
+                if (Widgets.ButtonText(new Rect(0f, y + 58f, 160f, 30f), "Create a guild…"))
+                {
+                    Find.WindowStack.Add(new Dialog_KMHTextInput(
+                        title:        "Create a guild",
+                        confirmLabel: "Create",
+                        initial:      "",
+                        maxChars:     64,
+                        rejectEmpty:  true,
+                        onConfirm:    n => GuildHandler.CreateGuild(n)));
+                }
+                if (Widgets.ButtonText(new Rect(168f, y + 58f, 160f, 30f), "Join a guild…"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHTextInput(
                         title:        "Join a guild",

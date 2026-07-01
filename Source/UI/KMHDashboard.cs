@@ -16,13 +16,19 @@ namespace KMHPatch.UI
     // Read-only KMH dashboard for the main tab. Shows cached server/player stats at a glance without making network calls.
     internal static class KMHDashboard
     {
+        private static bool _buildErrorLogged;   // one-shot so a recurring section failure can't flood the log
+
         // Draw labels and values as one two-column block so everything lines up cleanly.
         public static void Draw(Listing_Standard listing, Rect parentRect)
         {
             string me = SessionHandler.Username ?? "";
 
-            // Build the dashboard lines first, skipping empty cache data so first-connect stays clean.
+            // Build the dashboard lines first, skipping empty cache data so first-connect stays clean. The whole build
+            // is guarded: if any one section throws on odd data (a freshly-fired event/quest, a partial cache), we log
+            // once and still render the lines gathered so far - a bad section can never blank the dashboard or the tab.
             List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
+            try
+            {
 
             // Only when the player opted into the API - default chat players don't need a "fallback" label.
             if (KMHPatchMod.Settings?.UseKmhApiTransport == true)
@@ -38,6 +44,16 @@ namespace KMHPatch.UI
                     default:                                             c = "grey";    break;
                 }
                 lines.Add(("Transport", $"<color={c}>{SubProtocol.KmhTransport.StatusLabel}</color>", Color.white));
+            }
+
+            // Version mismatch - persistent, so a missed connect-flash isn't the only notice.
+            if (SubProtocol.KmhDispatcher.IsKmhServer)
+            {
+                string sb = SubProtocol.KmhDispatcher.ServerBuild;
+                if (string.IsNullOrEmpty(sb))
+                    lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white));
+                else if (sb != SubProtocol.KmhProtocol.BuildVersion)
+                    lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white));
             }
 
             // Treasury
@@ -67,7 +83,7 @@ namespace KMHPatch.UI
             else
             {
                 lines.Add(("Guild",
-                           "<color=grey>none - /kmh guild create &lt;name&gt; or join one</color>",
+                           "<color=grey>none - create or join one in the Guild Hall</color>",
                            Color.white));
             }
 
@@ -146,7 +162,7 @@ namespace KMHPatch.UI
                 else if (LinkedAccountsCache.IsLinked(me))
                     text = $"linked to <b>{LinkedAccountsCache.DiscordNameFor(me) ?? "(unknown)"}</b>";
                 else
-                    text = "<color=grey>not linked - /kmh link to get a code</color>";
+                    text = "<color=grey>not linked - use the Link Discord button</color>";
                 lines.Add(("Discord", text, Color.white));
             }
 
@@ -196,6 +212,12 @@ namespace KMHPatch.UI
                     ? $"  <color=grey>· you: {(myLead > 0 ? $"leading {myLead}" : "")}{(myLead > 0 && myListed > 0 ? ", " : "")}{(myListed > 0 ? $"{myListed} listed" : "")}</color>"
                     : "";
                 lines.Add(("Auctions", $"<b>{aucs.Count}</b> live{mine}", Color.white));
+            }
+
+            }
+            catch (Exception ex)
+            {
+                if (!_buildErrorLogged) { _buildErrorLogged = true; Diagnostics.KmhLog.Warn($"KMH dashboard section failed (rendering the rest): {ex}"); }
             }
 
             // Render as two columns with a fixed label width so everything lines up cleanly.

@@ -14,7 +14,7 @@ namespace KMHPatch.SubProtocol
         // Human-readable release version, carried in kmh.hello purely so each side can DETECT a version gap and
         // nudge the player. It never gates the connection (that's CurrentVersion's job) and stays additive: a
         // pre-1.1.0 server omits it, so an empty value received here reliably means "older server".
-        public const string BuildVersion = "1.1.0";
+        public const string BuildVersion = "1.1.1";
 
         // Identifiers stamped into PKT_Chat.Username. The chat handler intercept matches on these to recognize KMH
         // protocol traffic
@@ -126,12 +126,15 @@ namespace KMHPatch.SubProtocol
             public const string GuildInvite          = "kmh.guild.invite";           // client -> server
             public const string GuildSetOpenJoin     = "kmh.guild.set_open_join";    // client -> server
             public const string GuildJoin            = "kmh.guild.join";             // client -> server
+            public const string GuildCreate          = "kmh.guild.create";           // client -> server
 
             // Linked accounts - in-game username -> Discord display name map. Server is expected to push the
             // snapshot after handshake and again on every link/unlink, so the client doesn't need to poll. Request
             // kind exists for the rare hard-refresh case
             public const string LinkedAccountsRequest  = "kmh.linked_accounts.request";  // client -> server
             public const string LinkedAccountsSnapshot = "kmh.linked_accounts.snapshot"; // server -> client
+            public const string LinkRequest            = "kmh.link.request";            // client -> server
+            public const string LinkCode               = "kmh.link.code";               // server -> client
 
             // Cross-guild leaderboard - every guild on the server in a leaderboard-friendly shape (separate from
             // GuildSnapshot which is caller-scoped to the caller's own guild)
