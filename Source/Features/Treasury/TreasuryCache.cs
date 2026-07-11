@@ -16,6 +16,21 @@ namespace KMHPatch.Features.Treasury
 
         public static event Action Updated;
 
+        // Pending (deposited but not yet save-finalized) totals, for honest "why can't I use this yet" messaging.
+        public static int PendingSilver()
+        {
+            var pd = Snapshot?.PendingDeposits; int s = 0;
+            if (pd != null) foreach (PendingDeposit p in pd) if (p != null) s += p.Silver;
+            return s;
+        }
+        public static int PendingItemUnits()
+        {
+            var pd = Snapshot?.PendingDeposits; int n = 0;
+            if (pd != null) foreach (PendingDeposit p in pd) if (p != null) n += p.Qty;
+            return n;
+        }
+        public static bool HasPendingItems() => PendingItemUnits() > 0;
+
         internal static void Apply(TreasurySnapshot snapshot)
         {
             Snapshot       = snapshot;

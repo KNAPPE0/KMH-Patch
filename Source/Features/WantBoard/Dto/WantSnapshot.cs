@@ -21,5 +21,12 @@ namespace KMHPatch.Features.WantBoard.Dto
         [JsonProperty("listed_utc_ticks")]    public long   ListedUtcTicks   { get; set; } = 0;
         [JsonProperty("ends_utc_ticks")]      public long   EndsUtcTicks     { get; set; } = 0;
         [JsonProperty("visibility")]          public string Visibility       { get; set; } = "public";
+
+        // Match constraints (safe defaults: clean simple items only).
+        [JsonProperty("min_quality")]         public int    MinQuality       { get; set; } = 0;
+        [JsonProperty("required_stuff")]      public string RequiredStuff    { get; set; } = "";
+        [JsonProperty("allow_complex")]       public bool   AllowComplex     { get; set; } = false;
+        [JsonProperty("allow_tainted")]       public bool   AllowTainted     { get; set; } = false;
+        [JsonProperty("allow_damaged")]       public bool   AllowDamaged     { get; set; } = false;
     }
 }

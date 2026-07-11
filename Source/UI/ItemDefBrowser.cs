@@ -23,11 +23,11 @@ namespace KMHPatch.UI
                 foreach (ThingDef td in DefDatabase<ThingDef>.AllDefsListForReading)
                 {
                     if (td == null || string.IsNullOrEmpty(td.defName)) continue;
-                    if (td.category != ThingCategory.Item)              continue;
                     if (td.destroyOnDrop)                               continue;
-                    if (td.IsCorpse)                                    continue;
                     // Skip non-tradeable / debug-only items.
                     if (td.tradeability == Tradeability.None)           continue;
+                    // Shared safety gate: keeps minified wrappers, corpses, pawns and non-items out of every picker.
+                    if (!Items.KmhItemSafety.IsSafeDef(td, out _))      continue;
                     // BaseMarketValue can be 0 for placeholder defs; allow 0 - server may still validate
                     result[td.defName] = -1; // -1 = unlimited (no count display)
                 }

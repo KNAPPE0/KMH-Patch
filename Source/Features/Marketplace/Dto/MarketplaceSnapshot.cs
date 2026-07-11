@@ -12,6 +12,9 @@ namespace KMHPatch.Features.Marketplace.Dto
         [JsonProperty("house_silver_pool")]
         public long HouseSilverPool { get; set; } = 0;
 
+        [JsonProperty("server_tax_percent")]
+        public int ServerTaxPercent { get; set; } = 0;   // base marketplace tax before guild perk reduction
+
         [JsonProperty("lifetime_trades_completed")]
         public long LifetimeTradesCompleted { get; set; } = 0;
 
@@ -51,6 +54,11 @@ namespace KMHPatch.Features.Marketplace.Dto
 
         // Server already filters visibility; client keeps this for badges and wire parity.
         [JsonProperty("visibility")]          public string Visibility      { get; set; } = "public";
+
+        // Full-state escrow (blob stripped over wire); fingerprint + display note for complex-item listings.
+        [JsonProperty("escrow_payloads")]     public List<KMHPatch.Items.KmhThingPayload> EscrowPayloads { get; set; }
+        [JsonProperty("state_fingerprint")]   public string StateFingerprint { get; set; } = "";
+        [JsonProperty("state_note")]          public string StateNote        { get; set; } = "";
 
         public int TotalAskingSilver(int qty) => UnitPriceSilver * (qty < 0 ? 0 : qty);
     }

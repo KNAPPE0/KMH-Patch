@@ -5,12 +5,8 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Patches
 {
-    // RWT calls DisconnectionManager.HandleDisconnect for every disconnect path (clean exit, connection lost,
-    // kicked, etc.), so a single postfix here covers all cases. We log it and reset KMH session state so a
-    // subsequent connection re-runs the handshake from a clean slate
-    //
-    // We use Postfix (not Prefix) so RWT's own disconnect bookkeeping runs first - by the time we execute, the
-    // connection is already torn down and SessionHandler state is being cleared
+    // RWT routes every disconnect through HandleDisconnect, so one postfix resets KMH session state for a clean
+    // re-handshake. Postfix (not Prefix) so RWT's own teardown runs first.
     [HarmonyPatch(typeof(DisconnectionManager), nameof(DisconnectionManager.HandleDisconnect))]
     internal static class Patch_DisconnectionManager_KmhDisconnect
     {
@@ -29,6 +25,8 @@ namespace KMHPatch.Patches
                 KmhLog.Info("Disconnected from server");
             }
             KmhDispatcher.ResetSession();
+            KmhClientCaches.ClearAll();   // server switch: drop the old server's cached snapshots
+            KmhDebugUplink.ServerRequested = false;   // next server's hello decides again
 
             // Clear the live snapshot + stop the tamper-revert watcher. Applied server configs stay on disk and
             // STAY LOCKED in the main menu (the lock falls back to the applied-profile file list) until the player

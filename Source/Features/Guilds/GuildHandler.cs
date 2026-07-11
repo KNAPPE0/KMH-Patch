@@ -5,13 +5,8 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Registers the guild sub-protocol handler + exposes the full set of mutations the Guild Hall dialog calls:
-    // member-management (promote / demote / kick), perk purchase, MOTD edit, settings save, and the alliance /
-    // hostility lifecycle (propose / accept / break / declare / clear). Each is a thin wire wrapper - server
-    // applies and broadcasts a fresh guild snapshot
-    //
-    // Cross-guild leaderboard request lives here too - RequestLeaderboard / OnLeaderboardSnapshot populate
-    // GuildLeaderboardCache
+    // Guild sub-protocol: thin wire wrappers for the mutations the Guild Hall dialog calls (member mgmt, perks, MOTD,
+    // alliance/hostility) plus the cross-guild leaderboard request.
     internal static class GuildHandler
     {
         // Perk keys - must stay in lockstep with what the server's GuildBuyPerk handler accepts
@@ -24,6 +19,20 @@ namespace KMHPatch.Features.Guilds
         {
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.GuildSnapshot,            OnSnapshot);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.GuildLeaderboardSnapshot, OnLeaderboardSnapshot);
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.GuildInvitablesSnapshot,  OnInvitablesSnapshot);
+        }
+
+        // Latest invite-picker roster from the server (known guildless players, online first).
+        public static System.Collections.Generic.List<InvitablePlayerDto> Invitables { get; private set; }
+            = new System.Collections.Generic.List<InvitablePlayerDto>();
+
+        public static bool RequestInvitables()
+            => KmhDispatcher.Send(KmhProtocol.Kind.GuildInvitablesRequest, null);
+
+        private static void OnInvitablesSnapshot(KmhEnvelope env)
+        {
+            GuildInvitablesSnapshot snap = env?.DataAs<GuildInvitablesSnapshot>();
+            if (snap?.Players != null) Invitables = snap.Players;
         }
 
         public static bool RequestSnapshot()
@@ -60,7 +69,44 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Enter a player name to invite");
                 return false;
             }
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildInvite, new { username = username });
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildInvite,
+                Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "username", username } }));
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // P8: set/move the guild's hall to the player's current tile (selected caravan, else home colony). Admin-only
+        // server-side. Remove clears it.
+        public static bool TrySetHall()
+        {
+            int tile = Treasury.EconomyCtx.CurrentTile();
+            if (tile < 0) { KmhNotifications.Rejected("No colony or caravan to place the Guild Hall at"); return false; }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallSet, new { tile = tile });
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Set/move the hall to a tile the admin picked on the world map (server validates admin + tile). Same wire as
+        // TrySetHall, just an explicit tile instead of the caller's current one.
+        public static bool TrySetHallAt(int tile)
+        {
+            if (tile < 0) { KmhNotifications.Rejected("Pick a valid world tile for the Guild Hall"); return false; }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallSet, new { tile = tile });
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        public static bool TryRemoveHall()
+        {
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallRemove, null);
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        public static bool TryDeclineInvite(string guildName)
+        {
+            if (string.IsNullOrWhiteSpace(guildName)) return false;
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildDeclineInvite, new { guild = guildName });
             if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }
@@ -79,7 +125,8 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Enter a guild name to join");
                 return false;
             }
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildJoin, new { guild = guildName });
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildJoin,
+                Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "guild", guildName } }));
             if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }
@@ -92,7 +139,9 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Enter a guild name");
                 return false;
             }
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildCreate, new { name = name });
+            // Include the current tile as the optional hall location - the server uses it only when the create-needs-a-
+            // hall rule is enabled, and ignores it otherwise.
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildCreate, new { name = name, hall_tile = Treasury.EconomyCtx.CurrentTile() });
             if (sent) KmhNotifications.Positive($"Creating guild {name}…");
             else      KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
@@ -105,9 +154,65 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Unknown perk");
                 return false;
             }
+            // No optimistic success toast - the server sends the authoritative "Purchased…/Could not buy…" notice
+            // (a buy can fail on rank, funds, or a maxed perk), so showing success on send would be a lie.
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildBuyPerk, new { perk_key = perkKey });
-            if (sent) KmhNotifications.Positive($"Buying perk: {perkKey}");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Server enforces the last-admin block + disband/vault-return; success/failure comes back as an authoritative notice.
+        public static bool TryLeave()
+        {
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildLeave, null);
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Silver personal-vault -> guild-vault (feeds perks). Server withdraws from the caller's vault (no minting).
+        // The donation books as PENDING server-side and only credits the guild when this save confirms; the req_id
+        // doubles as the pending txn id, recorded in the deposit ledger so the next save finalizes it.
+        private static System.DateTime _lastDonateSendUtc = System.DateTime.MinValue;
+        public static bool TryDonate(int amount)
+        {
+            if (amount <= 0) { KmhNotifications.Rejected("Enter a positive amount"); return false; }
+            if ((System.DateTime.UtcNow - _lastDonateSendUtc).TotalSeconds < 2)
+            { KmhNotifications.Neutral("Donation already sent - waiting for the server."); return false; }
+            string reqId = System.Guid.NewGuid().ToString("N");
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildDonate,
+                Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
+                    { { "amount", amount }, { "req_id", reqId } }));
+            if (sent)
+            {
+                _lastDonateSendUtc = System.DateTime.UtcNow;
+                Treasury.GameComponent_KMHDepositLedger.Instance?.RecordDeposit(reqId);
+            }
+            else KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Guild vault -> personal vault. Server enforces rank caps/cooldown + dedups req_id; client debounces so a
+        // double-click can't even send twice.
+        private static System.DateTime _lastWithdrawSendUtc = System.DateTime.MinValue;
+        public static bool TryWithdrawFromGuild(int amount)
+        {
+            if (amount <= 0) { KmhNotifications.Rejected("Enter a positive amount"); return false; }
+            if ((System.DateTime.UtcNow - _lastWithdrawSendUtc).TotalSeconds < 2)
+            { KmhNotifications.Neutral("Withdraw already sent - waiting for the server."); return false; }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildWithdraw,
+                Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
+                    { { "amount", amount }, { "req_id", System.Guid.NewGuid().ToString("N") } }));
+            if (sent) _lastWithdrawSendUtc = System.DateTime.UtcNow;
+            else KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Owner-only ownership transfer (the outgoing owner becomes an Admin). Server validates.
+        public static bool TryTransferOwner(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return false;
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildTransferOwner, new { username = username });
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }
 

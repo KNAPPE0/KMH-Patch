@@ -30,6 +30,9 @@ namespace KMHPatch.SubProtocol
 
         public static bool Active => _cts != null && !_cts.IsCancellationRequested;
 
+        // Apply the server's chat-fallback policy to a live link (the early dial may have used the local setting).
+        public static void SetChatFallbackAllowed(bool allowed) => _allowChatFallback = allowed;
+
         // start/restart the link; no-ops without host/port
         public static void Connect(string host, int port, string username, string token, bool allowChatFallback)
         {
@@ -105,7 +108,7 @@ namespace KMHPatch.SubProtocol
                     _activeStream = stream;   // enables TrySend; KMH traffic now flows over the API, off RWT chat
                     KmhLog.Success("KMH API: connected - KMH traffic now uses the API transport.");
                     // API ack is the handshake when chat's down; activate KMH on main from its v/build
-                    Features.KmhFeatures.SetDisabled(ack.GetString("disabled") ?? "");
+                    Features.KmhFeatures.SetDisabled(ack.GetString("disabled"));   // null when omitted -> keep last-known-good
                     int ackV = ack.GetInt("v", KmhProtocol.CurrentVersion);
                     string ackBuild = ack.GetString("build") ?? "";
                     KmhMainThread.Post(() => KmhHandshakeHandler.ActivateSession(ackV, ackBuild, KmhTransportStatus.ApiConnected));

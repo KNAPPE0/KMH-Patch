@@ -4,18 +4,8 @@ using Verse;
 
 namespace KMHPatch.Notifications
 {
-    // Cross-cutting helper for surfacing KMH events to the player.
-    //
-    // Two channels exist in RimWorld for this:
-    //   - Messages.Message(...)         : short flash at the top of the screen, fades
-    //   - Find.LetterStack.ReceiveLetter: persistent letter in the side bar, click for detail
-    //
-    // Use Flash for transient confirmations (deposit succeeded, sale completed). Use Letter for things the player
-    // needs to actually act on or read carefully (quest accepted, marketplace listing expired, KMH server config
-    // changed)
-    //
-    // Every notification also gets mirrored to KmhLog so server-driven events have a written record even if the
-    // player dismissed the on-screen flash
+    // Surfaces KMH events: Flash for transient confirmations, Letter for things the player must read/act on.
+    // Everything is mirrored to KmhLog so server-driven events have a record even if the flash was dismissed.
     public static class KmhNotifications
     {
         // Top-of-screen flash. Defaults to NeutralEvent - pass a different MessageTypeDef when the event has a
@@ -27,6 +17,27 @@ namespace KMHPatch.Notifications
             string prefixed = $"[KMH] {message}";
             Messages.Message(prefixed, type ?? MessageTypeDefOf.NeutralEvent, historical: true);
             KmhLog.Info($"Flash: {message}");
+        }
+
+        // Flash for repeatable events (deposits, donations): the first shows normally; repeats of the same key inside
+        // the window are summarized into ONE cumulative line ("4 deposits pending - save to finalize") instead of
+        // stacking a message per click.
+        private static readonly System.Collections.Generic.Dictionary<string, (System.DateTime last, int count)> _coalesce
+            = new System.Collections.Generic.Dictionary<string, (System.DateTime, int)>();
+        public static void FlashCoalesced(string key, string firstMessage, System.Func<int, string> summary,
+                                          MessageTypeDef type = null, double windowSeconds = 8.0)
+        {
+            System.DateTime now = System.DateTime.UtcNow;
+            if (!_coalesce.TryGetValue(key, out var s) || (now - s.last).TotalSeconds > windowSeconds)
+            {
+                _coalesce[key] = (now, 1);
+                Flash(firstMessage, type);
+                return;
+            }
+            _coalesce[key] = (now, s.count + 1);
+            string text = summary?.Invoke(s.count + 1) ?? firstMessage;
+            Messages.Message($"[KMH] {text}", type ?? MessageTypeDefOf.NeutralEvent, historical: false);
+            KmhLog.Info($"Flash (coalesced x{s.count + 1}): {text}");
         }
 
         // Persistent letter that lands in the side bar. Player can click to read in full and dismiss when ready

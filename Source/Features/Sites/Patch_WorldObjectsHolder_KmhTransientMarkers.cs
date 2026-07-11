@@ -6,8 +6,9 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // KMH site markers are transient - keep them out of the save (they'd pollute RWT's shared world and the KMHSite
-    // def won't resolve on a stock client). Pull them from the holder during save, put them back after.
+    // KMH site + guild-hall markers are transient - keep them out of the save (they'd pollute RWT's shared world and
+    // the KMHSite / KMHGuildHall defs won't resolve on a stock client). Pull them from the holder during save, put
+    // them back after. Both marker types are rebuilt from snapshots on connect.
     [HarmonyPatch(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.ExposeData))]
     internal static class Patch_WorldObjectsHolder_KmhTransientMarkers
     {
@@ -32,7 +33,8 @@ namespace KMHPatch.Features.Sites
             List<WorldObject> list = ListField.GetValue(__instance) as List<WorldObject>;
             if (list == null) return;
             for (int i = list.Count - 1; i >= 0; i--)
-                if (list[i] is KMHSiteWorldObject) { _pulled.Add(list[i]); list.RemoveAt(i); }
+                if (list[i] is KMHSiteWorldObject || list[i] is Guilds.KMHGuildHallWorldObject)
+                { _pulled.Add(list[i]); list.RemoveAt(i); }
         }
 
         // Finalizer so markers go back even if the save throws

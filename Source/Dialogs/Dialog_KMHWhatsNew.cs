@@ -14,13 +14,16 @@ namespace KMHPatch.Dialogs
 
         private static readonly string[] Highlights =
         {
-            "v1.1.1 is a small client hotfix for smoother setup, reconnects, and server matching.",
-            "KMH Servers list: the KMH tab now remembers servers you joined and shows their last seen KMH/RWT versions.",
-            "Guilds: players can create a guild from the Guild Hall without using a chat command.",
-            "Discord linking: use the Link Discord button to get a one-time code instead of typing a command.",
-            "Reconnect fix: KMH now resumes its own transport properly after reconnecting instead of silently falling back to chat-only.",
-            "Version notices are clearer when the client patch and server addon do not match.",
-            "Experimental API transport is safer on the server side. It is local-only and authenticated by default unless the owner changes it."
+            "v1.2.0 makes servers feel alive by default: world events and global quests now roll on their own - markets swing, tax holidays hit, bounties post, and global weather (auroras, eclipses, cold snaps, heat waves) sweeps every colony at once.",
+            "Safer deposits: treasury deposits now finalize only after you SAVE your game. If you disconnect before saving, the deposit is rolled back on both sides - so the old 'deposit then lose connection' silver-duplication can't happen. You'll see a 'pending until saved' note until it's locked in.",
+            "Sites got a real catalog: pick outputs from a curated, tiered list (Basic / Refined / Advanced, with a disabled-by-default Rare/Tech tier) instead of a dev-mode item list - no more weapon/tech/gene printers. Workers speed up cycles, skill raises the amount (both tier-capped), a Site with no workers now clearly shows 'Paused', and owners can work their own Site.",
+            "KMH API transport is now on by default - the recommended path for newer RWT versions. It authenticates over your verified session and falls back to chat automatically.",
+            "New to KMH? The KMH tab now has a 'How KMH works' tutorial explaining every system - treasury, marketplace, auctions, wants, quests, sites, guilds, events, and standings. Opening the tab also refreshes everything at once.",
+            "Guild invites got friendly: pick players from a list (online or offline - offline invites wait for them), and invitees get a clear notification with one-click accept/decline in the Guild Hall.",
+            "Joining a guild is one click too: browse every guild on the server with open/invite-only tags instead of typing names.",
+            "Anti-cheat: servers can auto-reset your KMH treasury when you start a new save, closing a silver-farming exploit (owner opt-in).",
+            "Custom sites are now priced by output, so nobody can game an item's value for cheap, fast, high-yield sites.",
+            "Dashboard: systems the server has turned off now read 'disabled by server' instead of loading forever."
         };
 
         // When shown on the main menu we chain into the welcome credits on close, so all three appear in sequence
@@ -62,7 +65,7 @@ namespace KMHPatch.Dialogs
             Text.Anchor = TextAnchor.UpperCenter;
             Widgets.Label(
                 new Rect(0f, y, rect.width, 24f),
-                "Small hotfix, cleaner player setup, safer transport defaults.");
+                "A living world by default, fairer economy, tighter exploit guards.");
 
             y += 30f;
 

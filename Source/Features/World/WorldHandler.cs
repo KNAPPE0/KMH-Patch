@@ -52,6 +52,10 @@ namespace KMHPatch.Features.World
         {
             WorldSnapshot snap = env?.DataAs<WorldSnapshot>();
             if (snap == null) { KmhLog.Warn("World snapshot had no parseable payload, ignoring"); return; }
+            // Basic stats so a bad payload is diagnosable without a full dump (types/titles only at debug level).
+            int evc = snap.Events?.Count ?? 0, qc = snap.ServerQuests?.Count ?? 0;
+            KmhLog.Debug($"World snapshot: {evc} event(s), {qc} server quest(s)"
+                + (evc > 0 ? " [" + string.Join(", ", (snap.Events ?? new System.Collections.Generic.List<WorldEventDto>()).ConvertAll(e => e == null ? "null" : $"{e.Type}#{e.Id}")) + "]" : ""));
             WorldCache.Apply(snap);
         }
     }
