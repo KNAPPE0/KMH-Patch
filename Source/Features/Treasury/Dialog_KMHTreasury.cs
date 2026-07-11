@@ -8,12 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Treasury
 {
-    // Treasury vault browser: two-pane (items left, recent activity right), a permission banner, and a lifetime
-    // in/out display.
-    //
-    // Deposit / Withdraw flows are fully wired via OpenDepositMenu / OpenWithdrawMenu float menus →
-    // Dialog_KMHAmountInput (silver) or Dialog_KMHItemPicker (items). The recent-activity panel renders the last N
-    // transactions inline, so no separate logs page is needed.
+    // Treasury vault browser: items + recent activity, deposit/withdraw via float menus.
     public class Dialog_KMHTreasury : Window_KMHBase
     {
 
@@ -22,9 +17,18 @@ namespace KMHPatch.Features.Treasury
         private Vector2 _itemScroll;
         private Vector2 _txScroll;
 
-        // Materialized vault items, cached per snapshot so a big modded vault isn't copied every frame.
-        private System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>> _itemsView;
+        // Materialized vault rows (plain stacks + full-state payload stacks), cached per snapshot so a big modded
+        // vault isn't copied every frame.
+        private List<VaultRow> _itemsView;
         private object _itemsSource;
+        private object _payloadSource;
+
+        private struct VaultRow
+        {
+            public string Key;
+            public int Count;
+            public KMHPatch.Items.KmhThingPayload Payload;   // set for full-state stacks; Key/Count unused then
+        }
 
         // Auto-refresh on an 8s cadence. Server pushes unsolicited snapshots on mutations too, so this is the
         // failover.
@@ -91,6 +95,20 @@ namespace KMHPatch.Features.Treasury
                 $"<b>Silver:</b> {s.SilverBalance}    " +
                 $"<color=grey>(in: {s.LifetimeSilverIn} | out: {s.LifetimeSilverOut})</color>");
             y += 28f;
+
+            // Pending deposits: held until the local save is durable (disconnect/rollback dupe guard). Not spendable.
+            if (s.PendingDeposits != null && s.PendingDeposits.Count > 0)
+            {
+                int pendSilver = 0, pendItems = 0;
+                foreach (Dto.PendingDeposit p in s.PendingDeposits) { if (p == null) continue; pendSilver += p.Silver; pendItems += p.Qty; }
+                string parts = pendSilver > 0 && pendItems > 0 ? $"{pendSilver} silver + {pendItems} item(s)"
+                             : pendSilver > 0 ? $"{pendSilver} silver" : $"{pendItems} item(s)";
+                Color pc = GUI.color; GUI.color = new Color(0.95f, 0.8f, 0.35f);
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
+                    $"⏳ Pending: {parts} - save your game to finalize (not spendable yet).");
+                GUI.color = pc;
+                y += 22f;
+            }
 
             // Permission banner. Empty/Read-only when neither deposit nor withdraw is allowed.
             string perm = "";
@@ -159,15 +177,20 @@ namespace KMHPatch.Features.Treasury
             Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = 28f;
 
-            object src = s.Items;
-            if (_itemsView == null || !ReferenceEquals(_itemsSource, src))
+            // Everything in the vault, in one list: plain stacks + full-state stacks (with their quality/hp state).
+            if (_itemsView == null || !ReferenceEquals(_itemsSource, s.Items) || !ReferenceEquals(_payloadSource, s.ItemPayloads))
             {
-                _itemsView = s.Items != null
-                    ? new List<KeyValuePair<string, int>>(s.Items)
-                    : new List<KeyValuePair<string, int>>();
-                _itemsSource = src;
+                _itemsView = new List<VaultRow>();
+                if (s.Items != null)
+                    foreach (KeyValuePair<string, int> kv in s.Items)
+                        _itemsView.Add(new VaultRow { Key = kv.Key, Count = kv.Value });
+                if (s.ItemPayloads != null)
+                    foreach (KMHPatch.Items.KmhThingPayload p in s.ItemPayloads)
+                        if (p != null && p.StackCount > 0) _itemsView.Add(new VaultRow { Payload = p });
+                _itemsSource = s.Items;
+                _payloadSource = s.ItemPayloads;
             }
-            List<KeyValuePair<string, int>> items = _itemsView;
+            List<VaultRow> items = _itemsView;
             int count = items.Count;
 
             float viewH = Mathf.Max(inner.height, count * rowH + 4f);
@@ -177,17 +200,31 @@ namespace KMHPatch.Features.Treasury
             DialogLayout.VisibleRange(_itemScroll, inner.height, rowH, count, out int first, out int last);
             for (int i = first; i < last; i++)
             {
-                KeyValuePair<string, int> kv = items[i];
+                VaultRow vr = items[i];
                 float ly = i * rowH;
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
 
                 const float iconSize = 24f;
-                ItemLabels.DrawIcon(new Rect(4f, ly + 2f, iconSize, iconSize), kv.Key);
-                string label = ItemLabels.ResolveLabel(kv.Key);
-                DialogLayout.LabelTrunc(new Rect(4f + iconSize + 6f, ly + 4f, viewRect.width - iconSize - 18f, rowH - 8f),
-                    $"{label}   <color=grey>x{kv.Value}</color>");
+                string iconKey = vr.Payload != null ? vr.Payload.DefName : vr.Key;
+                ItemLabels.DrawIcon(new Rect(4f, ly + 2f, iconSize, iconSize), iconKey);
+                float textX = 4f + iconSize + UI.KmhItemInfo.Size + 8f;
+                Rect textRect = new Rect(textX, ly + 4f, viewRect.width - iconSize - UI.KmhItemInfo.Size - 22f, rowH - 8f);
+
+                if (vr.Payload != null)
+                {
+                    // Info card with the exact def+stuff so the stack can be double-checked before withdrawing.
+                    UI.KmhItemInfo.ButtonForDef(4f + iconSize + 4f, ly + 2f, vr.Payload.DefName, vr.Payload.StuffDefName);
+                    DialogLayout.LabelTrunc(textRect,
+                        $"{UI.KmhItemRow.PayloadLabel(vr.Payload)}{UI.KmhItemRow.PayloadSuffix(vr.Payload)}   <color=grey>x{vr.Payload.StackCount}</color>");
+                }
+                else
+                {
+                    UI.KmhItemInfo.ButtonForKey(4f + iconSize + 4f, ly + 2f, vr.Key);
+                    DialogLayout.LabelTrunc(textRect,
+                        $"{ItemLabels.ResolveLabel(vr.Key)}   <color=grey>x{vr.Count}</color>");
+                }
             }
             if (count == 0)
             {
@@ -232,7 +269,7 @@ namespace KMHPatch.Features.Treasury
                     string.IsNullOrEmpty(tx.Username) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(tx.Username));
 
                 string amountText = string.IsNullOrEmpty(tx.ItemDefName)
-                    ? $"{tx.Amount}s"
+                    ? SilverFmt.Format(tx.Amount)
                     : $"×{tx.Amount} {ItemLabels.ResolveLabel(tx.ItemDefName)}";
                 Text.Anchor = TextAnchor.UpperRight;
                 DialogLayout.LabelTrunc(new Rect(viewRect.width - 200f, ly + 2f, 196f, 20f), amountText);
@@ -257,33 +294,37 @@ namespace KMHPatch.Features.Treasury
         }
 
         // Deposit item picker. Sources from the selected caravan if there is one, otherwise straight from the
-        // colony's stockpiles - no caravan required.
+        // colony's stockpiles - no caravan required. The picker re-reads live counts after each pick (ReadDepositSource)
+        // so it never shows stock the colony no longer holds.
         private static void OpenDepositItemPicker(string title, string pickActionLabel, Action<string, int> onPick)
         {
-            RimWorld.Planet.Caravan caravan = CaravanReader.GetSelectedCaravan();
-            Dictionary<string, int> items;
-            string sourceLabel;
-            if (caravan != null)
+            Dictionary<string, int> items = ReadDepositSource(out string sourceLabel);
+            if (items == null)
             {
-                items       = CaravanReader.ReadInventory(caravan);
-                sourceLabel = caravan.Label;
+                Notifications.KmhNotifications.Rejected("No colony or caravan to deposit from");
+                return;
             }
-            else
-            {
-                Verse.Map map = ColonyGoods.DepositMap();
-                if (map == null)
-                {
-                    Notifications.KmhNotifications.Rejected("No colony or caravan to deposit from");
-                    return;
-                }
-                items       = ColonyGoods.ReadStoredInventory(map);
-                sourceLabel = map.Parent?.LabelCap ?? "your colony";
-            }
-            Find.WindowStack.Add(new Dialog_KMHItemPicker(
+            UI.KmhItemPickerService.Open(
                 title:           $"{title} - from {sourceLabel}",
                 pickActionLabel: pickActionLabel,
                 source:          items,
-                onPick:          onPick));
+                onPick:          onPick,
+                refreshSource:   () => ReadDepositSource(out _));
+        }
+
+        // Live snapshot of what can be deposited right now (selected caravan, else the colony's stockpiles).
+        private static Dictionary<string, int> ReadDepositSource(out string sourceLabel)
+        {
+            RimWorld.Planet.Caravan caravan = CaravanReader.GetSelectedCaravan();
+            if (caravan != null)
+            {
+                sourceLabel = caravan.Label;
+                return CaravanReader.ReadInventory(caravan);
+            }
+            Verse.Map map = ColonyGoods.DepositMap();
+            if (map == null) { sourceLabel = ""; return null; }
+            sourceLabel = map.Parent?.LabelCap ?? "your colony";
+            return ColonyGoods.ReadStoredInventory(map);
         }
 
         // Float menus: silver opens Dialog_KMHAmountInput, items opens Dialog_KMHItemPicker (caravan source for
@@ -348,15 +389,27 @@ namespace KMHPatch.Features.Treasury
                 opts.Add(new FloatMenuOption($"Withdraw all silver ({s.SilverBalance})",
                     () => TreasuryHandler.TryWithdrawSilver(s.SilverBalance)));
 
-            opts.Add(new FloatMenuOption("Withdraw items…", () =>
+            // One entry for ALL vault items - plain stacks and full-state stacks (weapons/apparel with quality/hp)
+            // open together in the shared picker, each row with an Info card to double-check before withdrawing.
+            // Keeping them out of this float menu stops a big vault from overflowing the screen.
+            bool hasPayloads = false;
+            if (s.ItemPayloads != null)
+                foreach (KMHPatch.Items.KmhThingPayload p in s.ItemPayloads)
+                    if (p != null && p.StackCount > 0) { hasPayloads = true; break; }
+
+            if ((s.Items != null && s.Items.Count > 0) || hasPayloads)
+                opts.Add(new FloatMenuOption("Withdraw items…", () =>
                 {
-                    // Source is the treasury snapshot we already have cached
-                    // - no caravan dependency for withdraws.
-                    Find.WindowStack.Add(new Dialog_KMHItemPicker(
+                    TreasurySnapshot live = TreasuryCache.Snapshot ?? s;
+                    UI.KmhItemPickerService.Open(
                         title:           $"Withdraw from {(s.IsGuildOwned ? "Guild Treasury" : "Personal Vault")}",
                         pickActionLabel: "Withdraw",
-                        source:          s.Items ?? new Dictionary<string, int>(),
-                        onPick:          (defName, qty) => TreasuryHandler.TryWithdrawItem(defName, qty)));
+                        source:          live.Items ?? new Dictionary<string, int>(),
+                        onPick:          (defName, qty) => TreasuryHandler.TryWithdrawItem(defName, qty),
+                        refreshSource:   () => TreasuryCache.Snapshot?.Items,
+                        payloads:        live.ItemPayloads,
+                        onPickPayload:   (pl, qty) => TreasuryHandler.TryWithdrawPayload(pl.Fingerprint, qty),
+                        refreshPayloads: () => TreasuryCache.Snapshot?.ItemPayloads);
                 }));
 
             Find.WindowStack.Add(new FloatMenu(opts));

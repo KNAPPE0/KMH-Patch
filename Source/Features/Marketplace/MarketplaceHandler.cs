@@ -6,11 +6,8 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // Registers the marketplace sub-protocol handler + exposes the public request and mutation methods dialogs use
-    //
-    // Post (creating a new listing) is wired end-to-end via TryPost + Dialog_KMHPostListing's caravan item picker.
-    // Buy + Cancel send the minimal mutation envelope; server applies the change and broadcasts a fresh marketplace
-    // snapshot, so a per-call response handler isn't needed
+    // Marketplace sub-protocol: request + mutation (post/buy/cancel) methods. Mutations send a minimal envelope; the
+    // server applies and broadcasts a fresh snapshot, so no per-call response handler is needed.
     internal static class MarketplaceHandler
     {
         public static void Register()
@@ -84,6 +81,26 @@ namespace KMHPatch.Features.Marketplace
                 expires_hours     = expiresInHours < 0 ? 0 : expiresInHours,
             });
             if (sent) KmhNotifications.Neutral($"Posting listing ×{qty}…");
+            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Post a full-state item (complex) by its treasury payload fingerprint - state is preserved through escrow.
+        public static bool TryPostPayload(string fingerprint, int qty, int unitPriceSilver,
+                                          string visibility = VisibilityPublic, int expiresInHours = 0)
+        {
+            if (string.IsNullOrEmpty(fingerprint)) { KmhNotifications.Rejected("Item is missing"); return false; }
+            if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
+            if (unitPriceSilver <= 0) { KmhNotifications.Rejected("Unit price must be greater than 0"); return false; }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplacePost, new
+            {
+                fingerprint       = fingerprint,
+                qty               = qty,
+                unit_price_silver = unitPriceSilver,
+                visibility        = visibility ?? VisibilityPublic,
+                expires_hours     = expiresInHours < 0 ? 0 : expiresInHours,
+            });
+            if (sent) KmhNotifications.Neutral($"Posting listing ×{qty} (full state)…");
             else      KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }

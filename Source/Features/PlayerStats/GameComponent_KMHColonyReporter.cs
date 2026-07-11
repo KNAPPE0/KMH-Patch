@@ -19,12 +19,25 @@ namespace KMHPatch.Features.PlayerStats
         private static double _playSeconds;   // cumulative real seconds in-game (persisted)
         private float  _reportTimer = 6f;     // first upload ~6s after load
 
+        // Per-save id: fresh for a new colony, restored on load. The server uses a change here to detect a save reset
+        // (anti-exploit for treasury farming), so it must NOT be static - each game gets its own.
+        private string _saveId;
+        public string SaveId
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_saveId)) _saveId = Guid.NewGuid().ToString("N");
+                return _saveId;
+            }
+        }
+
         public GameComponent_KMHColonyReporter(Game game) { }
 
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref _playSeconds, "kmhPlaySeconds", 0.0);
+            Scribe_Values.Look(ref _saveId, "kmhSaveId", null);
         }
 
         public override void GameComponentUpdate()
@@ -85,6 +98,7 @@ namespace KMHPatch.Features.PlayerStats
 
             ColonyReport r = new ColonyReport
             {
+                SaveId          = Current.Game?.GetComponent<GameComponent_KMHColonyReporter>()?.SaveId ?? "",
                 ColonyName      = Faction.OfPlayer?.Name ?? "",
                 ColonyAgeDays   = Find.TickManager != null ? Find.TickManager.TicksGame / 60000 : 0,
                 TimePlayedHours = (int)(_playSeconds / 3600.0),
@@ -118,9 +132,10 @@ namespace KMHPatch.Features.PlayerStats
             if (maps == null) return outList;
             foreach (Map m in maps)
             {
-                if (m?.mapPawns?.FreeColonists == null) continue;
+                // own colonies only - a visited/hosted player's map isn't IsPlayerHome, so its pawns must not be reported as ours (same guard wealth uses)
+                if (m == null || !m.IsPlayerHome || m.mapPawns?.FreeColonists == null) continue;
                 foreach (Pawn p in m.mapPawns.FreeColonists)
-                    if (p != null && !p.Dead) outList.Add(p);
+                    if (p != null && !p.Dead && p.HostFaction == null) outList.Add(p);
             }
             return outList;
         }

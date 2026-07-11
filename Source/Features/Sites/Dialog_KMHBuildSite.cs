@@ -8,10 +8,9 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Build a custom site at a player-chosen world tile. Picks an item to produce (its market value drives cost +
-    // cycle time), an amount per cycle, access mode, owner tax, and reward destination. The tile is chosen on the
-    // world map (Select on map) or from a selected caravan - never the home base. The server re-validates everything
-    // (tile free of other KMH sites, cost affordable) and replies with a chat reason on rejection
+    // Build a custom site at a player-chosen world tile: pick an output (its market value drives cost + cycle
+    // time), amount, access mode, owner tax, reward destination. Tile is off-map (world/caravan), never home;
+    // the server re-validates (tile free, cost affordable) and replies with a chat reason on rejection.
     public class Dialog_KMHBuildSite : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(600f, 600f);
@@ -60,21 +59,19 @@ namespace KMHPatch.Features.Sites
                 _tile = car.Tile.tileId;
             y += 34f;
 
-            // Item picker (market value comes from the def).
+            // Output picker - the CURATED, server-classified site catalog (tiers/skill/cost), not the generic all-def
+            // browser. A site can only ever produce what this list offers.
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Produces");
-            string itemDisplay = string.IsNullOrEmpty(_itemDef) ? "<color=grey>(pick an item)</color>" : ItemLabels.ResolveLabel(_itemDef);
+            string itemDisplay = string.IsNullOrEmpty(_itemDef) ? "<color=grey>(choose a site output)</color>" : ItemLabels.ResolveLabel(_itemDef);
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                Find.WindowStack.Add(new Dialog_KMHItemPicker(
-                    title: "Pick item to produce", pickActionLabel: "Select",
-                    source: ItemDefBrowser.AllPickableItems(),
-                    onPick: (defName, qty) =>
-                    {
-                        _itemDef = defName;
-                        _amount  = Mathf.Max(1, qty).ToString();
-                        ThingDef td = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
-                        _marketValue = td?.BaseMarketValue ?? 0f;
-                    }));
+                Find.WindowStack.Add(new Dialog_KMHSiteOutputPicker(entry =>
+                {
+                    _itemDef = entry.DefName;
+                    _amount  = Mathf.Max(1, entry.MaxAmount).ToString();
+                    ThingDef td = DefDatabase<ThingDef>.GetNamedSilentFail(entry.DefName);
+                    _marketValue = td?.BaseMarketValue ?? 0f;
+                }));
             }
             y += 30f;
 
@@ -197,7 +194,9 @@ namespace KMHPatch.Features.Sites
              : d == SiteEntry.DestCaravan ? "Colony (delivered in-game)"
              : "Treasury";
 
-        // Local mirror of the server's item->skill hint, for display only.
+        // PREVIEW ONLY - a rough item->skill estimate shown before the site exists. Once built, the server classifies
+        // the output and sends the authoritative relevant_skill in the snapshot (SiteEntry.RelevantSkillDef); this
+        // local guess must not be treated as truth.
         private static string SiteEntry_RelevantSkill(string itemDefName)
         {
             string l = (itemDefName ?? "").ToLowerInvariant();

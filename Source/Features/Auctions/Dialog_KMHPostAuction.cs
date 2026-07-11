@@ -11,8 +11,10 @@ namespace KMHPatch.Features.Auctions
         public override Vector2 InitialSize => new Vector2(580f, 470f);
 
         private readonly Dictionary<string, int> _treasuryItems;
+        private readonly List<KMHPatch.Items.KmhThingPayload> _payloads;
 
         private string _itemKey       = "";
+        private string _fingerprint   = "";
         private int    _itemAvailable = 0;
         private string _qty           = "";
         private string _startingBid   = "";
@@ -21,9 +23,10 @@ namespace KMHPatch.Features.Auctions
         private string _hours         = "24";
         private string _visibility    = "public";
 
-        private Dialog_KMHPostAuction(Dictionary<string, int> treasuryItems)
+        private Dialog_KMHPostAuction(Dictionary<string, int> treasuryItems, List<KMHPatch.Items.KmhThingPayload> payloads)
         {
             _treasuryItems = treasuryItems ?? new Dictionary<string, int>();
+            _payloads      = payloads ?? new List<KMHPatch.Items.KmhThingPayload>();
             doCloseX                = true;
             absorbInputAroundWindow = true;
             forcePause              = false;
@@ -33,13 +36,18 @@ namespace KMHPatch.Features.Auctions
         public static bool Open()
         {
             Treasury.Dto.TreasurySnapshot snap = Treasury.TreasuryCache.Snapshot;
-            if (snap?.Items == null || snap.Items.Count == 0)
+            bool hasSimple  = snap?.Items != null && snap.Items.Count > 0;
+            bool hasPayload = snap?.ItemPayloads != null && snap.ItemPayloads.Count > 0;
+            if (!hasSimple && !hasPayload)
             {
-                Notifications.KmhNotifications.Rejected("Your treasury has no items to auction - deposit some to your vault first");
+                Notifications.KmhNotifications.Rejected(Treasury.TreasuryCache.HasPendingItems()
+                    ? $"You have {Treasury.TreasuryCache.PendingItemUnits()} item(s) pending in your treasury - save your game to finalize them before auctioning"
+                    : "Your treasury has no items to auction - deposit some to your vault first");
                 return false;
             }
             Find.WindowStack.Add(new Dialog_KMHPostAuction(
-                new Dictionary<string, int>(snap.Items, System.StringComparer.OrdinalIgnoreCase)));
+                hasSimple ? new Dictionary<string, int>(snap.Items, System.StringComparer.OrdinalIgnoreCase) : null,
+                hasPayload ? new List<KMHPatch.Items.KmhThingPayload>(snap.ItemPayloads) : null));
             return true;
         }
 
@@ -56,16 +64,29 @@ namespace KMHPatch.Features.Auctions
                 : $"{ItemKeys.LabelForKey(_itemKey)}  <color=grey>(available x{_itemAvailable})</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                Find.WindowStack.Add(new Dialog_KMHItemPicker(
+                // Same picker the Treasury uses; full-state stacks keep their exact state through escrow.
+                UI.KmhItemPickerService.Open(
                     title:           "Pick item to auction",
                     pickActionLabel: "Select",
                     source:          _treasuryItems,
                     onPick:          (key, qty) =>
                     {
                         _itemKey       = key;
+                        _fingerprint   = "";
                         _itemAvailable = _treasuryItems.TryGetValue(key, out int max) ? max : 0;
                         _qty           = qty.ToString();
-                    }));
+                    },
+                    refreshSource:   () => Treasury.TreasuryCache.Snapshot?.Items,
+                    payloads:        _payloads,
+                    onPickPayload:   (pl, qty) =>
+                    {
+                        _itemKey       = pl.DisplayLabel;
+                        _fingerprint   = pl.Fingerprint;
+                        _itemAvailable = pl.StackCount;
+                        _qty           = qty.ToString();
+                    },
+                    refreshPayloads: () => Treasury.TreasuryCache.Snapshot?.ItemPayloads,
+                    closeOnPick:     true);
             }
             y += 30f;
 
@@ -110,8 +131,10 @@ namespace KMHPatch.Features.Auctions
             if (buyout > 0 && buyout < start) { Reject("Buyout must be at least the starting bid"); return; }
             if (!int.TryParse(T(_hours), out int hours) || hours <= 0) { Reject("Duration: positive whole number of hours"); return; }
 
-            if (AuctionHandler.TryPost(_itemKey, "", 0, qty, start, inc, buyout, hours, _visibility))
-                Close();
+            bool ok = string.IsNullOrEmpty(_fingerprint)
+                ? AuctionHandler.TryPost(_itemKey, "", 0, qty, start, inc, buyout, hours, _visibility)
+                : AuctionHandler.TryPostPayload(_fingerprint, qty, start, inc, buyout, hours, _visibility);
+            if (ok) Close();
         }
 
         private static string T(string s) => (s ?? "").Trim();

@@ -27,5 +27,11 @@ namespace KMHPatch.Features.Auctions.Dto
         [JsonProperty("listed_utc_ticks")]    public long   ListedUtcTicks    { get; set; } = 0;
         [JsonProperty("ends_utc_ticks")]      public long   EndsUtcTicks      { get; set; } = 0;
         [JsonProperty("visibility")]          public string Visibility        { get; set; } = "public";
+
+        // Full-state auction: fingerprint + display note (deep blob stays server-side).
+        // EscrowPayloads is server-only (stripped before send); mirrored here for wire-contract parity, never populated.
+        [JsonProperty("escrow_payloads")]     public List<KMHPatch.Items.KmhThingPayload> EscrowPayloads { get; set; }
+        [JsonProperty("state_fingerprint")]   public string StateFingerprint  { get; set; } = "";
+        [JsonProperty("state_note")]          public string StateNote         { get; set; } = "";
     }
 }

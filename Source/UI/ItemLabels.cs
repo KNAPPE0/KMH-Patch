@@ -48,20 +48,8 @@ namespace KMHPatch.UI
             return defName;
         }
 
-        // Draws a small ThingDef icon when available, preserving vanilla tint and safely skipping missing defs.
-        public static void DrawIcon(Rect rect, string defName)
-        {
-            if (string.IsNullOrEmpty(defName)) return;
-            ThingDef td;
-            try { td = DefDatabase<ThingDef>.GetNamedSilentFail(defName); }
-            catch { return; }
-            if (td?.uiIcon == null) return;
-
-            Color prev   = GUI.color;
-            Color tint   = td.uiIconColor;
-            GUI.color    = tint == default ? Color.white : tint;
-            Widgets.DrawTextureFitted(rect, td.uiIcon, 1f);
-            GUI.color    = prev;
-        }
+        // Draws a small ThingDef icon. Delegates to the shared resolver so the safe-fallback behaviour is identical
+        // across every list; kept as a thin alias for existing call sites.
+        public static void DrawIcon(Rect rect, string defName) => KmhIconResolver.Draw(rect, defName);
     }
 }

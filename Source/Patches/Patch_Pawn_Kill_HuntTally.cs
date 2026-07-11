@@ -27,12 +27,22 @@ namespace KMHPatch.Patches
                         GameComponent_KMHKillTally.Current?.BumpDeath();
                     return;                                                  // not an enemy kill
                 }
-                if (dinfo?.Instigator?.Faction != Faction.OfPlayer) return;  // only player-caused kills count
+                // Count the kill when the player struck the killing blow OR did meaningful damage recently (bleed-out /
+                // downed-then-collapsed). Pure predator/weather/disease/starvation deaths with no player damage don't count.
+                bool playerBlow   = dinfo?.Instigator?.Faction == Faction.OfPlayer;
+                bool playerRecent = KmhRecentDamage.PlayerDamagedRecently(__instance);
+                if (!playerBlow && !playerRecent) return;
 
                 GameComponent_KMHKillTally tally = GameComponent_KMHKillTally.Current;
                 if (tally == null) return;
-                tally.Bump(__instance.kindDef?.defName);
-                tally.Bump(__instance.def?.defName);
+                // Bump each DISTINCT defName once. For animals kindDef.defName == def.defName (e.g. both "Muffalo"),
+                // so bumping both would count one kill twice - the reported "counts as 2" bug. Dedupe fixes it.
+                string kind = __instance.kindDef?.defName;
+                string race = __instance.def?.defName;
+                tally.Bump(kind);
+                if (!string.IsNullOrEmpty(race) && !string.Equals(race, kind, System.StringComparison.OrdinalIgnoreCase))
+                    tally.Bump(race);
+                KmhRecentDamage.Forget(__instance);
             }
             catch { /* a tally hiccup must never disturb the death pipeline */ }
         }

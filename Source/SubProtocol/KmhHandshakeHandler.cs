@@ -33,24 +33,35 @@ namespace KMHPatch.SubProtocol
         // dials it using the one-time token the server advertised.
         private static void OnHello(KmhEnvelope env)
         {
-            Features.KmhFeatures.SetDisabled(env.GetString("disabled") ?? "");
+            Features.KmhFeatures.SetDisabled(env.GetString("disabled"));   // null when omitted -> keep last-known-good
+            KmhDispatcher.ServerName = env.GetString("server_name") ?? "";   // shown so players can tell servers apart
+            Diagnostics.KmhDebugUplink.ServerRequested = env.GetBool("debug_uplink");   // owner-side debug -> auto uplink
+            // ActivateSession acks FIRST, then hydrates - the ack must reach the server before labels/snapshot requests
+            // or the router's handshake gate drops them all ("dropped ... no compatible handshake" spam).
             if (!ActivateSession(env.GetInt("v", 0), env.GetString("build") ?? "", KmhTransportStatus.ChatFallback))
                 return;
-
-            KmhDispatcher.Send(KmhProtocol.Kind.HelloAck, new { v = KmhProtocol.CurrentVersion });
 
             // The client also dials the API directly on RWT-connect (Patch_PM_GlobalData), so only connect here if that
             // hasn't already brought it up - this lets the stronger chat-issued token be used when chat works.
             try
             {
-                if (KMHPatchMod.Settings?.UseKmhApiTransport == true && env.GetBool("api_enabled") && !KmhApiClient.Active)
+                if (KMHPatchMod.Settings?.UseKmhApiTransport == true && env.GetBool("api_enabled"))
                 {
-                    string host = string.IsNullOrEmpty(KMHPatchMod.Settings.KmhApiHostOverride)
-                        ? TCPNetwork.Network.Ip : KMHPatchMod.Settings.KmhApiHostOverride;
-                    int port = env.GetInt("api_port", KMHPatchMod.Settings.KmhApiPort);
-                    if (port <= 0) port = KMHPatchMod.Settings.KmhApiPort;
-                    KmhApiClient.Connect(host, port, SessionHandler.Username, env.GetString("api_token") ?? "",
-                        KMHPatchMod.Settings.AllowChatTransportFallback);
+                    // Honor the server's policy: if the owner disabled chat fallback, the client must not tunnel features
+                    // over chat even if its own setting allows it (old servers omit the flag -> defaults true, unchanged).
+                    bool effFallback = KMHPatchMod.Settings.AllowChatTransportFallback && env.GetBool("allow_chat_fallback", true);
+                    if (!KmhApiClient.Active)
+                    {
+                        // Host preference: player's local override > server-advertised public host > RWT IP we dialed.
+                        string advertised = env.GetString("api_host") ?? "";
+                        string host = !string.IsNullOrEmpty(KMHPatchMod.Settings.KmhApiHostOverride) ? KMHPatchMod.Settings.KmhApiHostOverride
+                                    : !string.IsNullOrEmpty(advertised) ? advertised
+                                    : TCPNetwork.Network.Ip;
+                        int port = env.GetInt("api_port", KMHPatchMod.Settings.KmhApiPort);
+                        if (port <= 0) port = KMHPatchMod.Settings.KmhApiPort;
+                        KmhApiClient.Connect(host, port, SessionHandler.Username, env.GetString("api_token") ?? "", effFallback);
+                    }
+                    else KmhApiClient.SetChatFallbackAllowed(effFallback);   // early dial already up: apply the server's policy
                 }
             }
             catch (Exception ex) { KmhLog.Warn($"KMH API: connect attempt threw: {ex.Message}"); }
@@ -63,16 +74,24 @@ namespace KMHPatch.SubProtocol
         {
             if (serverVersion != KmhProtocol.CurrentVersion)
             {
+                bool wasMismatch = KmhTransport.Status == KmhTransportStatus.VersionMismatch;   // toast once, not every re-handshake
                 KmhLog.Warn($"Server KMH version {serverVersion} does not match client {KmhProtocol.CurrentVersion} - disabling KMH features for this session");
                 KmhDispatcher.IsKmhServer = false;
+                UI.KmhDashboardState.ClearConfirmed();   // real mismatch: don't let the sticky flag mask it
                 KmhTransport.Status = KmhTransportStatus.VersionMismatch;
+                if (!wasMismatch)
+                    KmhNotifications.Rejected($"KMH disabled: server protocol v{serverVersion} vs your v{KmhProtocol.CurrentVersion}. Update the KMH-Patch mod to match this server.");
                 return false;
             }
 
             bool first = !KmhDispatcher.IsKmhServer;
             KmhDispatcher.IsKmhServer = true;
+            UI.KmhDashboardState.MarkConfirmed();   // sticky: keep feature buttons visible across a re-handshake
             KmhDispatcher.ServerProtocolVersion = serverVersion;
             KmhDispatcher.ServerBuild = serverBuild ?? "";
+            // Ack BEFORE any hydration below, so the server marks this connection compatible before labels/requests
+            // arrive (also sent on API activation - it marks the chat path for any fallback packets).
+            KmhDispatcher.Send(KmhProtocol.Kind.HelloAck, new { v = KmhProtocol.CurrentVersion });
             if (status == KmhTransportStatus.ApiConnected || KmhTransport.Status != KmhTransportStatus.ApiConnected)
                 KmhTransport.Status = status;   // don't downgrade a live API link to chat
 
@@ -80,7 +99,9 @@ namespace KMHPatch.SubProtocol
 
             string buildLabel = string.IsNullOrEmpty(KmhDispatcher.ServerBuild) ? "<pre-1.1.0>" : KmhDispatcher.ServerBuild;
             KmhLog.Info($"KMH server detected (protocol v{serverVersion}, build '{buildLabel}', via {(status == KmhTransportStatus.ApiConnected ? "API" : "chat")}) - features enabled");
-            KmhNotifications.Positive($"KMH server connected (protocol v{serverVersion})");
+            KmhNotifications.Positive(string.IsNullOrEmpty(KmhDispatcher.ServerName)
+                ? $"KMH server connected (protocol v{serverVersion})"
+                : $"Connected to KMH server '{KmhDispatcher.ServerName}' (protocol v{serverVersion})");
 
             if (string.IsNullOrEmpty(KmhDispatcher.ServerBuild))
                 KmhNotifications.Neutral("This server runs an older KMH build (pre-1.1.0). New features (auctions, want board, world events) stay hidden until the server owner updates.");
@@ -109,6 +130,10 @@ namespace KMHPatch.SubProtocol
 
             try { Features.Catalog.ItemLabelsSender.PushOnce(); }
             catch (Exception ex) { KmhLog.Warn($"ItemLabels: push at handshake threw: {ex.Message}"); }
+
+            // Hydrate every feature cache on join so the dashboard's rows have data the moment the tab opens (the server
+            // pushes some snapshots on ack, but this guarantees the full set - no row is left waiting forever).
+            try { KmhRefresh.RequestAll(); } catch (Exception ex) { KmhLog.Warn($"KMH join hydration threw: {ex.Message}"); }
             return true;
         }
 

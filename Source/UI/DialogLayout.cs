@@ -27,9 +27,9 @@ namespace KMHPatch.UI
         public const float LiveBadgeHeight = 18f;
         public static readonly Color LiveBadgeColor = new Color(0.6f, 0.85f, 0.6f);
 
-        // 8s auto-refresh cadence - the server is the source of truth, but a polling failover catches missed
-        // broadcasts.
-        public const float AutoRefreshSeconds = 8f;
+        // Fallback poll for open dialogs; the server pushes fresh snapshots on every change, so this only catches
+        // missed pushes - 12s halves idle packet noise vs the old 8s with no visible staleness.
+        public const float AutoRefreshSeconds = 12f;
 
         // -- Standard padding --
         public const float ListInnerPad         = 4f;
@@ -133,11 +133,8 @@ namespace KMHPatch.UI
             GUI.color = old;
         }
 
-        // Single-line label that fits the rect: if the text is wider than the rect it's truncated with an ellipsis
-        // instead of clipping mid-glyph. Use this for any fixed-height row cell so changing column widths / padding
-        // can never cut text off. The full text shows as a tooltip on
-        // hover so nothing is lost. Rich-text formatting is kept while it fits;
-        // a truncated cell falls back to plain text.
+        // Single-line label that fits the rect: text wider than the rect is truncated with an ellipsis (never
+        // clipped mid-glyph), full text on hover. Rich-text formatting is kept while it fits.
         public static void LabelTrunc(Rect r, string text, TextAnchor anchor = TextAnchor.UpperLeft)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -171,10 +168,8 @@ namespace KMHPatch.UI
             finally { Text.Anchor = oldAnchor; }
         }
 
-        // Universal filter/search box. One place to guarantee text and the greyed placeholder never clip: the field
-        // is grown to a full line of height and the placeholder is vertically centered at full height (the old code
-        // shrank it with ContractedBy(6,4), leaving 20 px under a 22 px font, which clipped the bottoms). Returns
-        // the edited text
+        // Universal filter/search box. Field is grown to a full line and the placeholder vertically centered so
+        // neither the text nor the greyed placeholder clips (the old ContractedBy(6,4) clipped glyph bottoms).
         public static string SearchField(Rect r, string current, string placeholder = "Filter…")
         {
             float minH = Text.LineHeight + 6f;
@@ -215,13 +210,8 @@ namespace KMHPatch.UI
         public static string StripTags(string s)
             => string.IsNullOrEmpty(s) ? s : System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty);
 
-        // Compact checkbox + label, ☐ right next to the text (vanilla CheckboxLabeled wastes 80-100 px on a
-        // flexible gap between label and box, which looks awkward in horizontal toolbar rows)
-        //
-        // Returns the next x to continue the toolbar at - chain like:
-        //   float cbx = 0f;
-        //   cbx = DialogLayout.DrawTightCheckbox(cbx, y, "A", ref a);
-        //   cbx = DialogLayout.DrawTightCheckbox(cbx, y, "B", ref b);
+        // Compact checkbox + label with the box right next to the text (vanilla CheckboxLabeled wastes 80-100 px
+        // on a flexible gap, awkward in toolbar rows). Returns the next x so calls can chain along a row.
         public static float DrawTightCheckbox(float x, float y, string label, ref bool value)
         {
             const float boxSize = 20f;

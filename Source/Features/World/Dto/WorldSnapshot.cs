@@ -21,6 +21,7 @@ namespace KMHPatch.Features.World.Dto
         public const string DoubleWorkerXp  = "double_worker_xp";
         public const string HouseStipend    = "house_stipend";
         public const string BountyTarget    = "bounty_target";
+        public const string WorldWeather    = "world_weather";     // apply GameConditionDef Target to our maps while active
 
         [JsonProperty("id")]                public long   Id              { get; set; } = 0;
         [JsonProperty("type")]              public string Type            { get; set; } = "";

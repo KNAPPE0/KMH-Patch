@@ -7,14 +7,7 @@ using Verse;
 
 namespace KMHPatch.Features.Quests
 {
-    // Quest Post composer - DeliverItem + Bounty kinds.
-    //
-    // Fields: kind toggle (Deliver / Bounty), visibility (public / guild- only), title, multi-line description
-    // (opens Dialog_KMHMultilineText Input), bounty silver, expires-in-hours, plus target-item picker + qty when
-    // kind == DeliverItem. Bounty kind hides the delivery rows since it's manual sign-off (poster confirms via
-    // Approve)
-    //
-    // Routes through QuestHandler.TryPostBounty / TryPostDeliverItem.
+    // Quest Post composer for DeliverItem + Bounty kinds (Bounty hides delivery rows - it's manual poster sign-off).
     public class Dialog_KMHPostQuest : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(620f, 700f);
@@ -214,11 +207,12 @@ namespace KMHPatch.Features.Quests
                         : ItemLabels.ResolveLabel(_targetItemDefName);
                     if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), targetDisplay))
                     {
-                        Find.WindowStack.Add(new Dialog_KMHItemPicker(
+                        UI.KmhItemPickerService.Open(
                             title:           "Pick target item",
                             pickActionLabel: "Select",
-                            source:          ItemDefBrowser.AllPickableItems(),
-                            onPick:          (defName, qty) => { _targetItemDefName = defName; _targetItemQty = qty.ToString(); }));
+                            source:          UI.KmhItemPickerService.AllPickableItems(),
+                            onPick:          (defName, qty) => { _targetItemDefName = defName; _targetItemQty = qty.ToString(); },
+                            closeOnPick:     true);
                     }
                     y += 30f;
                     y = DrawTextRow(rect, y, "Target item qty", ref _targetItemQty);

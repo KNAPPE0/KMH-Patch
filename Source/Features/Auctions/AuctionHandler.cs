@@ -33,6 +33,25 @@ namespace KMHPatch.Features.Auctions
             return sent;
         }
 
+        // Auction a full-state item (complex) by its treasury payload fingerprint - state preserved through escrow.
+        public static bool TryPostPayload(string fingerprint, int qty, long startingBid, long minIncrement,
+            long buyout, int hours, string visibility)
+        {
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.AuctionPost, new
+            {
+                fingerprint    = fingerprint ?? "",
+                qty,
+                starting_bid   = startingBid,
+                min_increment  = minIncrement,
+                buyout_silver  = buyout,
+                hours,
+                visibility     = visibility ?? "public",
+            });
+            if (sent) KmhNotifications.Neutral("Posting auction (full state)…");
+            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
         public static bool TryBid(long auctionId, long amount)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.AuctionBid, new { auction_id = auctionId, amount });

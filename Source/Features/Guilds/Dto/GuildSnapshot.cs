@@ -3,11 +3,8 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Guilds.Dto
 {
-    // JSON wire mirror of the server's guild composite (file + members + perks + settings + alliances), snake_case
-    // names.
-    //
-    // Server sends one snapshot per caller - InGuild=false means the caller is not currently in any guild, in which
-    // case Guild is null and the dialog renders the "not in a guild" state.
+    // Per-caller wire mirror of the server's guild composite (snake_case). InGuild=false -> Guild is null and the
+    // dialog renders the "not in a guild" state.
     public class GuildSnapshotEnvelope
     {
         [JsonProperty("in_guild")]
@@ -15,6 +12,46 @@ namespace KMHPatch.Features.Guilds.Dto
 
         [JsonProperty("guild")]
         public GuildSnapshot Guild { get; set; }
+
+        // Standing invites FOR this player (guildless users only) - lets the client offer accept/decline.
+        [JsonProperty("my_invites")] public List<GuildInviteDto> MyInvites { get; set; } = new List<GuildInviteDto>();
+    }
+
+    // One standing invite as the invitee sees it.
+    public class GuildInviteDto
+    {
+        [JsonProperty("guild_name")]        public string GuildName       { get; set; } = "";
+        [JsonProperty("inviter")]           public string Inviter         { get; set; } = "";
+        [JsonProperty("created_utc_ticks")] public long   CreatedUtcTicks { get; set; } = 0;
+        [JsonProperty("members")]           public int    Members         { get; set; } = 0;
+    }
+
+    // One row of the invite picker: a known, guildless player an officer can invite.
+    public class InvitablePlayerDto
+    {
+        [JsonProperty("username")] public string Username { get; set; } = "";
+        [JsonProperty("online")]   public bool   Online   { get; set; } = false;
+    }
+
+    public class GuildInvitablesSnapshot
+    {
+        [JsonProperty("players")] public List<InvitablePlayerDto> Players { get; set; } = new List<InvitablePlayerDto>();
+    }
+
+    public class GuildInviteMetaDto
+    {
+        [JsonProperty("inviter")]           public string Inviter         { get; set; } = "";
+        [JsonProperty("created_utc_ticks")] public long   CreatedUtcTicks { get; set; } = 0;
+    }
+
+    // A guild's physical hall. null / HasHall=false = no hall (default + compat for pre-P8 guilds).
+    public class GuildHallDto
+    {
+        [JsonProperty("has_hall")]          public bool   HasHall         { get; set; } = false;
+        [JsonProperty("tile")]              public int    Tile            { get; set; } = -1;
+        [JsonProperty("leader")]            public string Leader          { get; set; } = "";
+        [JsonProperty("radius_tiles")]      public int    RadiusTiles     { get; set; } = 0;
+        [JsonProperty("created_utc_ticks")] public long   CreatedUtcTicks { get; set; } = 0;
     }
 
     public class GuildSnapshot
@@ -27,6 +64,10 @@ namespace KMHPatch.Features.Guilds.Dto
 
         [JsonProperty("perks")]     public GuildPerksDto    Perks    { get; set; } = new GuildPerksDto();
         [JsonProperty("settings")]  public GuildSettingsDto Settings { get; set; } = new GuildSettingsDto();
+        [JsonProperty("guild_silver")]           public long GuildSilver { get; set; } = 0;   // silver-only guild vault balance
+        [JsonProperty("guild_treasury_enabled")] public bool GuildTreasuryEnabled { get; set; } = true;
+        // Donations awaiting a donor's save-confirm - shown in the Hall but never spendable (excluded from guild_silver).
+        [JsonProperty("pending_donations_silver")] public long PendingDonationsSilver { get; set; } = 0;
 
         // Other guild name -> relationship value. Values are constants below.
         [JsonProperty("relationships")]
@@ -35,6 +76,13 @@ namespace KMHPatch.Features.Guilds.Dto
 
         [JsonProperty("open_join")]       public bool OpenJoin { get; set; } = false;
         [JsonProperty("pending_invites")] public List<string> PendingInvites { get; set; } = new List<string>();
+
+        // Who issued each pending invite and when (keyed by invitee, additive beside pending_invites).
+        [JsonProperty("invite_meta")]     public Dictionary<string, GuildInviteMetaDto> InviteMeta { get; set; }
+            = new Dictionary<string, GuildInviteMetaDto>(System.StringComparer.OrdinalIgnoreCase);
+
+        // Optional physical Guild Hall. null = no hall.
+        [JsonProperty("hall")]            public GuildHallDto Hall { get; set; }
 
         // Relationship values (snake_case strings, same convention as Quest state/kind - readable mid-debug,
         // survives enum renames)
@@ -51,6 +99,7 @@ namespace KMHPatch.Features.Guilds.Dto
         public const string RankModerator = "moderator";
         public const string RankOfficer   = "officer";
         public const string RankAdmin     = "admin";
+        public const string RankOwner     = "owner";   // exactly one per guild; only ownership transfer assigns it
 
         [JsonProperty("username")]            public string Username           { get; set; } = "";
         [JsonProperty("rank")]                public string Rank               { get; set; } = RankMember;

@@ -19,6 +19,10 @@ namespace KMHPatch.SubProtocol
         // Server's human-readable release (from kmh.hello). Empty = pre-1.1.0 server that doesn't advertise a build.
         public static string ServerBuild { get; internal set; } = "";
 
+        // Server's friendly name (from kmh.hello), so a player can tell which of several servers they're on. Empty =
+        // pre-1.2.0 server that doesn't advertise one.
+        public static string ServerName { get; internal set; } = "";
+
         // True once we've confirmed the server is at least this client's build, i.e. it speaks the v1.1.0 feature
         // set (auctions / want board / world events). A pre-1.1.0 server leaves ServerBuild empty.
         public static bool ServerSupportsCurrentBuild
@@ -29,6 +33,10 @@ namespace KMHPatch.SubProtocol
         public static string   LastReceivedKind { get; private set; }
         public static DateTime LastReceivedAt   { get; private set; } = DateTime.MinValue;
         public static int      ReceivedCount    { get; private set; }
+
+        // Unknown inbound kinds already logged this session (log once, not once per packet).
+        private static readonly System.Collections.Generic.HashSet<string> _unknownKindsLogged
+            = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
         public static void RegisterHandler(string kind, Action<KmhEnvelope> handler)
         {
@@ -64,8 +72,9 @@ namespace KMHPatch.SubProtocol
             if (!Handlers.TryGetValue(env.Kind, out Action<KmhEnvelope> handler))
             {
                 // Unknown kind - likely a feature the server is using that the patch hasn't ported yet. Not an
-                // error; just log at low priority
-                KmhLog.Info($"No handler for kind '{env.Kind}' (server v{env.Version})");
+                // error; log once per kind so a chatty unknown packet can't flood the log
+                if (_unknownKindsLogged.Add(env.Kind))
+                    KmhLog.Info($"No handler for kind '{env.Kind}' (server v{env.Version}) - further packets of this kind are ignored silently");
                 return;
             }
 
@@ -133,8 +142,10 @@ namespace KMHPatch.SubProtocol
                 KmhLog.Info($"Resetting KMH session state (was IsKmhServer={IsKmhServer}, v={ServerProtocolVersion})");
             }
             IsKmhServer = false;
+            UI.KmhDashboardState.ResetForNewConnection();   // new connection: capabilities are unknown until the next hello
             ServerProtocolVersion = 0;
             ServerBuild = "";
+            ServerName = "";
             KmhApiClient.Disconnect();   // drop the KMH API link too, if it was up
             KmhTransport.Status = KmhTransportStatus.Offline;
 
