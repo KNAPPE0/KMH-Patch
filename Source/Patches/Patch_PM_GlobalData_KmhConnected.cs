@@ -6,17 +6,8 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Patches
 {
-    // RWT sends PKT_ServerGlobalData immediately after a successful login, so this postfix is our cleanest "we are
-    // fully connected and ready" signal
-    //
-    // We intentionally don't hook earlier (e.g. login-packet receive) because global-data delivery is what unblocks
-    // BypassReadyPackets gating in RWT - before this fires, the client is connected but not fully synced
-    //
-    // What we do here:
-    //   1. Reset any stale KMH state from a previous session
-    //   2. Log the connection (with server endpoint for diagnostics)
-    //   3. Wait passively for the server to send kmh.hello; if it never does,
-    //      IsKmhServer stays false and we behave as a stock RWT client.
+    // RWT weirdness: global-data delivery (not login-packet receive) is the point the client is fully synced, so this
+    // is our cleanest "connected and ready" signal - reset stale KMH state here and wait passively for kmh.hello.
     [HarmonyPatch(typeof(PM_GlobalData), nameof(PM_GlobalData.Receive))]
     internal static class Patch_PM_GlobalData_KmhConnected
     {
@@ -34,19 +25,8 @@ namespace KMHPatch.Patches
                 $"(If this is a stock RWT server, no handshake will arrive and KMH features stay hidden.)"
             );
 
-            // If opted in, dial the KMH API now - independent of the chat handshake - so KMH can come up even where RWT
-            // chat is unavailable. The server authenticates this by matching the username to its live RWT session+IP.
-            try
-            {
-                if (KMHPatchMod.Settings?.UseKmhApiTransport == true)
-                {
-                    string host = string.IsNullOrEmpty(KMHPatchMod.Settings.KmhApiHostOverride)
-                        ? Network.Ip : KMHPatchMod.Settings.KmhApiHostOverride;
-                    KmhApiClient.Connect(host, KMHPatchMod.Settings.KmhApiPort, SessionHandler.Username, "",
-                        KMHPatchMod.Settings.AllowChatTransportFallback);
-                }
-            }
-            catch (System.Exception ex) { KmhLog.Warn($"KMH API: connect on RWT-connect threw: {ex.Message}"); }
+            // Don't dial the KMH API here - wait for kmh.hello, which carries THIS server's advertised api_port + token.
+            // Dialing early would pin KmhApiClient.Active to the wrong port when one host runs several KMH servers.
         }
     }
 }

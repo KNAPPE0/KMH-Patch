@@ -13,7 +13,8 @@ namespace KMHPatch.Features.WantBoard
 
         public static bool RequestSnapshot() => KmhDispatcher.Send(KmhProtocol.Kind.WantRequest, null);
 
-        public static bool TryPost(string itemDefName, int qty, int unitPriceSilver, int hours, string visibility)
+        public static bool TryPost(string itemDefName, int qty, int unitPriceSilver, int hours, string visibility,
+            int minQuality = 0, string requiredStuff = "", bool allowComplex = false, bool allowTainted = false, bool allowDamaged = false)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantPost, new
             {
@@ -22,6 +23,11 @@ namespace KMHPatch.Features.WantBoard
                 unit_price_silver = unitPriceSilver,
                 hours,
                 visibility        = visibility ?? "public",
+                min_quality       = minQuality,
+                required_stuff    = requiredStuff ?? "",
+                allow_complex     = allowComplex,
+                allow_tainted     = allowTainted,
+                allow_damaged     = allowDamaged,
             });
             if (sent) KmhNotifications.Neutral("Posting want…");
             else      KmhNotifications.Rejected("Not connected to a KMH server");

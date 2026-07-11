@@ -162,9 +162,10 @@ namespace KMHPatch.Features.WantBoard
 
             const float iconSize = 22f;
             ItemLabels.DrawIcon(new Rect(inner.x, inner.y, iconSize, iconSize), w.ItemDefName);
+            UI.KmhItemInfo.ButtonForDef(inner.x + iconSize + 4f, inner.y, w.ItemDefName);
 
             // Line 1: item + qty progress + buyer
-            DialogLayout.LabelTrunc(new Rect(inner.x + iconSize + 6f, inner.y, textW - iconSize - 6f, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x + iconSize + UI.KmhItemInfo.Size + 8f, inner.y, textW - iconSize - UI.KmhItemInfo.Size - 8f, 18f),
                 $"<b>#{w.Id}  {label}</b>  <color=grey>·</color> {w.QtyFilled}/{w.QtyWanted} filled  <color=grey>· wanted by</color> {Buyer(w.BuyerUsername)}");
 
             // Line 2: unit price + total escrow
@@ -173,10 +174,10 @@ namespace KMHPatch.Features.WantBoard
                 $"Pays <color=yellow>{SilverFmt.Format(w.UnitPriceSilver)}</color> each  <color=grey>· {SilverFmt.Format(w.EscrowRemaining)} left in escrow</color>");
             GUI.color = old;
 
-            // Line 3: time left
+            // Line 3: time left + accepted-state constraints
             GUI.color = DialogLayout.MutedColor;
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 38f, textW, 18f),
-                $"ends in {DialogLayout.TimeLeft(w.EndsUtcTicks, now)}");
+                $"ends in {DialogLayout.TimeLeft(w.EndsUtcTicks, now)}{Accepts(w)}");
             GUI.color = old;
 
             // Actions
@@ -199,6 +200,10 @@ namespace KMHPatch.Features.WantBoard
             int have = 0;
             Treasury.Dto.TreasurySnapshot snap = Treasury.TreasuryCache.Snapshot;
             if (snap?.Items != null) snap.Items.TryGetValue(w.ItemDefName, out have);
+            // Complex wants match full-state gear held in the payload store; count those units too (server re-validates).
+            if (w.AllowComplex && snap?.ItemPayloads != null)
+                foreach (Items.KmhThingPayload p in snap.ItemPayloads)
+                    if (WantMatches(w, p)) have += Math.Max(0, p.StackCount);
             if (have <= 0)
             {
                 Notifications.KmhNotifications.Rejected($"Deposit {ItemLabels.ResolveLabel(w.ItemDefName)} to your treasury first to fulfill this want.");
@@ -216,5 +221,30 @@ namespace KMHPatch.Features.WantBoard
 
         private static string Buyer(string u)
             => LinkedAccountsCache.Format(u);   // Format() already renders empty as "(unknown)"
+
+        // Badge showing what non-clean states this want will accept; nothing shown for the safe default (clean simple only).
+        private static string Accepts(WantDto w)
+        {
+            List<string> bits = new List<string>();
+            if (w.AllowComplex) bits.Add("used gear");
+            if (w.AllowDamaged) bits.Add("damaged");
+            if (w.AllowTainted) bits.Add("tainted");
+            if (w.MinQuality > 0) bits.Add("q" + w.MinQuality + "+");
+            if (!string.IsNullOrEmpty(w.RequiredStuff)) bits.Add(w.RequiredStuff);
+            return bits.Count > 0 ? "  <color=grey>· accepts " + string.Join(", ", bits) + "</color>" : "";
+        }
+
+        // Client-side preview mirror of TreasuryStore.TryWithdrawMatchingPayloads: does this held payload satisfy the want?
+        // Server re-validates on fulfill; this only sizes the seller's "you have N" cap for complex wants.
+        private static bool WantMatches(WantDto w, Items.KmhThingPayload p)
+        {
+            if (p == null) return false;
+            if (!Eq(p.DefName, w.ItemDefName)) return false;
+            if (!string.IsNullOrEmpty(w.RequiredStuff) && !Eq(p.StuffDefName ?? "", w.RequiredStuff)) return false;
+            if (w.MinQuality > 0 && p.Quality < w.MinQuality) return false;
+            if (!w.AllowTainted && p.Tainted) return false;
+            if (!w.AllowDamaged && p.HitPoints >= 0 && p.MaxHitPoints > 0 && p.HitPoints < p.MaxHitPoints) return false;
+            return true;
+        }
     }
 }

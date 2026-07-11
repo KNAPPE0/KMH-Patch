@@ -9,6 +9,10 @@ namespace KMHPatch.Patches
     internal static class Patch_Root_Update_KmhPump
     {
         [HarmonyPostfix]
-        private static void Postfix() => KmhMainThread.Pump();
+        private static void Postfix()
+        {
+            KmhMainThread.Pump();
+            KmhDebugUplink.Pump();
+        }
     }
 }

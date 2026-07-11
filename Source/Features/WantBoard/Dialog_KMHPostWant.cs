@@ -9,7 +9,7 @@ namespace KMHPatch.Features.WantBoard
     // visibility. The full ask (price * qty) is escrowed from your treasury server-side, so you can only post wants you can pay for.
     public class Dialog_KMHPostWant : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(580f, 400f);
+        public override Vector2 InitialSize => new Vector2(580f, 500f);
 
         private readonly Dictionary<string, int> _catalog;
 
@@ -19,6 +19,9 @@ namespace KMHPatch.Features.WantBoard
         private string _unitPrice = "";
         private string _hours     = "72";
         private string _visibility = "public";
+        private bool   _allowComplex = false; // accept full-state gear (weapons/apparel), else clean simple items only
+        private bool   _allowDamaged = false;
+        private bool   _allowTainted = false;
 
         private Dialog_KMHPostWant(Dictionary<string, int> catalog)
         {
@@ -30,7 +33,7 @@ namespace KMHPatch.Features.WantBoard
         }
 
         public static void Open()
-            => Find.WindowStack.Add(new Dialog_KMHPostWant(ItemDefBrowser.AllPickableItems()));
+            => Find.WindowStack.Add(new Dialog_KMHPostWant(KmhItemPickerService.AllPickableItems()));
 
         protected override void DrawContents(Rect rect)
         {
@@ -45,7 +48,7 @@ namespace KMHPatch.Features.WantBoard
                 : _itemLabel;
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                Find.WindowStack.Add(new Dialog_KMHItemPicker(
+                KmhItemPickerService.Open(
                     title:           "Pick item to buy",
                     pickActionLabel: "Select",
                     source:          _catalog,
@@ -54,7 +57,8 @@ namespace KMHPatch.Features.WantBoard
                         _itemDef   = key;
                         _itemLabel = ItemLabels.ResolveLabel(key);
                         if (qty > 0) _qty = qty.ToString();
-                    }));
+                    },
+                    closeOnPick:     true);
             }
             y += 30f;
 
@@ -71,6 +75,19 @@ namespace KMHPatch.Features.WantBoard
                     new FloatMenuOption("Guild + allies only",  () => _visibility = "guild_only"),
                 }));
             y += 34f;
+
+            // Match constraints. Off by default = clean simple items only, so a buyer never gets handed junk gear.
+            Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 24f), "Accept used gear (weapons/apparel, full state)", ref _allowComplex);
+            y += 26f;
+            if (_allowComplex)
+            {
+                Widgets.CheckboxLabeled(new Rect(24f, y, rect.width - 24f, 24f), "  ...even if damaged", ref _allowDamaged);
+                y += 26f;
+                Widgets.CheckboxLabeled(new Rect(24f, y, rect.width - 24f, 24f), "  ...even if tainted (worn by the dead)", ref _allowTainted);
+                y += 26f;
+            }
+            else { _allowDamaged = false; _allowTainted = false; }
+            y += 6f;
 
             // Live total so the buyer sees what will be escrowed.
             if (int.TryParse(T(_qty), out int q) && q > 0 && int.TryParse(T(_unitPrice), out int p) && p > 0)
@@ -102,7 +119,8 @@ namespace KMHPatch.Features.WantBoard
             if (!int.TryParse(T(_unitPrice), out int price) || price <= 0) { Reject("Price per unit: positive whole number"); return; }
             if (!int.TryParse(T(_hours), out int hours) || hours <= 0) { Reject("Duration: positive whole number of hours"); return; }
 
-            if (WantHandler.TryPost(_itemDef, qty, price, hours, _visibility))
+            if (WantHandler.TryPost(_itemDef, qty, price, hours, _visibility,
+                    minQuality: 0, requiredStuff: "", allowComplex: _allowComplex, allowTainted: _allowTainted, allowDamaged: _allowDamaged))
                 Close();
         }
 

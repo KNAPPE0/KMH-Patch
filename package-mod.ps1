@@ -75,10 +75,44 @@ if (-not (Test-Path $releases)) {
 Write-Host "[mod] Building KMH Patch v${version}:"
 Write-Host "      $project"
 
-& dotnet build $project -c Release | Out-Host
+Write-Host "[mod] Building loader + SDK..."
+& dotnet build (Join-Path $PSScriptRoot "Source\Loader\KMHPatchLoader.csproj") -c Release | Out-Host
 if ($LASTEXITCODE -ne 0) {
-    throw "Build failed with exit code $LASTEXITCODE."
+    throw "Loader build failed with exit code $LASTEXITCODE."
 }
+
+& dotnet build (Join-Path $PSScriptRoot "Source\KMH.Sdk.Client\KMH.Sdk.Client.csproj") -c Release | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "Client SDK build failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "[mod] Building KMH Patch payload: Old/GameClient..."
+& dotnet build $project -c Release -p:RwtFlavor=Old | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "Old/GameClient build failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "[mod] Building KMH Patch payload: New/RTClient..."
+& dotnet build $project -c Release -p:RwtFlavor=New | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "New/RTClient build failed with exit code $LASTEXITCODE."
+}
+
+$requiredBuilt = @(
+    (Join-Path $PSScriptRoot "1.6\Assemblies\KMHPatch.dll"),
+    (Join-Path $PSScriptRoot "1.6\Assemblies\KMH.Sdk.Client.dll"),
+    (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.GameClient.dll"),
+    (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.RTClient.dll")
+)
+
+foreach ($built in $requiredBuilt) {
+    if (-not (Test-Path $built)) {
+        throw "Required build output missing: $built"
+    }
+}
+
+Write-Host "[mod] Build outputs:" -ForegroundColor Green
+Get-Item $requiredBuilt | Select-Object FullName, LastWriteTime, Length | Format-Table -AutoSize
 
 Remove-IfExists $Stage
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null

@@ -13,250 +13,294 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Read-only KMH dashboard for the main tab. Shows cached server/player stats at a glance without making network calls.
+    // Registry-driven KMH dashboard. Every enabled feature has a ROW that is ALWAYS rendered (loading/empty/data/
+    // disabled/stale) - the row exists first, snapshots only update its text. A feature can never go missing because
+    // its snapshot arrived late or not at all (the old snapshot-driven build dropped rows with no cached data).
     internal static class KMHDashboard
     {
         private static bool _buildErrorLogged;   // one-shot so a recurring section failure can't flood the log
 
-        // Draw labels and values as one two-column block so everything lines up cleanly.
-        public static void Draw(Listing_Standard listing, Rect parentRect)
+        private const string DisabledText = "<color=grey>disabled by server</color>";
+        private const string LoadingText  = "<color=grey>loading…</color>";
+        private static bool On(string feature) => Features.KmhFeatures.IsEnabled(feature);
+        private static string Me() => SessionHandler.Username ?? "";
+
+        // A dashboard row. Summary returns the current text (it decides loading/empty/data/stale). The server-disabled
+        // state is handled centrally from Feature. Visible is an extra gate (e.g. Transport needs the local setting).
+        private readonly struct Row
         {
-            string me = SessionHandler.Username ?? "";
-
-            // Build the dashboard lines first, skipping empty cache data so first-connect stays clean. The whole build
-            // is guarded: if any one section throws on odd data (a freshly-fired event/quest, a partial cache), we log
-            // once and still render the lines gathered so far - a bad section can never blank the dashboard or the tab.
-            List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
-            try
-            {
-
-            // Only when the player opted into the API - default chat players don't need a "fallback" label.
-            if (KMHPatchMod.Settings?.UseKmhApiTransport == true)
-            {
-                string c;
-                switch (SubProtocol.KmhTransport.Status)
-                {
-                    case SubProtocol.KmhTransportStatus.ApiConnected:    c = "#7CD37C"; break;
-                    case SubProtocol.KmhTransportStatus.ApiConnecting:   c = "#E2C16B"; break;
-                    case SubProtocol.KmhTransportStatus.ChatFallback:    c = "#E2C16B"; break;
-                    case SubProtocol.KmhTransportStatus.VersionMismatch:
-                    case SubProtocol.KmhTransportStatus.AuthFailed:      c = "#D37C7C"; break;
-                    default:                                             c = "grey";    break;
-                }
-                lines.Add(("Transport", $"<color={c}>{SubProtocol.KmhTransport.StatusLabel}</color>", Color.white));
-            }
-
-            // Version mismatch - persistent, so a missed connect-flash isn't the only notice.
-            if (SubProtocol.KmhDispatcher.IsKmhServer)
-            {
-                string sb = SubProtocol.KmhDispatcher.ServerBuild;
-                if (string.IsNullOrEmpty(sb))
-                    lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white));
-                else if (sb != SubProtocol.KmhProtocol.BuildVersion)
-                    lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white));
-            }
-
-            // Treasury
-            if (TreasuryCache.HasSnapshot)
-            {
-                var t = TreasuryCache.Snapshot;
-                string ownerLabel = t.IsGuildOwned ? $"guild · {t.OwnerKey}" : "personal vault";
-                lines.Add(("Treasury",
-                           $"<b>{t.SilverBalance:N0}s</b>  <color=grey>({ownerLabel})</color>",
-                           Color.white));
-            }
-            else
-            {
-                lines.Add(("Treasury", "<color=grey>(loading…)</color>", Color.white));
-            }
-
-            // Guild
-            if (GuildCache.HasSnapshot && GuildCache.Guild != null && !string.IsNullOrEmpty(GuildCache.Guild.Name))
-            {
-                string rank = ResolveMyRank(me);
-                lines.Add(("Guild",
-                           string.IsNullOrEmpty(rank)
-                               ? $"<b>{GuildCache.Guild.Name}</b>"
-                               : $"<b>{GuildCache.Guild.Name}</b>  <color=grey>({rank})</color>",
-                           Color.white));
-            }
-            else
-            {
-                lines.Add(("Guild",
-                           "<color=grey>none - create or join one in the Guild Hall</color>",
-                           Color.white));
-            }
-
-            // Quest counts stay visible so the dashboard height doesn't jump while caches load.
-            {
-                string text;
-                if (!QuestCache.HasSnapshot)
-                {
-                    text = "<color=grey>(loading…)</color>";
-                }
-                else
-                {
-                    int openOnBoard   = 0;
-                    int myInFlight    = 0;   // I claimed it, not yet submitted/completed
-                    int myPostedAlive = 0;   // I posted it, still in play
-                    if (QuestCache.Snapshot?.Quests != null)
-                    {
-                        foreach (QuestEntry q in QuestCache.Snapshot.Quests)
-                        {
-                            if (q == null) continue;
-                            if (q.State == QuestEntry.StateOpen) openOnBoard++;
-                            if (!string.IsNullOrEmpty(me))
-                            {
-                                if (string.Equals(q.ClaimedByUsername, me, StringComparison.OrdinalIgnoreCase)
-                                    && (q.State == QuestEntry.StateClaimed
-                                     || q.State == QuestEntry.StateSubmitted))
-                                    myInFlight++;
-                                if (string.Equals(q.PosterUsername, me, StringComparison.OrdinalIgnoreCase)
-                                    && (q.State == QuestEntry.StateOpen
-                                     || q.State == QuestEntry.StateClaimed
-                                     || q.State == QuestEntry.StateSubmitted))
-                                    myPostedAlive++;
-                            }
-                        }
-                    }
-                    text = $"<b>{openOnBoard}</b> open · <b>{myInFlight}</b> mine in flight · <b>{myPostedAlive}</b> posted by me";
-                }
-                lines.Add(("Quests", text, Color.white));
-            }
-
-            // Marketplace counts stay visible: your listings and their total value.
-            {
-                string text;
-                if (!MarketplaceCache.HasSnapshot)
-                {
-                    text = "<color=grey>(loading…)</color>";
-                }
-                else
-                {
-                    int  myCount = 0;
-                    long myTotal = 0;
-                    if (MarketplaceCache.Snapshot?.Listings != null && !string.IsNullOrEmpty(me))
-                    {
-                        foreach (MarketplaceListing l in MarketplaceCache.Snapshot.Listings)
-                        {
-                            if (l == null) continue;
-                            if (string.Equals(l.SellerUsername, me, StringComparison.OrdinalIgnoreCase))
-                            {
-                                myCount += 1;
-                                myTotal += (long)l.RemainingQty * l.UnitPriceSilver;
-                            }
-                        }
-                    }
-                    text = myCount == 0
-                        ? "<color=grey>0 listings - post one from a selected caravan</color>"
-                        : $"<b>{myCount}</b> active · escrow value <b>{myTotal:N0}s</b>";
-                }
-                lines.Add(("Marketplace", text, Color.white));
-            }
-
-            // Discord link status, always shown.
-            {
-                string text;
-                if (!LinkedAccountsCache.HasSnapshot || string.IsNullOrEmpty(me))
-                    text = "<color=grey>(loading…)</color>";
-                else if (LinkedAccountsCache.IsLinked(me))
-                    text = $"linked to <b>{LinkedAccountsCache.DiscordNameFor(me) ?? "(unknown)"}</b>";
-                else
-                    text = "<color=grey>not linked - use the Link Discord button</color>";
-                lines.Add(("Discord", text, Color.white));
-            }
-
-            // Show world events only while one is active, keeping the dashboard quiet otherwise.
-            if (Features.World.WorldCache.HasEvents)
-            {
-                var ev = Features.World.WorldCache.Snapshot.Events;
-                string text = ev.Count == 1
-                    ? $"<b><color=#7CD37C>{ev[0].Title}</color></b>  <color=grey>{ev[0].Description}</color>"
-                    : $"<b><color=#7CD37C>{ev.Count} active</color></b>  <color=grey>{string.Join(", ", ev.ConvertAll(e => e.Title))}</color>";
-                lines.Add(("Events", text, Color.white));
-            }
-
-            // Show active global quests with live progress and reward.
-            if (Features.World.WorldCache.HasServerQuests)
-            {
-                var qs = Features.World.WorldCache.ActiveServerQuests();
-                string text;
-                if (qs.Count == 1)
-                {
-                    var q = qs[0];
-                    string reward = q.RewardPool > 0 ? $" · <b>{q.RewardPool:N0}s</b>" : "";
-                    text = $"<b><color=#E2C16B>{q.Title}</color></b>  <color=grey>{q.ProgressQty}/{q.GoalQty} {q.TargetDefName}{reward}</color>";
-                }
-                else
-                {
-                    text = $"<b><color=#E2C16B>{qs.Count} active</color></b>  <color=grey>{string.Join(", ", qs.ConvertAll(q => q.Title))}</color>";
-                }
-                lines.Add(("Global Quests", text, Color.white));
-            }
-
-            // Show live auctions only, with your own bids/listings called out.
-            if (Features.Auctions.AuctionCache.HasSnapshot
-                && Features.Auctions.AuctionCache.Snapshot.Auctions != null
-                && Features.Auctions.AuctionCache.Snapshot.Auctions.Count > 0)
-            {
-                var aucs = Features.Auctions.AuctionCache.Snapshot.Auctions;
-                int myLead = 0, myListed = 0;
-                if (!string.IsNullOrEmpty(me))
-                    foreach (var a in aucs)
-                    {
-                        if (a == null) continue;
-                        if (string.Equals(a.SellerUsername, me, System.StringComparison.OrdinalIgnoreCase)) myListed++;
-                        else if (string.Equals(a.HighBidder, me, System.StringComparison.OrdinalIgnoreCase)) myLead++;
-                    }
-                string mine = (myLead > 0 || myListed > 0)
-                    ? $"  <color=grey>· you: {(myLead > 0 ? $"leading {myLead}" : "")}{(myLead > 0 && myListed > 0 ? ", " : "")}{(myListed > 0 ? $"{myListed} listed" : "")}</color>"
-                    : "";
-                lines.Add(("Auctions", $"<b>{aucs.Count}</b> live{mine}", Color.white));
-            }
-
-            }
-            catch (Exception ex)
-            {
-                if (!_buildErrorLogged) { _buildErrorLogged = true; Diagnostics.KmhLog.Warn($"KMH dashboard section failed (rendering the rest): {ex}"); }
-            }
-
-            // Render as two columns with a fixed label width so everything lines up cleanly.
-            const float labelW    = 120f;
-            const float rowH      = 22f;
-            const float rowGap    = 2f;
-            const float panelPad  = 8f;
-            float       panelH    = panelPad * 2f + lines.Count * (rowH + rowGap);
-            Rect        panelRect = listing.GetRect(panelH);
-
-            Widgets.DrawMenuSection(panelRect);
-            float ly = panelRect.y + panelPad;
-            foreach (var (label, value, color) in lines)
-            {
-                Rect labelRect = new Rect(panelRect.x + panelPad, ly, labelW, rowH);
-                Rect valueRect = new Rect(panelRect.x + panelPad + labelW + 4f, ly,
-                                          panelRect.width - panelPad * 2f - labelW - 4f, rowH);
-                Color prev = GUI.color;
-                GUI.color = color;
-                DialogLayout.LabelTrunc(labelRect, $"<color=#9FB1C9>{label}</color>");
-                DialogLayout.LabelTrunc(valueRect, value);
-                GUI.color = prev;
-                ly += rowH + rowGap;
-            }
+            public readonly string Label;
+            public readonly string Feature;        // "" = always-on (no server toggle exists for it)
+            public readonly Func<string> Summary;
+            public readonly Func<bool> Visible;    // null = always visible
+            public Row(string label, string feature, Func<string> summary, Func<bool> visible = null)
+            { Label = label; Feature = feature; Summary = summary; Visible = visible; }
         }
 
-        // Find the caller's guild rank, or empty if this snapshot doesn't include them.
+        private static List<Row> _rows;
+
+        // Built once (the set of features is fixed for the mod). Order = display order.
+        private static List<Row> Rows()
+        {
+            if (_rows != null) return _rows;
+            _rows = new List<Row>
+            {
+                new Row("Transport",     "",            TransportSummary, () => KMHPatchMod.Settings?.UseKmhApiTransport == true),
+                new Row("Treasury",      "treasury",    TreasurySummary),
+                new Row("Guild",         "guilds",      GuildSummary),
+                new Row("Marketplace",   "marketplace", MarketplaceSummary),
+                new Row("Auctions",      "auctions",    AuctionsSummary),
+                new Row("Want Board",    "wantboard",   WantSummary),
+                new Row("Quests",        "quests",      QuestsSummary),
+                new Row("Sites",         "",            SitesSummary),
+                new Row("World Events",  "world",       WorldEventsSummary),
+                new Row("Global Quests", "world",       GlobalQuestsSummary),
+                new Row("Standings",     "standings",   StandingsSummary),
+                new Row("Enforcement",   "",            EnforcementSummary),
+                new Row("Discord",       "",            DiscordSummary),
+            };
+            if (Diagnostics.KmhLog.DebugEnabled)
+            {
+                Diagnostics.KmhLog.Debug($"KMH dashboard registry initialized with {_rows.Count} rows.");
+                foreach (Row r in _rows) Diagnostics.KmhLog.Debug($"  dashboard row: {r.Label}");
+            }
+            return _rows;
+        }
+
+        public static void Draw(Listing_Standard listing, Rect parentRect)
+        {
+            List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
+
+            // Persistent version-mismatch notice (kept above the feature rows).
+            try
+            {
+                if (SubProtocol.KmhDispatcher.IsKmhServer)
+                {
+                    string sb = SubProtocol.KmhDispatcher.ServerBuild;
+                    if (string.IsNullOrEmpty(sb))
+                        lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white));
+                    else if (sb != SubProtocol.KmhProtocol.BuildVersion)
+                        lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white));
+                }
+            }
+            catch (Exception ex) { LogSectionOnce("version", ex); }
+
+            // Every row is rendered - a per-row failure yields an "error" cell, never a missing row.
+            foreach (Row r in Rows())
+            {
+                try
+                {
+                    if (r.Visible != null && !r.Visible()) continue;
+                    string text = !string.IsNullOrEmpty(r.Feature) && !On(r.Feature) ? DisabledText : (r.Summary() ?? LoadingText);
+                    lines.Add((r.Label, text, Color.white));
+                }
+                catch (Exception ex) { LogSectionOnce(r.Label, ex); lines.Add((r.Label, "<color=#D37C7C>error - refresh</color>", Color.white)); }
+            }
+
+            // Render as two aligned columns. The loop restores GUI state so one bad row can't corrupt the panel/buttons.
+            // rowH must be >= Text.LineHeight (22) - LabelTrunc grows shorter rows to a full line, so 20/1 made
+            // neighboring rows overlap ("text bleeding"); the tab body scrolls now, so no need to squeeze.
+            const float labelW = 120f, rowH = 23f, rowGap = 2f, panelPad = 6f;
+            float panelH = panelPad * 2f + Math.Max(0, lines.Count) * (rowH + rowGap);
+            Rect panelRect = listing.GetRect(panelH);
+
+            GameFont prevFont = Text.Font; TextAnchor prevAnchor = Text.Anchor; Color prevColor = GUI.color;
+            try
+            {
+                Widgets.DrawMenuSection(panelRect);
+                float ly = panelRect.y + panelPad;
+                foreach (var (label, value, color) in lines)
+                {
+                    try
+                    {
+                        Rect labelRect = new Rect(panelRect.x + panelPad, ly, labelW, rowH);
+                        Rect valueRect = new Rect(panelRect.x + panelPad + labelW + 4f, ly, panelRect.width - panelPad * 2f - labelW - 4f, rowH);
+                        GUI.color = color;
+                        DialogLayout.LabelTrunc(labelRect, $"<color=#9FB1C9>{label ?? ""}</color>");
+                        DialogLayout.LabelTrunc(valueRect, value ?? "");
+                    }
+                    catch (Exception ex) { LogSectionOnce("row-render", ex); }
+                    ly += rowH + rowGap;
+                }
+            }
+            catch (Exception ex) { LogSectionOnce("panel-render", ex); }
+            finally { Text.Font = prevFont; Text.Anchor = prevAnchor; GUI.color = prevColor; }
+        }
+
+        // --- per-feature summary providers (each handles loading / empty / data; "" -> caller shows loading) ---
+
+        private static string TransportSummary()
+        {
+            string c;
+            switch (SubProtocol.KmhTransport.Status)
+            {
+                case SubProtocol.KmhTransportStatus.ApiConnected:  c = "#7CD37C"; break;
+                case SubProtocol.KmhTransportStatus.ApiConnecting: c = "#E2C16B"; break;
+                case SubProtocol.KmhTransportStatus.ChatFallback:  c = "#E2C16B"; break;
+                case SubProtocol.KmhTransportStatus.VersionMismatch:
+                case SubProtocol.KmhTransportStatus.AuthFailed:    c = "#D37C7C"; break;
+                default:                                           c = "grey";    break;
+            }
+            return $"<color={c}>{SubProtocol.KmhTransport.StatusLabel}</color>";
+        }
+
+        private static string TreasurySummary()
+        {
+            if (!TreasuryCache.HasSnapshot) return LoadingText;
+            var t = TreasuryCache.Snapshot;
+            string owner = t.IsGuildOwned ? $"guild · {t.OwnerKey}" : "personal vault";
+            return $"<b>{SilverFmt.Format(t.SilverBalance)}</b>  <color=grey>({owner})</color>";
+        }
+
+        private static string GuildSummary()
+        {
+            if (!GuildCache.HasSnapshot) return LoadingText;
+            if (GuildCache.Guild == null || string.IsNullOrEmpty(GuildCache.Guild.Name))
+                return "<color=grey>none - create or join one in the Guild Hall</color>";
+            string rank = ResolveMyRank(Me());
+            return string.IsNullOrEmpty(rank) ? $"<b>{GuildCache.Guild.Name}</b>" : $"<b>{GuildCache.Guild.Name}</b>  <color=grey>({rank})</color>";
+        }
+
+        private static string MarketplaceSummary()
+        {
+            if (!MarketplaceCache.HasSnapshot) return LoadingText;
+            string me = Me(); int mine = 0; long total = 0;
+            if (MarketplaceCache.Snapshot?.Listings != null && !string.IsNullOrEmpty(me))
+                foreach (MarketplaceListing l in MarketplaceCache.Snapshot.Listings)
+                    if (l != null && string.Equals(l.SellerUsername, me, StringComparison.OrdinalIgnoreCase)) { mine++; total += (long)l.RemainingQty * l.UnitPriceSilver; }
+            int open = MarketplaceCache.Snapshot?.Listings?.Count ?? 0;
+            return mine == 0 ? $"<color=grey>{open} listing(s) · you have 0</color>" : $"<b>{mine}</b> yours · escrow <b>{SilverFmt.Format(total)}</b> · {open} total";
+        }
+
+        private static string AuctionsSummary()
+        {
+            if (!Features.Auctions.AuctionCache.HasSnapshot) return LoadingText;
+            var aucs = Features.Auctions.AuctionCache.Snapshot?.Auctions;
+            int count = aucs?.Count ?? 0;
+            if (count == 0) return "<color=grey>0 open</color>";
+            string me = Me(); int lead = 0, listed = 0;
+            if (!string.IsNullOrEmpty(me))
+                foreach (var a in aucs)
+                {
+                    if (a == null) continue;
+                    if (string.Equals(a.SellerUsername, me, StringComparison.OrdinalIgnoreCase)) listed++;
+                    else if (string.Equals(a.HighBidder, me, StringComparison.OrdinalIgnoreCase)) lead++;
+                }
+            string you = (lead > 0 || listed > 0) ? $"  <color=grey>· you: {(lead > 0 ? $"leading {lead}" : "")}{(lead > 0 && listed > 0 ? ", " : "")}{(listed > 0 ? $"{listed} listed" : "")}</color>" : "";
+            return $"<b>{count}</b> live{you}";
+        }
+
+        private static string WantSummary()
+        {
+            if (!Features.WantBoard.WantCache.HasSnapshot) return LoadingText;
+            var wants = Features.WantBoard.WantCache.Snapshot?.Wants;
+            int count = wants?.Count ?? 0;
+            if (count == 0) return "<color=grey>0 open</color>";
+            string me = Me(); int mine = 0;
+            if (!string.IsNullOrEmpty(me)) foreach (var w in wants) if (w != null && string.Equals(w.BuyerUsername, me, StringComparison.OrdinalIgnoreCase)) mine++;
+            return mine == 0 ? $"<b>{count}</b> open" : $"<b>{count}</b> open  <color=grey>· {mine} yours</color>";
+        }
+
+        private static string QuestsSummary()
+        {
+            if (!QuestCache.HasSnapshot) return LoadingText;
+            string me = Me(); int open = 0, inFlight = 0, posted = 0;
+            if (QuestCache.Snapshot?.Quests != null)
+                foreach (QuestEntry q in QuestCache.Snapshot.Quests)
+                {
+                    if (q == null) continue;
+                    if (q.State == QuestEntry.StateOpen) open++;
+                    if (!string.IsNullOrEmpty(me))
+                    {
+                        if (string.Equals(q.ClaimedByUsername, me, StringComparison.OrdinalIgnoreCase) && (q.State == QuestEntry.StateClaimed || q.State == QuestEntry.StateSubmitted)) inFlight++;
+                        if (string.Equals(q.PosterUsername, me, StringComparison.OrdinalIgnoreCase) && (q.State == QuestEntry.StateOpen || q.State == QuestEntry.StateClaimed || q.State == QuestEntry.StateSubmitted)) posted++;
+                    }
+                }
+            return $"<b>{open}</b> open · <b>{inFlight}</b> mine in flight · <b>{posted}</b> posted by me";
+        }
+
+        private static string SitesSummary()
+        {
+            if (!Features.Sites.SiteCache.HasSnapshot) return LoadingText;
+            var sites = Features.Sites.SiteCache.Snapshot?.Sites;
+            string me = Me(); int owned = 0, worked = 0;
+            if (sites != null)
+                foreach (var s in sites)
+                {
+                    if (s == null) continue;
+                    if (string.Equals(s.OwnerUsername, me, StringComparison.OrdinalIgnoreCase)) owned++;
+                    if (s.Workers != null && !string.IsNullOrEmpty(me) && s.Workers.Exists(w => string.Equals(w, me, StringComparison.OrdinalIgnoreCase))) worked++;
+                }
+            return $"<b>{owned}</b> owned · <b>{worked}</b> worked";
+        }
+
+        private static string WorldEventsSummary()
+        {
+            if (!Features.World.WorldCache.HasSnapshot) return LoadingText;
+            if (!Features.World.WorldCache.HasEvents) return "<color=grey>none active - waiting for next roll</color>";
+            var ev = Features.World.WorldCache.Snapshot.Events;
+            return ev.Count == 1
+                ? $"<b><color=#7CD37C>{ev[0].Title}</color></b>  <color=grey>{ev[0].Description}</color>"
+                : $"<b><color=#7CD37C>{ev.Count} active</color></b>  <color=grey>{string.Join(", ", ev.ConvertAll(e => e.Title))}</color>";
+        }
+
+        private static string GlobalQuestsSummary()
+        {
+            if (!Features.World.WorldCache.HasSnapshot) return LoadingText;
+            var qs = Features.World.WorldCache.ActiveServerQuests();
+            if (qs.Count == 0) return "<color=grey>0 active</color>";
+            if (qs.Count == 1)
+            {
+                var q = qs[0]; string me = Me();
+                string pool = q.RewardPool > 0 ? $" · Pool <b>{SilverFmt.Format(q.RewardPool)}</b>" : "";
+                string time = q.EndsUtcTicks > 0 ? $" · {DialogLayout.TimeLeft(q.EndsUtcTicks, DateTime.UtcNow.Ticks)}" : "";
+                int mine = (q.Contributors != null && !string.IsNullOrEmpty(me) && q.Contributors.TryGetValue(me, out int c)) ? c : 0;
+                string you = mine > 0 ? $"  <color=#79b8ff>you: {mine}</color>" : "";
+                return $"<b><color=#E2C16B>{q.Title}</color></b>  <color=grey>{q.ProgressQty}/{q.GoalQty} {q.TargetDefName}{pool}{time}</color>{you}";
+            }
+            return $"<b><color=#E2C16B>{qs.Count} active</color></b>  <color=grey>{string.Join(", ", qs.ConvertAll(q => q.Title))}</color>";
+        }
+
+        private static string StandingsSummary()
+        {
+            var e = Features.PlayerStats.PlayerStatsCache.Entries;
+            if (e == null) return LoadingText;
+            return e.Count == 0 ? "<color=grey>ready - no players ranked yet</color>" : $"<b>{e.Count}</b> player(s) ranked · open Server Standings";
+        }
+
+        private static string EnforcementSummary()
+        {
+            if (!Features.Enforcement.EnforcementCache.HasProfile && !Features.Enforcement.EnforcementCache.Enabled)
+                return "<color=grey>disabled by server</color>";
+            if (!Features.Enforcement.EnforcementCache.Enabled) return "<color=grey>off (profile present)</color>";
+            return Features.Enforcement.EnforcementCache.IsLockActive()
+                ? "<color=#E2C16B>active</color>"
+                : "<color=#7CD37C>unlocked (admin)</color>";
+        }
+
+        private static string DiscordSummary()
+        {
+            string me = Me();
+            if (!LinkedAccountsCache.HasSnapshot || string.IsNullOrEmpty(me)) return LoadingText;
+            return LinkedAccountsCache.IsLinked(me)
+                ? $"linked to <b>{LinkedAccountsCache.DiscordNameFor(me) ?? "(unknown)"}</b>"
+                : "<color=grey>not linked - use the Link Discord button</color>";
+        }
+
+        private static void LogSectionOnce(string section, Exception ex)
+        {
+            if (_buildErrorLogged) return;
+            _buildErrorLogged = true;
+            Diagnostics.KmhLog.Warn($"KMH dashboard '{section}' row failed (rest still renders): {ex.Message}");
+        }
+
         private static string ResolveMyRank(string me)
         {
             if (string.IsNullOrEmpty(me)) return "";
             var g = GuildCache.Guild;
             if (g?.Members == null) return "";
             foreach (var m in g.Members)
-            {
-                if (m != null && string.Equals(m.Username, me, StringComparison.OrdinalIgnoreCase))
-                {
-                    return m.Rank ?? "";
-                }
-            }
+                if (m != null && string.Equals(m.Username, me, StringComparison.OrdinalIgnoreCase)) return m.Rank ?? "";
             return "";
         }
     }

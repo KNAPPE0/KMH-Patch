@@ -12,11 +12,7 @@ using Verse;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // Marketplace browse: 1040x620 with a stats header and per-listing rows. Buy… and Cancel actions are wired
-    // (visible by ownership: your own listing = Cancel, others = Buy…). Toolbar has the Post listing… composer
-    // opener and Refresh.
-    //
-    // Default sort: ListedUtcTicks desc (newest first).
+    // Marketplace browse: per-listing rows with ownership-gated Buy…/Cancel, newest-first.
     public class Dialog_KMHMarketplace : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(1040f, 620f);
@@ -118,9 +114,9 @@ namespace KMHPatch.Features.Marketplace
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                $"House pool: {s.HouseSilverPool} silver  |  " +
+                $"House pool: {SilverFmt.Format(s.HouseSilverPool)}  |  " +
                 $"Lifetime trades: {s.LifetimeTradesCompleted}  |  " +
-                $"Lifetime silver traded: {s.LifetimeSilverTraded}");
+                $"Lifetime silver traded: {SilverFmt.Format(s.LifetimeSilverTraded)}");
             GUI.color = oldCol;
             y += 24f;
 
@@ -309,21 +305,24 @@ namespace KMHPatch.Features.Marketplace
                     if (!string.IsNullOrEmpty(demandTip)) TooltipHandler.TipRegion(row, demandTip);
                 }
 
-                // Icon + label in the Item column. Icon reserved as a 22px square; rest of the column is the
-                // (possibly stuff+quality prefixed) label
+                // Icon + info card + label in the Item column. Icon reserved as a 22px square; rest of the column is
+                // the (possibly stuff+quality prefixed) label
                 const float iconSize = 22f;
                 ItemLabels.DrawIcon(new Rect(cols[0] + 2f, ly + 1f, iconSize, iconSize), r.ItemDefName);
+                UI.KmhItemInfo.ButtonForDef(cols[0] + iconSize + 4f, ly + 2f, r.ItemDefName, r.StuffDefName);
 
                 string itemLabel = FormatItemName(r) + MarketDemand.Arrow(r.ItemDefName);
                 if (r.IsAutoListing) itemLabel = $"<color=#9090ff>[auto]</color> {itemLabel}";
-                DialogLayout.LabelTrunc(new Rect(cols[0] + iconSize + 6f, ly + 2f, cols[1] - cols[0] - iconSize - 8f, rowH - 4f), itemLabel);
+                if (!string.IsNullOrEmpty(r.StateNote)) itemLabel += $" <color=grey>({r.StateNote})</color>";   // full-state note (tainted/damaged/legacy)
+                DialogLayout.LabelTrunc(new Rect(cols[0] + iconSize + UI.KmhItemInfo.Size + 8f, ly + 2f,
+                    cols[1] - cols[0] - iconSize - UI.KmhItemInfo.Size - 10f, rowH - 4f), itemLabel);
 
                 DialogLayout.DrawCenteredLabel(new Rect(cols[1], ly + 2f, cols[2] - cols[1], rowH - 4f),
                     $"{r.RemainingQty}<color=grey>/{r.OriginalQty}</color>");
                 DialogLayout.DrawCenteredLabel(new Rect(cols[2], ly + 2f, cols[3] - cols[2], rowH - 4f),
                     $"{SilverFmt.Format(r.UnitPriceSilver)}");
                 DialogLayout.DrawCenteredLabel(new Rect(cols[3], ly + 2f, cols[4] - cols[3], rowH - 4f),
-                    $"<b>{r.TotalAskingSilver(r.RemainingQty)}s</b>");
+                    $"<b>{SilverFmt.Format(r.TotalAskingSilver(r.RemainingQty))}</b>");
                 DialogLayout.LabelTrunc(new Rect(cols[4] + 4f, ly + 2f, cols[5] - cols[4] - 4f, rowH - 4f),
                     string.IsNullOrEmpty(r.SellerUsername) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(r.SellerUsername));
                 DialogLayout.DrawCenteredLabel(
@@ -391,30 +390,24 @@ namespace KMHPatch.Features.Marketplace
               { "Resources", "Manufactured", "Foods", "Drugs", "Medicine",
                 "Weapons", "Apparel", "Plants", "BodyParts" };
 
-        private static bool MatchesCategory(string defName, string category)
+        private static bool MatchesCategory(string key, string category)
         {
-            if (string.IsNullOrEmpty(defName) || string.IsNullOrEmpty(category)) return true;
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(category) || string.Equals(category, "All", StringComparison.OrdinalIgnoreCase)) return true;
+            ItemKeys.Split(key, out string defName, out _, out _);   // composed def|stuff|quality -> base def
             ThingDef td;
             try { td = DefDatabase<ThingDef>.GetNamedSilentFail(defName); }
-            catch { return false; }
-            if (td?.thingCategories == null) return string.Equals(category, "Other", StringComparison.OrdinalIgnoreCase);
+            catch { td = null; }
+            bool other = string.Equals(category, "Other", StringComparison.OrdinalIgnoreCase);
+            if (td?.thingCategories == null || td.thingCategories.Count == 0) return other;
 
-            if (string.Equals(category, "Other", StringComparison.OrdinalIgnoreCase))
-            {
-                // 'Other' matches when the def belongs to no known category.
-                for (int i = 0; i < td.thingCategories.Count; i++)
+            // Walk each direct category's ancestry so a top-level filter (Weapons) matches subcategory items (WeaponsMelee).
+            foreach (ThingCategoryDef c in td.thingCategories)
+                for (ThingCategoryDef cur = c; cur != null; cur = cur.parent)
                 {
-                    if (KnownCategoryDefs.Contains(td.thingCategories[i].defName)) return false;
+                    if (!other && string.Equals(cur.defName, category, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (other && KnownCategoryDefs.Contains(cur.defName)) return false;
                 }
-                return true;
-            }
-
-            for (int i = 0; i < td.thingCategories.Count; i++)
-            {
-                if (string.Equals(td.thingCategories[i].defName, category, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-            return false;
+            return other;
         }
 
         // Display name for a listing. Resolves defNames -> human labels via DefDatabase ("plasteel knife" for

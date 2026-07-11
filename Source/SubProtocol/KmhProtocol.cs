@@ -1,20 +1,21 @@
 namespace KMHPatch.SubProtocol
 {
-    // Constants for the KMH sub-protocol that rides on top of RWT's chat packet.
-    //
-    // The ​ (zero-width space) prefix makes the system usernames collision-proof against any real player name - RWT
-    // lets players pick usernames freely, but no legitimate username can start with a non-printable Unicode control
-    // character
+    // KMH sub-protocol constants (rides on RWT's chat packet). The zero-width-space prefix on system usernames is
+    // collision-proof: no legitimate player name can start with a non-printable control character.
     internal static class KmhProtocol
     {
         // Bump when the wire format changes incompatibly. Server announces its supported version in kmh.hello;
-        // clients refuse to send if mismatched
-        public const int CurrentVersion = 1;
+        // clients refuse to send if mismatched. Bumped to 2 for v1.2.0 (deposit semantics changed - gate old clients).
+        public const int CurrentVersion = 2;
 
         // Human-readable release version, carried in kmh.hello purely so each side can DETECT a version gap and
         // nudge the player. It never gates the connection (that's CurrentVersion's job) and stays additive: a
         // pre-1.1.0 server omits it, so an empty value received here reliably means "older server".
-        public const string BuildVersion = "1.1.1";
+        public const string BuildVersion = "1.2.0";
+
+        // Short build tag bumped each dev pass so a running player can confirm WHICH client build is loaded (a stale
+        // installed DLL is the #1 "my fix isn't showing" cause). Shown in the KMH tab + Guild Hall title + logged on load.
+        public const string UiBuildTag = "rel-129";
 
         // Identifiers stamped into PKT_Chat.Username. The chat handler intercept matches on these to recognize KMH
         // protocol traffic
@@ -63,6 +64,10 @@ namespace KMHPatch.SubProtocol
             public const string TreasuryDepositItem    = "kmh.treasury.deposit_item";     // client -> server
             public const string TreasuryWithdrawItem   = "kmh.treasury.withdraw_item";    // client -> server
             public const string TreasuryGrant          = "kmh.treasury.grant";           // server -> client (materialize a confirmed withdrawal into the colony)
+            public const string TreasuryDepositConfirm  = "kmh.treasury.deposit_confirm";   // client -> server (these deposit txns are now durably saved locally)
+            public const string TreasuryDepositReconcile= "kmh.treasury.deposit_reconcile"; // client -> server (full set of durably-saved deposit txns, sent on connect)
+            public const string TreasuryDepositPreflight= "kmh.treasury.deposit_preflight"; // client -> server (approve BEFORE removing local goods)
+            public const string TreasuryDepositApproval = "kmh.treasury.deposit_approval";  // server -> client (approve/deny + short-lived token)
 
             // Marketplace - global open-listings list.
             public const string MarketplaceRequest  = "kmh.marketplace.request";    // client -> server
@@ -109,6 +114,10 @@ namespace KMHPatch.SubProtocol
             public const string GuildBuyPerk        = "kmh.guild.buy_perk";         // client -> server
             // MOTD. Carries { motd } (empty string clears). Admin-only.
             public const string GuildSetMotd        = "kmh.guild.set_motd";         // client -> server
+            public const string GuildLeave          = "kmh.guild.leave";            // client -> server
+            public const string GuildDonate         = "kmh.guild.donate";           // client -> server ({ amount })
+            public const string GuildWithdraw       = "kmh.guild.withdraw";         // client -> server ({ amount }) guild vault -> personal, rank-capped
+            public const string GuildTransferOwner  = "kmh.guild.transfer_owner";   // client -> server ({ username }) Owner only
             // Alliance / hostility. Each carries { other_guild }. Server validates rank (admin) + relationship
             // state and rebroadcasts. ProposeAlliance caller -> other: None -> AlliedRequested AcceptAlliance
             // caller -> other: AlliedRequested -> Allied BreakAlliance caller -> other: Allied -> None
@@ -124,9 +133,14 @@ namespace KMHPatch.SubProtocol
             // Invite a player (admin/mod) { username }; toggle open-join (admin) { open }; join an open or invited
             // guild { guild }
             public const string GuildInvite          = "kmh.guild.invite";           // client -> server
+            public const string GuildDeclineInvite   = "kmh.guild.decline_invite";   // client -> server (invitee turns an invite down)
+            public const string GuildInvitablesRequest  = "kmh.guild.invitables.request"; // client -> server (known guildless players for the invite picker)
+            public const string GuildInvitablesSnapshot = "kmh.guild.invitables.snapshot"; // server -> client
             public const string GuildSetOpenJoin     = "kmh.guild.set_open_join";    // client -> server
             public const string GuildJoin            = "kmh.guild.join";             // client -> server
             public const string GuildCreate          = "kmh.guild.create";           // client -> server
+            public const string GuildHallSet         = "kmh.guild.hall.set";         // client -> server
+            public const string GuildHallRemove      = "kmh.guild.hall.remove";      // client -> server
 
             // Linked accounts - in-game username -> Discord display name map. Server is expected to push the
             // snapshot after handshake and again on every link/unlink, so the client doesn't need to poll. Request
@@ -177,16 +191,21 @@ namespace KMHPatch.SubProtocol
             public const string SiteLeave           = "kmh.site.leave";             // client -> server
             public const string SiteSetDestination  = "kmh.site.set_destination";   // client -> server
             public const string SiteCancel          = "kmh.site.cancel";            // client -> server
+            public const string SiteCatalogRequest  = "kmh.site.catalog.request";   // client -> server (curated output picker)
+            public const string SiteCatalog         = "kmh.site.catalog";           // server -> client (classified allowed outputs)
 
-            // Item label catalog. Patch mod sends a defName -> label map at handshake completion so the server can
-            // resolve friendly names
-            // for Discord-side market commands (`!kmh-sell plasteel ...`)
-            // and show readable item labels in market browse output. Server accumulates the union across all
-            // reporting clients - players with different loaded mods contribute their slice
+            // Client -> server defName->label map at handshake; server accumulates the union so friendly names work in
+            // Discord commands/browse even for items its own (headless) build has no def for.
             public const string ItemLabels             = "kmh.item_labels";              // client -> server
             // defName -> BaseMarketValue (RimWorld's canonical prices). Separate envelope so it never bloats the
             // already near-cap labels push; lets the server value-scale quest rewards / pricing.
             public const string ItemValues             = "kmh.item_values";              // client -> server
+            // GameConditionDefs (defName -> label) from our game, incl. mods - feeds the server's discovered weather.
+            public const string ConditionDefs          = "kmh.condition_defs";           // client -> server
+
+            // Batched KMH log lines to the server's Debug/ folder. Sent when the player enables it in mod options,
+            // or automatically when the server asks (debug_uplink in the hello).
+            public const string DebugLog               = "kmh.debug.log";                // client -> server
 
             // Config enforcement. The server pushes the enforcement snapshot (on/off + admin-bypass + safe-mods
             // allowlist) on handshake and on change; the patch locks the Mod Options screen for non-admins

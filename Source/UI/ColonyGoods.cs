@@ -139,6 +139,109 @@ namespace KMHPatch.UI
             return remaining <= 0;
         }
 
+        // Item-loss guard: a payload's blob (and the whole txn) must fit the ~64KB router frame, else the message can't
+        // send AFTER goods are removed = loss. Checked BEFORE any destruction so an oversized item fails with nothing removed.
+        public const int MaxPayloadBytesPerItem        = 40_000;
+        public const int MaxPayloadBytesPerTransaction = 48_000;
+
+        // All-or-nothing complex-item capture. Splits the exact qty off the source (still recoverable), captures +
+        // validates EVERY piece (non-null, count == qty, within byte limits), and only then destroys them. If ANY
+        // capture fails or a payload is oversized, the split-off pieces are handed back (nothing is lost) and it
+        // returns false. This replaces the old path that destroyed items even when capture failed.
+        public static bool RemoveKeyCapturing(Caravan caravan, Map map, string key, int qty, out List<Items.KmhThingPayload> captured)
+        {
+            captured = new List<Items.KmhThingPayload>();
+            if (string.IsNullOrEmpty(key) || qty <= 0) return false;
+            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+
+            List<Thing> matches;
+            try
+            {
+                matches = caravan != null
+                    ? CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q)).ToList()
+                    : StoredOnMap(map, Def(defName)).Where(t => MatchesKey(t, defName, stuff, q)).ToList();
+            }
+            catch { return false; }
+
+            if (matches.Sum(t => t.stackCount) < qty) return false;
+
+            // take exactly qty. Whole stacks stay in place (still owned); partial takes are split off
+            // (detached) so they can be handed back on abort.
+            List<(Thing piece, bool split)> taken = new List<(Thing, bool)>();
+            int remaining = qty;
+            foreach (Thing t in matches)
+            {
+                if (remaining <= 0) break;
+                int take = Math.Min(t.stackCount, remaining);
+                remaining -= take;
+                if (take >= t.stackCount) taken.Add((t, false));
+                else                      taken.Add((t.SplitOff(take), true));
+            }
+
+            // capture + validate all before destroying anything.
+            List<Items.KmhThingPayload> caps = new List<Items.KmhThingPayload>();
+            long totalBytes = 0; bool ok = true; string failReason = null; int capturedCount = 0;
+            foreach ((Thing piece, bool _) in taken)
+            {
+                Items.KmhThingPayload p = null;
+                try { p = Items.KmhThingCapture.Capture(piece); }
+                catch (Exception ex) { failReason = ex.Message; }
+                if (p == null) { ok = false; failReason = failReason ?? "capture returned null"; break; }
+                int bytes = p.ScribeXml?.Length ?? 0;
+                if (bytes > MaxPayloadBytesPerItem) { ok = false; failReason = $"payload {bytes}B over per-item limit {MaxPayloadBytesPerItem}B"; break; }
+                totalBytes += bytes;
+                if (totalBytes > MaxPayloadBytesPerTransaction) { ok = false; failReason = $"payloads total over per-transaction limit {MaxPayloadBytesPerTransaction}B"; break; }
+                caps.Add(p); capturedCount += Math.Max(1, p.StackCount);
+            }
+            if (ok && capturedCount != qty) { ok = false; failReason = $"captured {capturedCount} != requested {qty}"; }
+
+            if (!ok)
+            {
+                foreach ((Thing piece, bool split) in taken) if (split) DeliverThing(piece);   // give the split pieces back
+                Diagnostics.KmhLog.Warn($"KMH capture ABORTED for {defName} x{qty} - {failReason}; items kept (nothing removed).");
+                captured = new List<Items.KmhThingPayload>();
+                return false;
+            }
+
+            // everything captured + validated -> now destroy.
+            foreach ((Thing piece, bool _) in taken) piece.Destroy(DestroyMode.Vanish);
+            captured = caps;
+            return true;
+        }
+
+        // Materialize restored payloads (withdraw/grant/rollback). Falls back to a legacy key spawn per payload if a
+        // payload can't rebuild, so nothing is silently lost.
+        public static void DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads)
+        {
+            if (payloads == null) return;
+            foreach (Items.KmhThingPayload p in payloads)
+            {
+                if (p == null) continue;
+                Thing t = null;
+                try { t = Items.KmhThingCapture.Restore(p); }
+                catch (Exception ex) { Diagnostics.KmhLog.Warn($"KMH restore threw for {p.DefName}: {ex.Message}"); }
+                if (t != null) DeliverThing(t);
+                else DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), Math.Max(1, p.StackCount));
+            }
+        }
+
+        // Deliver an already-built Thing to the selected caravan, else a drop pod to the best colony spot.
+        public static void DeliverThing(Thing t)
+        {
+            if (t == null) return;
+            try
+            {
+                Caravan caravan = CaravanReader.GetSelectedCaravan();
+                if (caravan != null) { CaravanInventoryUtility.GiveThing(caravan, t); return; }
+                Map map = Find.AnyPlayerHomeMap ?? Find.CurrentMap;
+                if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.DeliverThing: no map for a drop pod"); return; }
+                IntVec3 cell = BestDropCell(map, t, out string where);
+                DropPodUtility.DropThingsNear(cell, map, new List<Thing> { t }, forbid: false);
+                NotifyLanded(map, cell, $"{t.LabelCap}", where);
+            }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverThing failed for {t.def?.defName}: {ex.Message}"); }
+        }
+
         // Deliver a composed key: spawn with the right material and stamp the quality back on
         public static void DeliverKey(string key, int qty)
         {
@@ -292,10 +395,63 @@ namespace KMHPatch.UI
             {
                 Map map = Find.AnyPlayerHomeMap ?? Find.CurrentMap;
                 if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.Deliver: no map for a drop pod"); return; }
-                IntVec3 cell = DropCellFinder.TradeDropSpot(map);
-                DropPodUtility.DropThingsNear(cell, map, MakeStacks(def, stuff, qualityIndex, qty), forbid: false);
+                List<Thing> stacks = MakeStacks(def, stuff, qualityIndex, qty);
+                IntVec3 cell = BestDropCell(map, stacks.Count > 0 ? stacks[0] : null, out string where);
+                DropPodUtility.DropThingsNear(cell, map, stacks, forbid: false);
+                NotifyLanded(map, cell, $"{def.label} ×{qty}", where);
             }
             catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); }
+        }
+
+        // Where returned goods land, in preference order: the best stockpile that ACCEPTS the item (dumping
+        // stockpiles included, highest priority first), the trade-beacon drop spot, a home-area cell, and only
+        // then the map center. DropThingsNear fine-tunes around the returned cell (avoids roofs/walls itself).
+        private static IntVec3 BestDropCell(Map map, Thing sample, out string where)
+        {
+            try
+            {
+                if (sample != null && map.zoneManager != null)
+                {
+                    Zone_Stockpile best = null;
+                    foreach (Zone z in map.zoneManager.AllZones)
+                        if (z is Zone_Stockpile s && s.settings != null && s.settings.AllowedToAccept(sample)
+                            && (best == null || s.settings.Priority > best.settings.Priority))
+                            best = s;
+                    if (best != null)
+                        foreach (IntVec3 c in best.Cells)
+                            if (ValidDropCell(map, c)) { where = $"stockpile '{best.label}'"; return c; }
+                }
+
+                IntVec3 trade = DropCellFinder.TradeDropSpot(map);
+                if (ValidDropCell(map, trade)) { where = "the trade drop spot"; return trade; }
+
+                Area home = map.areaManager?.Home;
+                if (home != null)
+                    foreach (IntVec3 c in home.ActiveCells)
+                        if (ValidDropCell(map, c)) { where = "your home area"; return c; }
+            }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.BestDropCell failed: {ex.Message}"); }
+            where = "the map center";
+            return map.Center;
+        }
+
+        private static bool ValidDropCell(Map map, IntVec3 c)
+            => c.IsValid && c.InBounds(map) && c.Standable(map) && !c.Fogged(map);
+
+        // "Your items landed HERE" - clickable jump target; identical repeats within a few seconds collapse so a
+        // multi-stack withdrawal doesn't stack a message per pod.
+        private static DateTime _lastLandedMsgUtc = DateTime.MinValue;
+        private static string   _lastLandedWhere  = "";
+        private static void NotifyLanded(Map map, IntVec3 cell, string what, string where)
+        {
+            try
+            {
+                if (_lastLandedWhere == where && (DateTime.UtcNow - _lastLandedMsgUtc).TotalSeconds < 5) return;
+                _lastLandedMsgUtc = DateTime.UtcNow; _lastLandedWhere = where;
+                Messages.Message($"[KMH] {what} delivered to {where}.", new LookTargets(cell, map),
+                    MessageTypeDefOf.PositiveEvent, historical: true);
+            }
+            catch { /* message is best-effort; the delivery already happened */ }
         }
     }
 }

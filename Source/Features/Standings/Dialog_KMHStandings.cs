@@ -409,7 +409,7 @@ namespace KMHPatch.Features.Standings
             int accent = new[] { 2, 2, 3, 4, 5, 6, 7, 8, 8 }[tab];
 
             float hy = c.y + 32f;
-            StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, accent, hasInfo: false);
+            StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, accent, hasInfo: true);
             Rect list = new Rect(c.x, hy + 24f, c.width, c.height - (hy + 24f - c.y));
             Widgets.DrawMenuSection(list);
 
@@ -434,7 +434,38 @@ namespace KMHPatch.Features.Standings
             List<ColonistEntry> rows = _cView;
             string me = SessionHandler.Username ?? "";
             StandingsTable.Draw(list, rows, cols, ref _scroll,
-                e => string.Equals(e.Owner, me, StringComparison.OrdinalIgnoreCase), null);
+                e => string.Equals(e.Owner, me, StringComparison.OrdinalIgnoreCase),
+                e => OpenColonistInfo(e, me));
+        }
+
+        // Colonist row Info: my own colonist opens RimWorld's real pawn info card when the pawn exists locally;
+        // remote/server-only colonists open the KMH colonist profile for that player.
+        private static void OpenColonistInfo(ColonistEntry e, string me)
+        {
+            if (e == null) return;
+            if (string.Equals(e.Owner, me, StringComparison.OrdinalIgnoreCase))
+            {
+                Pawn p = FindLocalColonist(e.Name);
+                if (p != null) { Find.WindowStack.Add(new Dialog_InfoCard(p)); return; }
+            }
+            Find.WindowStack.Add(new Dialog_KMHColonistProfile(e.Owner));
+        }
+
+        private static Pawn FindLocalColonist(string shortName)
+        {
+            if (string.IsNullOrEmpty(shortName)) return null;
+            try
+            {
+                foreach (Map map in Find.Maps)
+                    foreach (Pawn p in map.mapPawns.FreeColonistsSpawned)
+                        if (string.Equals(p.Name?.ToStringShort, shortName, StringComparison.OrdinalIgnoreCase)) return p;
+                foreach (RimWorld.Planet.Caravan car in Find.WorldObjects.Caravans)
+                    if (car.IsPlayerControlled)
+                        foreach (Pawn p in car.PawnsListForReading)
+                            if (p.IsColonist && string.Equals(p.Name?.ToStringShort, shortName, StringComparison.OrdinalIgnoreCase)) return p;
+            }
+            catch { }
+            return null;
         }
 
         private void DrawSeason(Rect c)

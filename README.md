@@ -9,13 +9,15 @@ enabled everywhere.
 
 ## RWT version
 
-Recommended **RWT 26.6.9.1** — KMH v1.1.1 is built and tested around it. It also
+Recommended **RWT 26.6.9.1** — KMH v1.2.0 is built and tested around it. It also
 runs on **RWT 26.5.24.1** (the older RWT generation); the mod auto-detects which
 one you're on and loads the matching build, nothing to configure.
 
-**RWT 26.6.23.1 and newer is experimental / compatibility-in-progress — don't
-update to it yet.** If Steam auto-updated RimWorld Together past 26.6.9.1,
-downgrade in-game: `Mod Options → RimWorld Together → Change Version → 26.6.9.1`.
+**On RWT 26.6.23.1 and newer, RWT chat is not a reliable KMH carrier — the KMH
+API transport (now on by default) is the recommended/required path there.** Make
+sure the server runs KMH v1.2.0+ with its API transport enabled (also the
+default). To stay on the fully tested pairing instead, downgrade in-game:
+`Mod Options → RimWorld Together → Change Version → 26.6.9.1`.
 
 Update the **KMH Patch** and the **KMH Server Addon** together so both sides
 match.
@@ -56,10 +58,10 @@ quests, listings, guild, and Discord link:
 - **Config sync** - on servers that enforce mod configs, your settings sync to
   the server profile with your originals backed up, a panel showing what's
   locked, and one-click restore.
-- **KMH API transport** *(optional, experimental, off by default)* - enable
-  **Use KMH API transport** in mod settings to talk to a KMH server over its
-  own port instead of RWT chat; it falls back to chat if that's unreachable,
-  and the KMH tab shows which path is live.
+- **KMH API transport** *(on by default — the recommended path for newer RWT
+  versions)* - talks to a KMH server over its own port instead of RWT chat
+  whenever the server advertises it; falls back to chat if that's unreachable,
+  and the KMH tab shows which path is live. Toggle in mod settings.
 
 Icons are optional - drop `.png`/`.dds` files in `Textures/KMHPatch/UI/` and
 the buttons pick them up; without them everything still works as text.

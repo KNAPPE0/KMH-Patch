@@ -16,8 +16,11 @@ namespace KMHPatch.Features.Quests
         private const int IntervalTicks = 250; // ~4s at 1x
         private int _next;
 
+        private const int RetryTicks = 1800; // ~30s: re-report while the quest stays Claimed (server may gate early verifies)
+
         private HashSet<long>        _sent         = new HashSet<long>();
         private Dictionary<long, int> _huntBaseline = new Dictionary<long, int>();
+        private Dictionary<long, int> _sentAtTick   = new Dictionary<long, int>();
 
         public QuestAutoVerify(Game game) { }
 
@@ -27,10 +30,12 @@ namespace KMHPatch.Features.Quests
             base.ExposeData();
             Scribe_Collections.Look(ref _sent, "kmhQavSent", LookMode.Value);
             Scribe_Collections.Look(ref _huntBaseline, "kmhQavHuntBaseline", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref _sentAtTick, "kmhQavSentTick", LookMode.Value, LookMode.Value);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 _sent ??= new HashSet<long>();
                 _huntBaseline ??= new Dictionary<long, int>();
+                _sentAtTick ??= new Dictionary<long, int>();
             }
         }
 
@@ -52,8 +57,8 @@ namespace KMHPatch.Features.Quests
 
             foreach (QuestEntry q in snap.Quests)
             {
-                if (q == null || _sent.Contains(q.Id)) continue;
-                if (q.State != QuestEntry.StateClaimed) continue;
+                if (q == null) continue;
+                if (q.State != QuestEntry.StateClaimed) continue;   // acceptance changes the state, ending the loop
                 if (!string.Equals(q.ClaimedByUsername, me, StringComparison.OrdinalIgnoreCase)) continue;
 
                 bool done = q.Kind == QuestEntry.KindHunt  ? HuntDone(q)
@@ -62,10 +67,16 @@ namespace KMHPatch.Features.Quests
 
                 if (done)
                 {
+                    // Re-report every ~30s while the quest stays Claimed: the server floors very early verifies
+                    // (anti-macro), so a legit fast completion must retry until the floor passes - never lost.
+                    int nowTick = Find.TickManager.TicksGame;
+                    bool first = !_sent.Contains(q.Id);
+                    if (!first && _sentAtTick.TryGetValue(q.Id, out int last) && nowTick - last < RetryTicks) continue;
                     QuestHandler.TryVerify(q.Id);
                     _sent.Add(q.Id);
+                    _sentAtTick[q.Id] = nowTick;
                     // Confirms the player-quest auto-verify pipeline fired (the manual Report button is the fallback).
-                    KmhLog.Info($"KMH: auto-verified claimed quest #{q.Id} ({q.Kind}).");
+                    if (first) KmhLog.Info($"KMH: auto-verified claimed quest #{q.Id} ({q.Kind}).");
                 }
             }
         }
@@ -91,7 +102,8 @@ namespace KMHPatch.Features.Quests
             for (int i = 0; i < maps.Count; i++)
             {
                 Map map = maps[i];
-                if (map?.listerThings == null) continue;
+                // own colonies only - a visited/hosted player's map renders their structures as Faction.OfPlayer, which would falsely satisfy a build quest
+                if (map?.listerThings == null || !map.IsPlayerHome) continue;
                 List<Thing> things = map.listerThings.ThingsOfDef(def);
                 for (int j = 0; j < things.Count; j++)
                 {
