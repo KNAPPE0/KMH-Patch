@@ -5,40 +5,43 @@ using KMHPatch.Features.Sites.Dto;
 using KMHPatch.SubProtocol;
 using RimWorld;
 using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Keeps KMH site markers on the world map in sync with the site snapshot. KMH sites are server-driven, so
-    // markers are transient. WorldObjects can only be touched from the main thread (never the network receive
-    // thread), so we reconcile here on a throttled WorldComponentTick rather than reacting to the snapshot event
-    // directly
-    //
-    // Auto-instantiated by RimWorld for every WorldComponent subclass - no def needed
+    // Keeps KMH site + guild-hall markers synced to the latest snapshots. They're server-driven, so transient
+    // (never saved into RWT's shared world), and WorldObjects are main-thread only, so reconcile runs there.
+    // Driven from BOTH WorldComponentTick (normal play) and Patch_Root_Update_KmhMarkers (every frame the world
+    // exists), so markers show on the paused world view / reconnect / landing-site page, not just after a map load.
     public class WorldComponent_KMHSiteMarkers : WorldComponent
     {
-        private const int IntervalTicks = 120; // ~2s
-        private int _next;
+        private static float _lastReconcileReal = -999f;
 
         // RimWorld.Planet.World qualified - the KMHPatch.Features.World namespace would otherwise shadow bare 'World'
         public WorldComponent_KMHSiteMarkers(RimWorld.Planet.World world) : base(world) { }
 
-        public override void WorldComponentTick()
+        public override void WorldComponentTick() => TryReconcile(2f);
+
+        // Called from both drivers. Throttled by real time so it's safe to call every frame; runs only when a world
+        // (and its object holder) actually exists.
+        internal static void TryReconcile(float minSeconds)
         {
-            if (Find.TickManager.TicksGame < _next) return;
-            _next = Find.TickManager.TicksGame + IntervalTicks;
-            try { Reconcile(); }
-            catch (Exception ex) { KmhLog.Warn($"Site markers reconcile threw: {ex.Message}"); }
+            if (Find.World == null || Find.WorldObjects == null) return;
+            float now = Time.realtimeSinceStartup;
+            if (now - _lastReconcileReal < minSeconds && now >= _lastReconcileReal) return;   // (guard clock resets too)
+            _lastReconcileReal = now;
+            try { ReconcileSites(); }      catch (Exception ex) { KmhLog.Warn($"Site markers reconcile threw: {ex.Message}"); }
+            try { ReconcileGuildHall(); }  catch (Exception ex) { KmhLog.Warn($"Guild hall marker reconcile threw: {ex.Message}"); }
         }
 
-        private void Reconcile()
+        private static void ReconcileSites()
         {
             List<KMHSiteWorldObject> existing = new List<KMHSiteWorldObject>();
             foreach (WorldObject wo in Find.WorldObjects.AllWorldObjects)
                 if (wo is KMHSiteWorldObject m) existing.Add(m);
 
-            // Not connected / no data: drop any leftover markers (covers disconnect and loading a save offline) and
-            // stop
+            // Not connected / no data: drop any leftover markers (covers disconnect and loading a save offline) and stop.
             if (!KmhDispatcher.IsKmhServer || !SiteCache.HasSnapshot || SiteCache.Snapshot?.Sites == null)
             {
                 foreach (KMHSiteWorldObject m in existing) Find.WorldObjects.Remove(m);
@@ -53,6 +56,7 @@ namespace KMHPatch.Features.Sites
             foreach (KMHSiteWorldObject m in existing)
             {
                 int tile = m.Tile.tileId;
+                if (have.Contains(tile)) { Find.WorldObjects.Remove(m); continue; }   // dedupe stray doubles
                 if (desired.TryGetValue(tile, out SiteEntry s)) { Apply(m, s); have.Add(tile); }
                 else Find.WorldObjects.Remove(m);
             }
@@ -68,6 +72,7 @@ namespace KMHPatch.Features.Sites
                     m.Tile = kv.Key;
                     Apply(m, kv.Value);
                     Find.WorldObjects.Add(m);
+                    have.Add(kv.Key);
                 }
                 catch (Exception ex) { KmhLog.Warn($"Could not place site marker at tile {kv.Key}: {ex.Message}"); }
             }
@@ -79,6 +84,42 @@ namespace KMHPatch.Features.Sites
             m.SiteItem       = UI.ItemLabels.ResolveLabel(s.ItemDefName);
             m.SiteWorkers    = s.Workers?.Count ?? 0;
             m.SiteMaxWorkers = s.MaxWorkers;
+        }
+
+        // One marker for the player's own guild hall, reconciled from the guild snapshot (same transient rules as
+        // sites: gone on disconnect, moved/removed as the snapshot changes). Kept independent of the SITE snapshot so
+        // a hall marker can show even when the player owns no sites.
+        private static void ReconcileGuildHall()
+        {
+            List<Guilds.KMHGuildHallWorldObject> existing = new List<Guilds.KMHGuildHallWorldObject>();
+            foreach (WorldObject wo in Find.WorldObjects.AllWorldObjects)
+                if (wo is Guilds.KMHGuildHallWorldObject h) existing.Add(h);
+
+            var g = Guilds.GuildCache.Guild;
+            bool want = KmhDispatcher.IsKmhServer && g?.Hall != null && g.Hall.HasHall && g.Hall.Tile >= 0;
+
+            // Remove anything that isn't the wanted hall (disconnect, hall removed/moved, or a stray duplicate).
+            bool applied = false;
+            foreach (Guilds.KMHGuildHallWorldObject h in existing)
+            {
+                if (want && !applied && h.Tile.tileId == g.Hall.Tile)
+                {
+                    h.GuildName = g.Name ?? ""; h.RadiusTiles = g.Hall.RadiusTiles; applied = true;
+                }
+                else Find.WorldObjects.Remove(h);
+            }
+            if (!want || applied) return;
+
+            WorldObjectDef def = DefDatabase<WorldObjectDef>.GetNamedSilentFail("KMHGuildHall");
+            if (def == null) return;
+            try
+            {
+                var h = (Guilds.KMHGuildHallWorldObject)WorldObjectMaker.MakeWorldObject(def);
+                h.Tile = g.Hall.Tile;
+                h.GuildName = g.Name ?? ""; h.RadiusTiles = g.Hall.RadiusTiles;
+                Find.WorldObjects.Add(h);
+            }
+            catch (Exception ex) { KmhLog.Warn($"Could not place guild hall marker at tile {g.Hall.Tile}: {ex.Message}"); }
         }
     }
 }

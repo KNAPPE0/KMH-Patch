@@ -24,6 +24,8 @@ namespace KMHPatch.Features.Reputation
 
         public static bool RequestSnapshot() => KmhDispatcher.Send(KmhProtocol.Kind.ReputationRequest, null);
 
+        public static void Clear() { _byUser = new Dictionary<string, ReputationEntryDto>(StringComparer.OrdinalIgnoreCase); HasSnapshot = false; }
+
         // Full roster sorted by score desc - drives the reputation board.
         public static List<ReputationEntryDto> Leaderboard()
         {

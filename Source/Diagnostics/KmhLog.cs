@@ -4,17 +4,8 @@ using Verse;
 
 namespace KMHPatch.Diagnostics
 {
-    // Dual-sink logger for the patch mod.
-    //
-    // Every entry goes to:
-    //   1. Verse.Log (visible in-game via Ctrl+F12, also Player.log)
-    //   2. A dedicated file under <RimWorld user data>/KMH-Patch/kmh-patch.log
-    //
-    // The file sink survives across launches and is the easier thing to attach to a bug report - Player.log gets
-    // noisy fast with vanilla / other mod chatter, while ours is KMH-only
-    //
-    // Failures writing to the file are silently swallowed (logged once to Verse.Log) so a disk problem can never
-    // break the in-game logger
+    // Logs to Verse.Log + a KMH-only file (kmh-patch.log) so bug reports aren't buried in other mods' Player.log noise.
+    // File-write failures are swallowed (logged once) so a disk problem can't break the in-game logger.
     internal static class KmhLog
     {
         private static readonly object FileLock = new object();
@@ -89,8 +80,8 @@ namespace KMHPatch.Diagnostics
         public static void Protocol(string message)
         {
             if (!DebugEnabled) return;
-            WriteToFile(Format("PROTO", message));
-            KmhMainThread.Post(() => Log.Message($"{Mark} <color=#9BB8E0>[proto]</color> <color={Dim}>{message}</color>"));
+            WriteToFile(Format("PROTOCOL", message));
+            KmhMainThread.Post(() => Log.Message($"{Mark} <color=#9BB8E0>[protocol]</color> <color={Dim}>{message}</color>"));
         }
 
         // gates Debug/Protocol
@@ -103,6 +94,8 @@ namespace KMHPatch.Diagnostics
 
         private static void WriteToFile(string line)
         {
+            try { KmhDebugUplink.Enqueue(line); } catch { }   // mirror to the server when the uplink is active
+
             if (_fileSinkFailed) return;
 
             try

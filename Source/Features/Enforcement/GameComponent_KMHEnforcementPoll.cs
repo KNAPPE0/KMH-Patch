@@ -5,10 +5,11 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Polls enforcement while connected so mid-session op/de-op changes are caught within ~20s.
+    // Polls enforcement while connected so mid-session op/de-op changes are caught within ~60s.
+    // (Was 20s - a per-player packet every 20s is measurable server noise for a rare event.)
     public class GameComponent_KMHEnforcementPoll : GameComponent
     {
-        private const int IntervalTicks = 1200; // ~20s at 1x (60 TPS)
+        private const int IntervalTicks = 3600; // ~60s at 1x (60 TPS)
         private int _next;
 
         public GameComponent_KMHEnforcementPoll(Game game) { }

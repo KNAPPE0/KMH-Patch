@@ -114,7 +114,8 @@ namespace KMHPatch.Features.World
             for (int i = 0; i < maps.Count; i++)
             {
                 Map map = maps[i];
-                if (map?.listerThings == null) continue;
+                // own colonies only - a visited/hosted player's map renders their structures as Faction.OfPlayer too, so they'd wrongly count toward our quest
+                if (map?.listerThings == null || !map.IsPlayerHome) continue;
                 List<Thing> things = map.listerThings.ThingsOfDef(def);
                 for (int j = 0; j < things.Count; j++)
                 {

@@ -18,62 +18,142 @@ namespace KMHPatch.Features.Treasury
         {
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasurySnapshot, OnSnapshot);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasuryGrant,    OnGrant);
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasuryDepositApproval, OnDepositApproval);
         }
 
         public static bool RequestSnapshot()
             => KmhDispatcher.Send(KmhProtocol.Kind.TreasuryRequest, null);
 
-        // -- deposits: verify + remove from the caravan, then credit the server --
+        // -- deposits: PREFLIGHT first (server approves before we touch local goods), then remove + send with the token.
+        // Removing only AFTER approval means a rejected deposit never loses items/silver and needs no admin recovery. --
+
+        // A KMH deposit txn id: ties the local goods-removal to the server's pending deposit so the credit is only
+        // finalized once this removal is durably saved. Fixes the disconnect/rollback dupe.
+        private static string NewTxn() => System.Guid.NewGuid().ToString("N");
+
+        private class DepositIntent { public string Kind, ItemDefName; public int Amount, Qty; public bool Complex; }
+        private static readonly System.Collections.Generic.Dictionary<string, DepositIntent> _pending
+            = new System.Collections.Generic.Dictionary<string, DepositIntent>();
 
         public static bool TryDepositSilver(int amount)
         {
             if (amount <= 0) { KmhNotifications.Rejected("Amount must be greater than 0"); return false; }
-
-            // Source = the selected caravan if there is one, otherwise the colony's stockpiles. No caravan required.
             Caravan caravan = CaravanReader.GetSelectedCaravan();
             Map     map     = caravan == null ? ColonyGoods.DepositMap() : null;
             string  src     = caravan != null ? "caravan" : "colony";
-
             int have = caravan != null ? ColonyGoods.CountSilver(caravan) : ColonyGoods.CountSilverOnMap(map);
             if (have < amount) { KmhNotifications.Rejected($"Your {src} only has {have} silver"); return false; }
-
-            bool removed = caravan != null
-                ? ColonyGoods.TryRemoveSilver(caravan, amount)
-                : ColonyGoods.TryRemoveSilverOnMap(map, amount);
-            if (!removed) { KmhNotifications.Rejected($"Could not take the silver from your {src}"); return false; }
-
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositSilver, new { amount });
-            if (sent) KmhNotifications.Positive($"Deposited {amount} silver");
-            else { ColonyGoods.DeliverSilver(amount); KmhNotifications.Rejected("Not connected - silver returned"); }
-            return sent;
+            return SendPreflight(new DepositIntent { Kind = "silver", Amount = amount },
+                new System.Collections.Generic.Dictionary<string, object> { { "kind", "silver" }, { "amount", amount } },
+                $"Requesting approval to deposit {amount} silver…");
         }
 
         public static bool TryDepositItem(string itemDefName, int qty)
         {
             if (string.IsNullOrEmpty(itemDefName)) { KmhNotifications.Rejected("Item is missing"); return false; }
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
-
-            // itemDefName may be a composed key (def|stuff|quality) straight from the picker
             ItemKeys.Split(itemDefName, out string pureDef, out _, out _);
-            if (ColonyGoods.Def(pureDef) == null) { KmhNotifications.Rejected("Unknown item"); return false; }
-
-            // Source = the selected caravan if there is one, otherwise the colony's stockpiles. No caravan required.
+            Verse.ThingDef def = ColonyGoods.Def(pureDef);
+            if (def == null) { KmhNotifications.Rejected("Unknown item"); return false; }
             Caravan caravan = CaravanReader.GetSelectedCaravan();
             Map     map     = caravan == null ? ColonyGoods.DepositMap() : null;
             string  src     = caravan != null ? "caravan" : "colony";
-
             int have = caravan != null ? ColonyGoods.CountKey(caravan, itemDefName) : ColonyGoods.CountOnMapKey(map, itemDefName);
             if (have < qty) { KmhNotifications.Rejected($"Your {src} only has {have} {ItemKeys.LabelForKey(itemDefName)}"); return false; }
+            bool complex = !Items.KmhThingCapture.IsSimple(def);
+            return SendPreflight(new DepositIntent { Kind = "item", ItemDefName = itemDefName, Qty = qty, Complex = complex },
+                new System.Collections.Generic.Dictionary<string, object>
+                    { { "kind", "item" }, { "item_def_name", itemDefName }, { "qty", qty }, { "is_payload", complex } },
+                $"Requesting approval to deposit ×{qty} {ItemKeys.LabelForKey(itemDefName)}…");
+        }
 
-            bool removed = caravan != null
-                ? ColonyGoods.TryRemoveKey(caravan, itemDefName, qty)
-                : ColonyGoods.TryRemoveOnMapKey(map, itemDefName, qty);
-            if (!removed) { KmhNotifications.Rejected($"Could not take the items from your {src}"); return false; }
-
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositItem, new { item_def_name = itemDefName, qty });
-            if (sent) KmhNotifications.Positive($"Deposited ×{qty} {ItemKeys.LabelForKey(itemDefName)}");
-            else { ColonyGoods.DeliverKey(itemDefName, qty); KmhNotifications.Rejected("Not connected - items returned"); }
+        private static bool SendPreflight(DepositIntent intent, System.Collections.Generic.Dictionary<string, object> fields, string flash)
+        {
+            string reqId = NewTxn();
+            fields["req_id"] = reqId;
+            _pending[reqId] = intent;
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositPreflight, EconomyCtx.With(fields));
+            if (sent) KmhNotifications.Neutral(flash);
+            else { _pending.Remove(reqId); KmhNotifications.Rejected("Not connected to a KMH server"); }
             return sent;
+        }
+
+        // Server replied to a preflight. On approval we NOW remove local goods and send the real deposit with the token;
+        // on rejection nothing was removed, so there is no loss and no recovery needed.
+        private static void OnDepositApproval(KmhEnvelope env)
+        {
+            string reqId = env?.GetString("req_id") ?? "";
+            if (string.IsNullOrEmpty(reqId) || !_pending.TryGetValue(reqId, out DepositIntent intent)) return;
+            _pending.Remove(reqId);
+            if (!(env?.GetBool("ok", false) ?? false))
+            { KmhNotifications.Rejected(env?.GetString("reason") ?? "Deposit not allowed right now."); return; }
+            string token = env?.GetString("token") ?? "";
+            if (intent.Kind == "silver") CompleteSilver(intent.Amount, token);
+            else CompleteItem(intent, token);
+        }
+
+        private static void CompleteSilver(int amount, string token)
+        {
+            Caravan caravan = CaravanReader.GetSelectedCaravan();
+            Map     map     = caravan == null ? ColonyGoods.DepositMap() : null;
+            string  src     = caravan != null ? "caravan" : "colony";
+            bool removed = caravan != null ? ColonyGoods.TryRemoveSilver(caravan, amount) : ColonyGoods.TryRemoveSilverOnMap(map, amount);
+            if (!removed) { KmhNotifications.Rejected($"Could not take the silver from your {src}"); return; }
+            string txn = NewTxn();
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositSilver,
+                EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "amount", amount }, { "txn_id", txn }, { "deposit_token", token } }));
+            if (sent)
+            {
+                RecordAndRefresh(txn);
+                KmhNotifications.FlashCoalesced("deposit", $"Deposited {amount} silver - save your game to finalize",
+                    n => $"{n} deposits pending - save your game to finalize", RimWorld.MessageTypeDefOf.PositiveEvent);
+            }
+            else { ColonyGoods.DeliverSilver(amount); KmhNotifications.Rejected("Not connected - silver returned"); }
+        }
+
+        private static void CompleteItem(DepositIntent intent, string token)
+        {
+            string itemDefName = intent.ItemDefName; int qty = intent.Qty;
+            Caravan caravan = CaravanReader.GetSelectedCaravan();
+            Map     map     = caravan == null ? ColonyGoods.DepositMap() : null;
+            string  src     = caravan != null ? "caravan" : "colony";
+            if (intent.Complex)
+            {
+                if (!ColonyGoods.RemoveKeyCapturing(caravan, map, itemDefName, qty, out var payloads) || payloads.Count == 0)
+                { KmhNotifications.Rejected($"Could not take the items from your {src}"); return; }
+                string txnP = NewTxn();
+                bool sentP = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositItem,
+                    EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
+                        { { "item_def_name", itemDefName }, { "qty", qty }, { "payloads", payloads }, { "txn_id", txnP }, { "deposit_token", token } }));
+                if (sentP)
+                {
+                    RecordAndRefresh(txnP);
+                    KmhNotifications.FlashCoalesced("deposit", $"Deposited ×{qty} {ItemKeys.LabelForKey(itemDefName)} (full state kept) - save your game to finalize",
+                        n => $"{n} deposits pending - save your game to finalize", RimWorld.MessageTypeDefOf.PositiveEvent);
+                }
+                else { ColonyGoods.DeliverPayloads(payloads); KmhNotifications.Rejected("Not connected - items returned"); }
+                return;
+            }
+            bool removed = caravan != null ? ColonyGoods.TryRemoveKey(caravan, itemDefName, qty) : ColonyGoods.TryRemoveOnMapKey(map, itemDefName, qty);
+            if (!removed) { KmhNotifications.Rejected($"Could not take the items from your {src}"); return; }
+            string txn = NewTxn();
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositItem,
+                EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "item_def_name", itemDefName }, { "qty", qty }, { "txn_id", txn }, { "deposit_token", token } }));
+            if (sent)
+            {
+                RecordAndRefresh(txn);
+                KmhNotifications.FlashCoalesced("deposit", $"Deposited ×{qty} {ItemKeys.LabelForKey(itemDefName)} - save your game to finalize",
+                    n => $"{n} deposits pending - save your game to finalize", RimWorld.MessageTypeDefOf.PositiveEvent);
+            }
+            else { ColonyGoods.DeliverKey(itemDefName, qty); KmhNotifications.Rejected("Not connected - items returned"); }
+        }
+
+        // Record the durable-deposit txn locally (confirmed to the server once the game is saved) and pull a fresh
+        // treasury snapshot so the pending-deposit line and balances refresh right away.
+        private static void RecordAndRefresh(string txn)
+        {
+            GameComponent_KMHDepositLedger.Instance?.RecordDeposit(txn);
+            RequestSnapshot();
         }
 
         // -- withdrawals: require a caravan, then wait for the server's grant --
@@ -83,7 +163,8 @@ namespace KMHPatch.Features.Treasury
         public static bool TryWithdrawSilver(int amount)
         {
             if (amount <= 0) { KmhNotifications.Rejected("Amount must be greater than 0"); return false; }
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawSilver, new { amount });
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawSilver,
+                EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "amount", amount } }));
             if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }
@@ -92,7 +173,19 @@ namespace KMHPatch.Features.Treasury
         {
             if (string.IsNullOrEmpty(itemDefName)) { KmhNotifications.Rejected("Item is missing"); return false; }
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawItem, new { item_def_name = itemDefName, qty });
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawItem,
+                EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "item_def_name", itemDefName }, { "qty", qty } }));
+            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            return sent;
+        }
+
+        // Withdraw a state-preserving payload stack by its fingerprint - the server returns the exact captured items.
+        public static bool TryWithdrawPayload(string fingerprint, int qty)
+        {
+            if (string.IsNullOrEmpty(fingerprint)) { KmhNotifications.Rejected("Item is missing"); return false; }
+            if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawItem,
+                EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "fingerprint", fingerprint }, { "qty", qty } }));
             if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
             return sent;
         }
@@ -102,7 +195,22 @@ namespace KMHPatch.Features.Treasury
         private static void OnGrant(KmhEnvelope env)
         {
             if (env == null) return;
-            string kind    = env.GetString("kind");
+            string kind = env.GetString("kind");
+
+            // Full-state payload grant (complex items).
+            if (kind == "item_payloads")
+            {
+                var req = env.DataAs<Dto.TreasuryGrantPayloads>();
+                if (req?.Payloads == null || req.Payloads.Count == 0) return;
+                int total = 0; foreach (var p in req.Payloads) total += System.Math.Max(1, p?.StackCount ?? 0);
+                LongEventHandler.ExecuteWhenFinished(() =>
+                {
+                    ColonyGoods.DeliverPayloads(req.Payloads);
+                    KmhNotifications.Positive($"Received ×{total} item(s)");
+                });
+                return;
+            }
+
             int    amount  = env.GetInt("amount", 0);
             string defName = env.GetString("def_name");
             if (amount <= 0) return;
@@ -134,6 +242,8 @@ namespace KMHPatch.Features.Treasury
                 return;
             }
             TreasuryCache.Apply(snapshot);
+            // If this snapshot still shows deposits we've durably saved, re-confirm them now instead of waiting a tick.
+            GameComponent_KMHDepositLedger.Instance?.OnSnapshotApplied();
         }
     }
 }

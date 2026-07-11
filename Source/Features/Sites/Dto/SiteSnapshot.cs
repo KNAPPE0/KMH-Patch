@@ -45,11 +45,20 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("marketplace_unit_price")] public int MarketplaceUnitPrice { get; set; } = 1;
         [JsonProperty("relevant_skill")]    public string RelevantSkillDef { get; set; } = "Crafting";
 
+        // Server-authoritative output tier + scaling caps (server decides; client only displays).
+        [JsonProperty("output_tier")]       public int    OutputTier            { get; set; } = 1;
+        [JsonProperty("tier_max_speed")]    public double TierMaxSpeedMultiplier { get; set; } = 3.0;
+        [JsonProperty("tier_max_output")]   public double TierMaxOutputMultiplier { get; set; } = 2.0;
+        [JsonProperty("blocked_output")]    public bool   BlockedOutput         { get; set; } = false;
+
         [JsonProperty("last_reward_utc_ticks")] public long  LastRewardUtcTicks   { get; set; } = 0;
         [JsonProperty("total_silver_generated")] public double TotalSilverGenerated { get; set; } = 0;
 
         [JsonProperty("production_multiplier")] public double ProductionMultiplier { get; set; } = 0;
+        // 0 = paused/unknown (server sanitizes - never Infinity/NaN/huge).
         [JsonProperty("effective_cycle_minutes")] public double EffectiveCycleMinutes { get; set; } = 0;
+        [JsonProperty("is_producing")]      public bool   IsProducing { get; set; } = false;
+        [JsonProperty("paused_reason")]     public string PausedReason { get; set; } = "";
     }
 
     public class WorkerProgressDto
@@ -59,6 +68,15 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("xp")]               public double Xp              { get; set; } = 0;
         [JsonProperty("base_skill_level")] public int    BaseSkillLevel  { get; set; } = 0;
         [JsonProperty("destination")]      public string Destination     { get; set; } = SiteEntry.DestTreasury;
+
+        // The colonist doing the work (advisory; empty = legacy account-level worker).
+        [JsonProperty("pawn_name")]         public string PawnName          { get; set; } = "";
+        [JsonProperty("pawn_load_id")]      public int    PawnLoadId        { get; set; } = -1;
+        [JsonProperty("last_validated_utc")] public long  LastValidatedUtc  { get; set; } = 0;
+
+        // Legacy = old account worker, disabled until a real pawn is assigned; BlockedReason explains any block.
+        [JsonProperty("legacy")]            public bool   Legacy            { get; set; } = false;
+        [JsonProperty("blocked_reason")]    public string BlockedReason     { get; set; } = "";
 
         [JsonIgnore] public int CurrentLevel
         {

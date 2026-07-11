@@ -24,6 +24,7 @@ namespace KMHPatch
             var sw = System.Diagnostics.Stopwatch.StartNew();
             KmhLog.DebugEnabled = KMHPatchMod.Settings?.DebugLogging ?? false;   // payload wires the loader's setting
             KmhLog.Info($"Bootstrap starting ({typeof(KmhEntry).Assembly.GetName().Name} {typeof(KmhEntry).Assembly.GetName().Version})");
+            KmhLog.Info($"KMH-Patch UI build {SubProtocol.KmhProtocol.BuildVersion}·{SubProtocol.KmhProtocol.UiBuildTag} loaded (guild-vault + category-picker pass). If the Guild Hall title doesn't show this tag, the game is loading an OLDER KMH-Patch DLL.");
 
             // Crash recovery first - if we died mid config-apply last session, restore the player's personal configs before other mods read theirs
             SafeRun("enforce-recovery", Features.Enforcement.EnforcementProfileApplier.Bootstrap);
@@ -103,10 +104,21 @@ namespace KMHPatch
 
             listing.Gap(4f);
             listing.CheckboxLabeled(
-                "Show welcome dialog on launch",
+                "Show KMH What's New on launch",
+                ref settings.ShowWhatsNewOnUpdate,
+                "If enabled, the What's New changelog appears every launch (change notes included). " +
+                "Turn it off to stop the popup; reopen it any time from the KMH tab."
+            );
+            listing.CheckboxLabeled(
+                "Show KMH welcome / help popup",
                 ref settings.ShowWelcomeOnLaunch,
-                "If enabled, the KMH welcome dialog appears once per game launch. " +
+                "If enabled, the KMH welcome dialog appears on launch (once per launch). " +
                 "You can always reopen it from the KMH About panel."
+            );
+            listing.CheckboxLabeled(
+                "Show KMH Discord / link reminder",
+                ref settings.ShowDiscordReminder,
+                "If enabled, the welcome popup includes a Discord / account-link reminder."
             );
 
             listing.Gap(6f);
@@ -134,17 +146,23 @@ namespace KMHPatch
                 "Logs detailed KMH diagnostics and per-packet protocol traces. Off by default so normal play stays quiet.");
             if (prevDebug != settings.DebugLogging) KmhLog.DebugEnabled = settings.DebugLogging;   // apply live
 
+            listing.CheckboxLabeled("Send debug logs to the server",
+                ref settings.RemoteDebugLogging,
+                "Mirrors every KMH log line to the server's Debug folder (timestamped, rate-limited) so the owner can " +
+                "diagnose issues with you. Forces verbose logging on while active. The server can also turn this on " +
+                "for everyone when the owner enables server-side debugging.");
+
             listing.GapLine(12f);
 
             Text.Font = GameFont.Medium;
-            listing.Label("KMH API transport (experimental)");
+            listing.Label("KMH API transport");
             Text.Font = GameFont.Small;
             listing.Gap(4f);
             listing.CheckboxLabeled("Use KMH API transport",
                 ref settings.UseKmhApiTransport,
-                "Off by default. When on AND the server enables it, KMH talks to the server over its own port instead " +
-                "of RWT chat (needed where RWT chat is unavailable, e.g. some newer RWT builds). Falls back to chat if " +
-                "the port can't be reached. Reconnect for changes to take effect.");
+                "On by default - the recommended path for newer RWT builds. When the server advertises its KMH API, " +
+                "KMH talks over that port instead of RWT chat (required where RWT chat is unavailable, e.g. RWT " +
+                "26.6.23.1+). Falls back to chat if the port can't be reached. Reconnect for changes to take effect.");
             listing.CheckboxLabeled("Allow chat fallback",
                 ref settings.AllowChatTransportFallback,
                 "If the KMH API port can't be reached, keep using the RWT-chat transport so KMH still works.");

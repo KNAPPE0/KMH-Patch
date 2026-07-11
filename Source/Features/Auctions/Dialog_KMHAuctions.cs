@@ -193,8 +193,11 @@ namespace KMHPatch.Features.Auctions
             bool hasBids = a.CurrentBid > 0 && !string.IsNullOrEmpty(a.HighBidder);
             bool iLead   = hasBids && !string.IsNullOrEmpty(me) && string.Equals(a.HighBidder, me, StringComparison.OrdinalIgnoreCase);
 
-            // Line 1: item + qty + seller
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, 18f),
+            // Line 1: icon + info card + item + qty + seller
+            ItemKeys.Split(a.ItemDefName, out string rowDef, out string rowStuff, out _);
+            ItemLabels.DrawIcon(new Rect(inner.x, inner.y, 20f, 20f), rowDef);
+            UI.KmhItemInfo.ButtonForDef(inner.x + 22f, inner.y, rowDef, rowStuff);
+            DialogLayout.LabelTrunc(new Rect(inner.x + 22f + UI.KmhItemInfo.Size + 4f, inner.y, textW - 22f - UI.KmhItemInfo.Size - 4f, 18f),
                 $"<b>#{a.Id}  {a.Qty}x {ItemKeys.LabelForKey(a.ItemDefName)}</b>  <color=grey>by</color> {Seller(a.SellerUsername)}");
 
             // Line 2: current bid / starting + high bidder

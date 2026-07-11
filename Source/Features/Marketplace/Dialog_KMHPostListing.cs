@@ -6,20 +6,18 @@ using Verse;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // single-form Post composer: item, qty, price, Public/Guild-only visibility
-    //
-    // Source for the target item is the player's selected caravan. We surface a 'Select a caravan first' rejection
-    // if no selection (same UX as Treasury Deposit) rather than opening an empty picker
+    // Post composer: item, qty, unit price, visibility, expiry. Lists from your treasury, not the caravan.
     public class Dialog_KMHPostListing : Window_KMHBase
     {
         public override Vector2 InitialSize => new Vector2(580f, 440f);
 
-        // Treasury items snapshot taken at open time. Listings escrow from your TREASURY server-side
-        // (MarketplaceStore.Post -> TreasuryStore.WithdrawItem), so you list what you've deposited to your vault,
-        // not raw caravan items. Cancel + reopen to refresh
+        // Treasury snapshot at open time. Listings escrow from your TREASURY server-side (MarketplaceStore.Post
+        // -> WithdrawItem), so you list vault items, not raw caravan. Cancel + reopen to refresh.
         private readonly Dictionary<string, int> _treasuryItems;
+        private readonly List<KMHPatch.Items.KmhThingPayload> _payloads;
 
         private string _itemDefName    = "";
+        private string _fingerprint    = "";     // non-empty => full-state payload listing
         private int    _itemAvailable  = 0;     // capped maxHint for qty prompt
         private string _qty            = "";
         private string _unitPriceSilver = "";
@@ -27,9 +25,10 @@ namespace KMHPatch.Features.Marketplace
         // Auto-cancel after this many hours; 0 / blank = never expires.
         private string _expiresHours   = "0";
 
-        private Dialog_KMHPostListing(Dictionary<string, int> treasuryItems)
+        private Dialog_KMHPostListing(Dictionary<string, int> treasuryItems, List<KMHPatch.Items.KmhThingPayload> payloads)
         {
             _treasuryItems = treasuryItems ?? new Dictionary<string, int>();
+            _payloads      = payloads ?? new List<KMHPatch.Items.KmhThingPayload>();
 
             doCloseX                = true;
             absorbInputAroundWindow = true;
@@ -42,13 +41,18 @@ namespace KMHPatch.Features.Marketplace
         public static bool Open()
         {
             Treasury.Dto.TreasurySnapshot snap = Treasury.TreasuryCache.Snapshot;
-            if (snap?.Items == null || snap.Items.Count == 0)
+            bool hasSimple  = snap?.Items != null && snap.Items.Count > 0;
+            bool hasPayload = snap?.ItemPayloads != null && snap.ItemPayloads.Count > 0;
+            if (!hasSimple && !hasPayload)
             {
-                Notifications.KmhNotifications.Rejected("Your treasury has no items to list - deposit some to your vault first");
+                Notifications.KmhNotifications.Rejected(Treasury.TreasuryCache.HasPendingItems()
+                    ? $"You have {Treasury.TreasuryCache.PendingItemUnits()} item(s) pending in your treasury - save your game to finalize them before listing"
+                    : "Your treasury has no items to list - deposit some to your vault first");
                 return false;
             }
             Find.WindowStack.Add(new Dialog_KMHPostListing(
-                new Dictionary<string, int>(snap.Items, System.StringComparer.OrdinalIgnoreCase)));
+                hasSimple ? new Dictionary<string, int>(snap.Items, System.StringComparer.OrdinalIgnoreCase) : null,
+                hasPayload ? new List<KMHPatch.Items.KmhThingPayload>(snap.ItemPayloads) : null));
             return true;
         }
 
@@ -66,16 +70,29 @@ namespace KMHPatch.Features.Marketplace
                 : $"{ItemKeys.LabelForKey(_itemDefName)}  <color=grey>(available x{_itemAvailable})</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                Find.WindowStack.Add(new Dialog_KMHItemPicker(
+                // Same picker the Treasury uses; full-state stacks keep their exact state through escrow.
+                UI.KmhItemPickerService.Open(
                     title:           "Pick item to list",
                     pickActionLabel: "Select",
                     source:          _treasuryItems,
                     onPick:          (defName, qty) =>
                     {
                         _itemDefName   = defName;
+                        _fingerprint   = "";
                         _itemAvailable = _treasuryItems.TryGetValue(defName, out int max) ? max : 0;
                         _qty           = qty.ToString();
-                    }));
+                    },
+                    refreshSource:   () => Treasury.TreasuryCache.Snapshot?.Items,
+                    payloads:        _payloads,
+                    onPickPayload:   (pl, qty) =>
+                    {
+                        _itemDefName   = pl.DisplayLabel;
+                        _fingerprint   = pl.Fingerprint;
+                        _itemAvailable = pl.StackCount;
+                        _qty           = qty.ToString();
+                    },
+                    refreshPayloads: () => Treasury.TreasuryCache.Snapshot?.ItemPayloads,
+                    closeOnPick:     true);
             }
             y += 30f;
 
@@ -100,6 +117,19 @@ namespace KMHPatch.Features.Marketplace
                 Find.WindowStack.Add(new FloatMenu(opts));
             }
             y += 30f;
+
+            // Estimated payout after the server tax (guild sale tax / world events can shift it - hence "~").
+            if (int.TryParse((_qty ?? "").Trim(), out int pvQty) && pvQty > 0
+                && int.TryParse((_unitPriceSilver ?? "").Trim(), out int pvPrice) && pvPrice > 0
+                && MarketplaceCache.HasSnapshot)
+            {
+                int pct = System.Math.Max(0, MarketplaceCache.Snapshot?.ServerTaxPercent ?? 0);
+                long gross = (long)pvQty * pvPrice;
+                long net   = gross - (long)System.Math.Round(gross * (pct / 100.0));
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
+                    $"<color=grey>If it fully sells: buyer pays <b>{SilverFmt.Format(gross)}</b>, you receive ~<b>{SilverFmt.Format(net)}</b> after the {pct}% server tax.</color>");
+                y += 24f;
+            }
 
             const float btnW = 120f;
             const float btnH = 32f;
@@ -152,10 +182,10 @@ namespace KMHPatch.Features.Marketplace
                     return;
                 }
             }
-            if (MarketplaceHandler.TryPost(_itemDefName, qty, price, _visibility, expHours))
-            {
-                Close();
-            }
+            bool ok = string.IsNullOrEmpty(_fingerprint)
+                ? MarketplaceHandler.TryPost(_itemDefName, qty, price, _visibility, expHours)
+                : MarketplaceHandler.TryPostPayload(_fingerprint, qty, price, _visibility, expHours);
+            if (ok) Close();
         }
     }
 }

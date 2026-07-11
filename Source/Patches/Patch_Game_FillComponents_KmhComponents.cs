@@ -17,15 +17,19 @@ namespace KMHPatch.Patches
         private static void Postfix(Game __instance)
         {
             Ensure<GameComponent_KMHColonyReporter>(__instance);
+            Ensure<Features.Treasury.GameComponent_KMHDepositLedger>(__instance);
             Ensure<WorldQuestReporter>(__instance);
             Ensure<QuestAutoVerify>(__instance);
             Ensure<GameComponent_KMHKillTally>(__instance);
             Ensure<GameComponent_KMHEnforcementPoll>(__instance);
+            Ensure<GameComponent_KMHWorldWeather>(__instance);
+            Ensure<Features.Sites.GameComponent_KMHSiteWorkerSync>(__instance);
 
             // Site markers live on a WorldComponent, which RimWorld only auto-instantiates at world build - on first
             // join the payload can load after that, so the marker component is missing until a rejoin rebuilds the
             // world (markers then only appeared on rejoin). Ensure it here too, exactly like the GameComponents.
             EnsureWorld<Features.Sites.WorldComponent_KMHSiteMarkers>();
+            EnsureWorld<Features.Sites.WorldComponent_KMHSiteWorkers>();   // holds assigned pawns "inside" sites
         }
 
         private static void Ensure<T>(Game game) where T : GameComponent
