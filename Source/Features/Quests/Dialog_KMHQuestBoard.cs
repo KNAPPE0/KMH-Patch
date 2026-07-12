@@ -20,8 +20,6 @@ namespace KMHPatch.Features.Quests
         public override Vector2 InitialSize => new Vector2(900f, 620f);
 
         private Vector2  _scroll;
-        private float    _refreshTimer   = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
 
         // Toolbar state. Open-only defaults true so the board starts focused on actionable
         // quests
@@ -44,10 +42,8 @@ namespace KMHPatch.Features.Quests
             draggable               = true;
             resizeable              = true;
 
-            QuestHandler.RequestSnapshot();
+            EnableAutoRefresh(() => { QuestHandler.RequestSnapshot(); Features.World.WorldHandler.RequestSnapshot(); });
             ReputationCache.RequestSnapshot();
-            Features.World.WorldHandler.RequestSnapshot(); // pull active global quests for the banner
-            _lastRefreshUtc   = DateTime.UtcNow;
             QuestCache.Updated += OnSnapshotUpdated;
         }
 
@@ -57,30 +53,17 @@ namespace KMHPatch.Features.Quests
             QuestCache.Updated -= OnSnapshotUpdated;
         }
 
+        // Also invalidate the cached filtered view so the fresh snapshot rebuilds it.
         private void OnSnapshotUpdated()
         {
-            _visible        = null;
-            _lastRefreshUtc = DateTime.UtcNow;
-        }
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                QuestHandler.RequestSnapshot();
-                Features.World.WorldHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
+            _visible = null;
+            MarkRefreshed();
         }
 
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Quest Board");
-            int secsSince = Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds);
-            DialogLayout.DrawLiveBadge(rect, secsSince);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!QuestCache.HasSnapshot)
@@ -114,7 +97,7 @@ namespace KMHPatch.Features.Quests
             if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 2f, y, toolbarBtnW - 4f, 28f), "Refresh"))
             {
                 QuestHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             y += 32f;
 
@@ -157,7 +140,7 @@ namespace KMHPatch.Features.Quests
             GUI.color = old;
             py += 22f;
 
-            string me  = SessionHandler.Username ?? string.Empty;
+            string me  = KmhSession.Me;
             long   now = DateTime.UtcNow.Ticks;
             for (int i = 0; i < shown; i++)
             {
@@ -228,10 +211,9 @@ namespace KMHPatch.Features.Quests
 
         private void DrawQuestList(Rect box, QuestSnapshot s)
         {
-            Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = 64f;
 
-            string mine        = SessionHandler.Username ?? string.Empty;
+            string mine        = KmhSession.Me;
             string filterLower = (_filter ?? "").Trim().ToLower();
 
             bool inputsChanged =
@@ -255,8 +237,8 @@ namespace KMHPatch.Features.Quests
 
                     if (_onlyMine)
                     {
-                        bool isPoster  = !string.IsNullOrEmpty(mine) && string.Equals(q.PosterUsername,    mine, StringComparison.OrdinalIgnoreCase);
-                        bool isClaimer = !string.IsNullOrEmpty(mine) && string.Equals(q.ClaimedByUsername, mine, StringComparison.OrdinalIgnoreCase);
+                        bool isPoster  = KmhSession.Same(q.PosterUsername,    mine);
+                        bool isClaimer = KmhSession.Same(q.ClaimedByUsername, mine);
                         if (!isPoster && !isClaimer) continue;
                     }
                     if (_onlyOpen && q.State != QuestEntry.StateOpen) continue;
@@ -298,33 +280,15 @@ namespace KMHPatch.Features.Quests
             }
 
             List<QuestEntry> rows = _visible;
-            float viewH    = Mathf.Max(inner.height, rows.Count * rowH + 8f);
-            Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
-
-            Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            long  now = DateTime.UtcNow.Ticks;
+            long now = DateTime.UtcNow.Ticks;
             // 'mine' already computed above for the filter pass; reused here for the per-row 'is me?' check
 
-            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int first, out int last);
-            for (int i = first; i < last; i++)
-            {
-                QuestEntry q = rows[i];
-                Rect row = new Rect(0f, i * rowH, viewRect.width, rowH);
-                if (i % 2 == 0) Widgets.DrawAltRect(row);
-                Widgets.DrawHighlightIfMouseover(row);
+            string empty = (s.Quests == null || s.Quests.Count == 0)
+                ? "<color=grey>No quests posted yet. Be the first!</color>"
+                : "<color=grey>No quests match the filter.</color>";
 
-                DrawQuestRow(row, q, now, mine);
-            }
-            if (rows.Count == 0)
-            {
-                bool noData = s.Quests == null || s.Quests.Count == 0;
-                string msg = noData
-                    ? "<color=grey>No quests posted yet. Be the first!</color>"
-                    : "<color=grey>No quests match the filter.</color>";
-                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f), msg);
-            }
-
-            Widgets.EndScrollView();
+            DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH,
+                (i, row) => DrawQuestRow(row, rows[i], now, mine), empty);
         }
 
         private static void DrawQuestRow(Rect row, QuestEntry q, long nowTicks, string mine)
@@ -420,8 +384,8 @@ namespace KMHPatch.Features.Quests
             Rect topBtn    = new Rect(btnsX, inner.y + 4f, btnW, 24f);
             Rect bottomBtn = new Rect(btnsX, inner.y + 32f, btnW, 24f);
 
-            bool isPoster  = !string.IsNullOrEmpty(mine) && string.Equals(q.PosterUsername,   mine, StringComparison.OrdinalIgnoreCase);
-            bool isClaimer = !string.IsNullOrEmpty(mine) && string.Equals(q.ClaimedByUsername, mine, StringComparison.OrdinalIgnoreCase);
+            bool isPoster  = KmhSession.Same(q.PosterUsername,   mine);
+            bool isClaimer = KmhSession.Same(q.ClaimedByUsername, mine);
 
             if (q.State == QuestEntry.StateOpen)
             {

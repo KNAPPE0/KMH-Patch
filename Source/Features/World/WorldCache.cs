@@ -36,7 +36,7 @@ namespace KMHPatch.Features.World
             LastUpdatedUtc = DateTime.UtcNow;
             if (Diagnostics.KmhLog.DebugEnabled)
                 Diagnostics.KmhLog.Debug($"Snapshot received: world.snapshot - {(HasEvents ? Snapshot.Events.Count + " event(s)" : "no events")}, {ActiveServerQuests().Count} global quest(s). Dashboard rows World Events + Global Quests will update.");
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"World cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "World");
         }
 
         // Harden server-supplied world data before it can ever reach a rich-text Label. This is the root fix for the

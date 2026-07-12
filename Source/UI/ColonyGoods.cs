@@ -147,7 +147,7 @@ namespace KMHPatch.UI
         // All-or-nothing complex-item capture. Splits the exact qty off the source (still recoverable), captures +
         // validates EVERY piece (non-null, count == qty, within byte limits), and only then destroys them. If ANY
         // capture fails or a payload is oversized, the split-off pieces are handed back (nothing is lost) and it
-        // returns false. This replaces the old path that destroyed items even when capture failed.
+        // returns false.
         public static bool RemoveKeyCapturing(Caravan caravan, Map map, string key, int qty, out List<Items.KmhThingPayload> captured)
         {
             captured = new List<Items.KmhThingPayload>();
@@ -210,18 +210,33 @@ namespace KMHPatch.UI
         }
 
         // Materialize restored payloads (withdraw/grant/rollback). Falls back to a legacy key spawn per payload if a
-        // payload can't rebuild, so nothing is silently lost.
+        // payload can't rebuild, so nothing is silently lost. A single payload may carry more than one stack's worth
+        // (e.g. once the server merges same-item deposits into one entry), so it's materialized in stackLimit-sized
+        // stacks - one restore per stack, so each keeps the payload's exact state - rather than capping at one stack.
         public static void DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads)
         {
             if (payloads == null) return;
             foreach (Items.KmhThingPayload p in payloads)
             {
                 if (p == null) continue;
-                Thing t = null;
-                try { t = Items.KmhThingCapture.Restore(p); }
-                catch (Exception ex) { Diagnostics.KmhLog.Warn($"KMH restore threw for {p.DefName}: {ex.Message}"); }
-                if (t != null) DeliverThing(t);
-                else DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), Math.Max(1, p.StackCount));
+                int remaining = Math.Max(1, p.StackCount);
+                int guard = 0;
+                while (remaining > 0 && guard++ < 100000)
+                {
+                    Thing t = null;
+                    try { t = Items.KmhThingCapture.Restore(p); }
+                    catch (Exception ex) { Diagnostics.KmhLog.Warn($"KMH restore threw for {p.DefName}: {ex.Message}"); }
+                    if (t == null)
+                    {
+                        DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), remaining);   // legacy path splits into stacks itself
+                        break;
+                    }
+                    int lim  = t.def != null && t.def.stackLimit > 0 ? t.def.stackLimit : remaining;
+                    int give = Math.Min(remaining, lim);
+                    t.stackCount = give;
+                    DeliverThing(t);
+                    remaining -= give;
+                }
             }
         }
 
@@ -403,23 +418,39 @@ namespace KMHPatch.UI
             catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); }
         }
 
-        // Where returned goods land, in preference order: the best stockpile that ACCEPTS the item (dumping
-        // stockpiles included, highest priority first), the trade-beacon drop spot, a home-area cell, and only
-        // then the map center. DropThingsNear fine-tunes around the returned cell (avoids roofs/walls itself).
+        // Where returned goods land, in preference order: a player-designated "KMH" stockpile (put "KMH" anywhere in a
+        // stockpile's name, e.g. "KMH Depot", to pin every withdrawal there), then the best stockpile that ACCEPTS the
+        // item (dumping stockpiles included, highest priority first), the trade-beacon drop spot, a home-area cell, and
+        // only then the map center. DropThingsNear fine-tunes around the returned cell (avoids roofs/walls itself).
         private static IntVec3 BestDropCell(Map map, Thing sample, out string where)
         {
             try
             {
-                if (sample != null && map.zoneManager != null)
+                if (map.zoneManager != null)
                 {
-                    Zone_Stockpile best = null;
+                    // Designated landing zone: any stockpile named with "KMH" wins outright, so withdrawals land where
+                    // the player chose instead of scattering to whatever zone is oldest. Highest-priority one first.
+                    Zone_Stockpile kmhZone = null;
                     foreach (Zone z in map.zoneManager.AllZones)
-                        if (z is Zone_Stockpile s && s.settings != null && s.settings.AllowedToAccept(sample)
-                            && (best == null || s.settings.Priority > best.settings.Priority))
-                            best = s;
-                    if (best != null)
-                        foreach (IntVec3 c in best.Cells)
-                            if (ValidDropCell(map, c)) { where = $"stockpile '{best.label}'"; return c; }
+                        if (z is Zone_Stockpile s && s.settings != null
+                            && !string.IsNullOrEmpty(s.label) && s.label.IndexOf("KMH", StringComparison.OrdinalIgnoreCase) >= 0
+                            && (kmhZone == null || s.settings.Priority > kmhZone.settings.Priority))
+                            kmhZone = s;
+                    if (kmhZone != null)
+                        foreach (IntVec3 c in kmhZone.Cells)
+                            if (ValidDropCell(map, c)) { where = $"your KMH zone '{kmhZone.label}'"; return c; }
+
+                    if (sample != null)
+                    {
+                        Zone_Stockpile best = null;
+                        foreach (Zone z in map.zoneManager.AllZones)
+                            if (z is Zone_Stockpile s && s.settings != null && s.settings.AllowedToAccept(sample)
+                                && (best == null || s.settings.Priority > best.settings.Priority))
+                                best = s;
+                        if (best != null)
+                            foreach (IntVec3 c in best.Cells)
+                                if (ValidDropCell(map, c)) { where = $"stockpile '{best.label}'"; return c; }
+                    }
                 }
 
                 IntVec3 trade = DropCellFinder.TradeDropSpot(map);

@@ -29,7 +29,7 @@ namespace KMHPatch.Features.Auctions
                 visibility     = visibility ?? "public",
             });
             if (sent) KmhNotifications.Neutral("Posting auction…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -48,7 +48,7 @@ namespace KMHPatch.Features.Auctions
                 visibility     = visibility ?? "public",
             });
             if (sent) KmhNotifications.Neutral("Posting auction (full state)…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -56,7 +56,7 @@ namespace KMHPatch.Features.Auctions
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.AuctionBid, new { auction_id = auctionId, amount });
             if (sent) KmhNotifications.Neutral($"Bidding {amount}…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -64,7 +64,7 @@ namespace KMHPatch.Features.Auctions
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.AuctionCancel, new { auction_id = auctionId });
             if (sent) KmhNotifications.Positive("Cancel sent");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 

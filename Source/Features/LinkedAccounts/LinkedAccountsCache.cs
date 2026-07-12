@@ -56,7 +56,7 @@ namespace KMHPatch.Features.LinkedAccounts
             LastUpdatedUtc = DateTime.UtcNow;
             HasSnapshot    = true;
 
-            try { Updated?.Invoke(); } catch (System.Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Linked accounts");
         }
 
         internal static void Clear()

@@ -14,6 +14,11 @@ namespace KMHPatch.Features.Catalog.Dto
         [JsonProperty("values")]
         public Dictionary<string, long> Values { get; set; } = new Dictionary<string, long>();
 
+        // Fungible defNames in this chunk (KmhThingCapture.IsFungible), so the server can consolidate legacy treasury
+        // payloads stored before the per-payload mergeable flag existed.
+        [JsonProperty("fungible")]
+        public List<string> Fungible { get; set; } = new List<string>();
+
         // Chunking for large modpacks (thousands of defs): each message is one chunk; the server accumulates them
         // (Apply is additive). 1-based index; total lets the server log completion. Old clients omit both (single push).
         [JsonProperty("chunk_index")] public int ChunkIndex { get; set; } = 0;

@@ -62,5 +62,9 @@ namespace KMHPatch.Notifications
         public static void Negative(string message) => Flash(message, MessageTypeDefOf.NegativeEvent);
         public static void Rejected(string message) => Flash(message, MessageTypeDefOf.RejectInput);
         public static void Neutral (string message) => Flash(message, MessageTypeDefOf.NeutralEvent);
+
+        // The standard "send failed because we're offline" rejection - every handler's send path used to inline this
+        // same string, so it lives here once.
+        public static void NotConnected() => Rejected("Not connected to a KMH server");
     }
 }

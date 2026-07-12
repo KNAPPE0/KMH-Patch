@@ -26,7 +26,6 @@ namespace KMHPatch.UI
 
         private Vector2 _scroll;
         private string  _filter = "";
-        private bool    _needsRefresh;
 
         // Category dropdown, remembered across pickers this session so a player doesn't re-pick it every time.
         private static string _lastCategory = "All";
@@ -108,13 +107,18 @@ namespace KMHPatch.UI
             const float rowH = 30f;
             const float btnW = 90f;
 
-            // After a pick, re-read live counts so the list can't show stock the colony no longer holds (which would
-            // let a second attempt fail with "only has 0" while the first success toast is still on screen).
-            if (_needsRefresh)
+            // Re-read live counts each frame so the list tracks the latest snapshot. A withdraw's fresh snapshot can
+            // land a round-trip AFTER the pick, so a one-shot refresh would leave stale counts on screen; rebuild the
+            // view whenever the source or payload list reference changes.
+            if (_refreshSource != null)
             {
-                _needsRefresh = false;
-                if (_refreshSource != null)   { _source   = _refreshSource()   ?? _source;   _visible = null; }
-                if (_refreshPayloads != null) { _payloads = _refreshPayloads() ?? _payloads; _visible = null; }
+                var s = _refreshSource();
+                if (s != null && !ReferenceEquals(s, _source)) { _source = s; _visible = null; }
+            }
+            if (_refreshPayloads != null)
+            {
+                var p = _refreshPayloads();
+                if (p != null && !ReferenceEquals(p, _payloads)) { _payloads = p; _visible = null; }
             }
 
             string filterLower = (_filter ?? "").Trim().ToLower();
@@ -159,7 +163,7 @@ namespace KMHPatch.UI
                             confirmLabel: _pickActionLabel,
                             unitLabel:    "items",
                             maxHint:      pl.StackCount,
-                            onConfirm:    qty => { _onPickPayload?.Invoke(pl, qty); _needsRefresh = true; if (_closeOnPick) Close(); }));
+                            onConfirm:    qty => { _onPickPayload?.Invoke(pl, qty); if (_closeOnPick) Close(); }));
                     }
                     continue;
                 }
@@ -184,7 +188,7 @@ namespace KMHPatch.UI
                         confirmLabel: _pickActionLabel,
                         unitLabel:    "units",
                         maxHint:      capturedMax,
-                        onConfirm:    qty => { _onPick?.Invoke(capturedDefName, qty); _needsRefresh = true; if (_closeOnPick) Close(); }));
+                        onConfirm:    qty => { _onPick?.Invoke(capturedDefName, qty); if (_closeOnPick) Close(); }));
                 }
             }
 

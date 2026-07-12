@@ -18,7 +18,7 @@ namespace KMHPatch.Features.Quests
         {
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (System.Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Quest");
         }
 
         internal static void Clear()

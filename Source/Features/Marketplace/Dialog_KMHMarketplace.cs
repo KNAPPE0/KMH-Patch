@@ -18,8 +18,6 @@ namespace KMHPatch.Features.Marketplace
         public override Vector2 InitialSize => new Vector2(1040f, 620f);
 
         private Vector2  _scroll;
-        private float    _refreshTimer   = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
 
         // Toolbar state. Categories are a fixed ThingCategoryDef list, so the filter works against any RimWorld
         // expansion / mod that places defs into them.
@@ -64,8 +62,7 @@ namespace KMHPatch.Features.Marketplace
             draggable               = true;
             resizeable              = true;
 
-            MarketplaceHandler.RequestSnapshot();
-            _lastRefreshUtc       = DateTime.UtcNow;
+            EnableAutoRefresh(() => MarketplaceHandler.RequestSnapshot());
             MarketplaceCache.Updated += OnSnapshotUpdated;
         }
 
@@ -75,29 +72,17 @@ namespace KMHPatch.Features.Marketplace
             MarketplaceCache.Updated -= OnSnapshotUpdated;
         }
 
+        // Also invalidate the cached filtered view so the fresh snapshot rebuilds it.
         private void OnSnapshotUpdated()
         {
-            _visible        = null;
-            _lastRefreshUtc = DateTime.UtcNow;
-        }
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                MarketplaceHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
+            _visible = null;
+            MarkRefreshed();
         }
 
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Player Marketplace");
-            int secsSince = Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds);
-            DialogLayout.DrawLiveBadge(rect, secsSince);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!MarketplaceCache.HasSnapshot)
@@ -144,7 +129,7 @@ namespace KMHPatch.Features.Marketplace
             if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 2f, y, toolbarBtnW - 4f, 28f), "Refresh"))
             {
                 MarketplaceHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 3f, y, toolbarBtnW - 4f, 28f), "Auctions…"))
             {
@@ -162,15 +147,7 @@ namespace KMHPatch.Features.Marketplace
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "My guild only", ref _onlyMyGuild);
 
             if (Widgets.ButtonText(new Rect(rect.width - 160f, y, 156f, 26f), $"Sort: {SortLabel(_sort)}"))
-            {
-                List<FloatMenuOption> sortOpts = new List<FloatMenuOption>();
-                foreach (SortMode m in (SortMode[])Enum.GetValues(typeof(SortMode)))
-                {
-                    SortMode captured = m;
-                    sortOpts.Add(new FloatMenuOption(SortLabel(captured), () => _sort = captured));
-                }
-                Find.WindowStack.Add(new FloatMenu(sortOpts));
-            }
+                DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
             y += 30f;
 
             DrawHeader(new Rect(0f, y, rect.width, 22f));
@@ -201,10 +178,9 @@ namespace KMHPatch.Features.Marketplace
 
         private void DrawRows(Rect box, MarketplaceSnapshot s)
         {
-            Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = DialogLayout.RowHeightSingle;
 
-            string mine        = SessionHandler.Username ?? string.Empty;
+            string mine        = KmhSession.Me;
             string filterLower = (_filter ?? "").Trim().ToLower();
 
             // 'My guild only' - names of guild members from the cached guild snapshot, or null when caller isn't in
@@ -239,7 +215,7 @@ namespace KMHPatch.Features.Marketplace
                     MarketplaceListing r = source[j];
 
                     if (_onlyMine && (string.IsNullOrEmpty(mine)
-                        || !string.Equals(r.SellerUsername, mine, StringComparison.OrdinalIgnoreCase)))
+                        || !KmhSession.Same(r.SellerUsername, mine)))
                         continue;
 
                     if (_onlyMyGuild && (myGuildMembers == null
@@ -263,8 +239,8 @@ namespace KMHPatch.Features.Marketplace
 
                 switch (_sort)
                 {
-                    case SortMode.PriceAsc:  filtered.Sort((a, b) => a.UnitPriceSilver.CompareTo(b.UnitPriceSilver)); break;
-                    case SortMode.PriceDesc: filtered.Sort((a, b) => b.UnitPriceSilver.CompareTo(a.UnitPriceSilver)); break;
+                    case SortMode.PriceAsc:  filtered.Sort((a, b) => a.EffectiveMilli.CompareTo(b.EffectiveMilli)); break;
+                    case SortMode.PriceDesc: filtered.Sort((a, b) => b.EffectiveMilli.CompareTo(a.EffectiveMilli)); break;
                     case SortMode.QtyDesc:   filtered.Sort((a, b) => b.RemainingQty.CompareTo(a.RemainingQty));       break;
                     case SortMode.NameAsc:   filtered.Sort((a, b) => string.Compare(
                                                  ItemLabels.ResolveLabel(a.ItemDefName), ItemLabels.ResolveLabel(b.ItemDefName),
@@ -282,23 +258,19 @@ namespace KMHPatch.Features.Marketplace
             }
 
             List<MarketplaceListing> rows = _visible;
-            float viewH    = Mathf.Max(inner.height, rows.Count * rowH + 8f);
-            Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
-
-            Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            float[] cols = ColumnXs(viewRect.width);
-            long    now  = DateTime.UtcNow.Ticks;
+            long now = DateTime.UtcNow.Ticks;
             // 'mine' already computed above for the filter pass; reused here for the per-row 'is mine?' check
 
-            // Draw only the rows in view - a busy/modded marketplace can have hundreds of listings.
-            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int firstRow, out int lastRow);
-            for (int i = firstRow; i < lastRow; i++)
+            string empty = (s.Listings == null || s.Listings.Count == 0)
+                ? "<color=grey>No open listings. Be the first to sell something!</color>"
+                : "<color=grey>No listings match the filter.</color>";
+
+            // Only the visible rows draw - a busy/modded marketplace can have hundreds of listings.
+            DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH, (i, row) =>
             {
                 MarketplaceListing r = rows[i];
-                float ly = i * rowH;
-                Rect row = new Rect(0f, ly, viewRect.width, rowH);
-                if (i % 2 == 0) Widgets.DrawAltRect(row);
-                Widgets.DrawHighlightIfMouseover(row);
+                float ly = row.y;
+                float[] cols = ColumnXs(row.width);
                 if (Mouse.IsOver(row))
                 {
                     string demandTip = MarketDemand.Tip(r.ItemDefName);
@@ -320,18 +292,18 @@ namespace KMHPatch.Features.Marketplace
                 DialogLayout.DrawCenteredLabel(new Rect(cols[1], ly + 2f, cols[2] - cols[1], rowH - 4f),
                     $"{r.RemainingQty}<color=grey>/{r.OriginalQty}</color>");
                 DialogLayout.DrawCenteredLabel(new Rect(cols[2], ly + 2f, cols[3] - cols[2], rowH - 4f),
-                    $"{SilverFmt.Format(r.UnitPriceSilver)}");
+                    r.UnitPriceDisplay.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
                 DialogLayout.DrawCenteredLabel(new Rect(cols[3], ly + 2f, cols[4] - cols[3], rowH - 4f),
                     $"<b>{SilverFmt.Format(r.TotalAskingSilver(r.RemainingQty))}</b>");
                 DialogLayout.LabelTrunc(new Rect(cols[4] + 4f, ly + 2f, cols[5] - cols[4] - 4f, rowH - 4f),
                     string.IsNullOrEmpty(r.SellerUsername) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(r.SellerUsername));
                 DialogLayout.DrawCenteredLabel(
-                    new Rect(cols[5], ly + 2f, viewRect.width - cols[5] - ActionColumnWidth, rowH - 4f),
+                    new Rect(cols[5], ly + 2f, row.width - cols[5] - ActionColumnWidth, rowH - 4f),
                     FormatListedExpires(r, now));
 
                 // Action button column: Cancel for own listings, Buy for others.
-                Rect actionRect = new Rect(viewRect.width - ActionColumnWidth + 4f, ly + 2f, ActionColumnWidth - 8f, rowH - 4f);
-                bool isMine = !string.IsNullOrEmpty(mine) && string.Equals(r.SellerUsername, mine, StringComparison.OrdinalIgnoreCase);
+                Rect actionRect = new Rect(row.width - ActionColumnWidth + 4f, ly + 2f, ActionColumnWidth - 8f, rowH - 4f);
+                bool isMine = KmhSession.Same(r.SellerUsername, mine);
                 if (isMine)
                 {
                     if (IconButton.Draw(actionRect, KMHTextures.Cancel, "Cancel"))
@@ -354,18 +326,7 @@ namespace KMHPatch.Features.Marketplace
                             onConfirm: qty => MarketplaceHandler.TryBuy(captured.Id, qty)));
                     }
                 }
-
-            }
-            if (rows.Count == 0)
-            {
-                bool noData = s.Listings == null || s.Listings.Count == 0;
-                string msg = noData
-                    ? "<color=grey>No open listings. Be the first to sell something!</color>"
-                    : "<color=grey>No listings match the filter.</color>";
-                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f), msg);
-            }
-
-            Widgets.EndScrollView();
+            }, empty);
         }
 
         private static float[] ColumnXs(float w)

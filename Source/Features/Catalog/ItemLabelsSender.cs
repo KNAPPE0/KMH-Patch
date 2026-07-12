@@ -14,18 +14,36 @@ namespace KMHPatch.Features.Catalog
         // chunks; the server accumulates them (Apply is additive), so nothing is lost off the tail.
         private const int ChunkSize = 800;
 
+        // Skip re-sending an identical catalog to the same server within this window. The modpack (so the catalog)
+        // can't change without a game restart and the server keeps what we already sent, so a client that reconnects
+        // repeatedly no longer re-streams thousands of labels each time (the main handshake log/packet noise). A
+        // server restart inside the window briefly shows def-names until the next push - a name-cache convenience that
+        // self-heals. Static, so it survives reconnects within a game launch and resets on restart.
+        private static readonly System.TimeSpan RepushWindow = System.TimeSpan.FromMinutes(10);
+        private static string           _lastPushEndpoint = "";
+        private static System.DateTime  _lastPushUtc      = System.DateTime.MinValue;
+
         public static bool PushOnce()
         {
             if (!KmhDispatcher.IsKmhServer) return false;
 
-            Dictionary<string, string> labels = BuildCatalog(out int discovered, out Dictionary<string, long> values);
+            string endpoint = CurrentEndpoint();
+            if (!string.IsNullOrEmpty(endpoint)
+                && string.Equals(endpoint, _lastPushEndpoint, System.StringComparison.OrdinalIgnoreCase)
+                && System.DateTime.UtcNow - _lastPushUtc < RepushWindow)
+            {
+                KmhLog.Debug($"ItemLabels: catalog already sent to {endpoint} {(int)(System.DateTime.UtcNow - _lastPushUtc).TotalSeconds}s ago - skipping re-push.");
+                return true;   // report success so the session's push guard latches and won't retry over chat
+            }
+
+            Dictionary<string, string> labels = BuildCatalog(out int discovered, out Dictionary<string, long> values, out HashSet<string> fungible);
             if (labels.Count == 0)
             {
                 KmhLog.Warn("ItemLabels: no items resolved from DefDatabase, skipping push");
                 return false;
             }
 
-            int labelChunks = SendChunked(KmhProtocol.Kind.ItemLabels, labels, forValues: false);
+            int labelChunks = SendChunked(KmhProtocol.Kind.ItemLabels, labels, forValues: false, fungible);
             if (labelChunks <= 0) return false;
             KmhLog.Debug($"ItemLabels: pushed {labels.Count} labels in {labelChunks} chunk(s) (of {discovered} discovered).");
 
@@ -35,11 +53,22 @@ namespace KMHPatch.Features.Catalog
                 KmhLog.Debug($"ItemLabels: pushed {values.Count} base market values in {vChunks} chunk(s).");
             }
             PushConditionDefs();
+
+            _lastPushEndpoint = endpoint;   // remember only after a real push, so a failed send retries next time
+            _lastPushUtc      = System.DateTime.UtcNow;
             return true;
         }
 
-        // Split a dict into chunks and send each as one ItemLabelsPush with chunk_index/chunk_total metadata.
-        private static int SendChunked(string kind, Dictionary<string, string> map, bool forValues)
+        // "ip:port" of the connected server, or "" if unavailable (then the throttle is skipped and we always push).
+        private static string CurrentEndpoint()
+        {
+            try { return $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}"; }
+            catch { return ""; }
+        }
+
+        // Split a dict into chunks and send each as one ItemLabelsPush with chunk_index/chunk_total metadata. When
+        // fungibleSet is given (labels push only), each chunk also carries the fungible defNames it contains.
+        private static int SendChunked(string kind, Dictionary<string, string> map, bool forValues, HashSet<string> fungibleSet = null)
         {
             List<KeyValuePair<string, string>> all = new List<KeyValuePair<string, string>>(map);
             int total = (all.Count + ChunkSize - 1) / ChunkSize;
@@ -52,6 +81,7 @@ namespace KMHPatch.Features.Catalog
                 {
                     if (forValues) { if (long.TryParse(all[i].Value, out long v)) push.Values[all[i].Key] = v; }
                     else           push.Labels[all[i].Key] = all[i].Value;
+                    if (fungibleSet != null && fungibleSet.Contains(all[i].Key)) push.Fungible.Add(all[i].Key);
                 }
                 if (KmhDispatcher.Send(kind, push)) sent++;
             }
@@ -87,12 +117,13 @@ namespace KMHPatch.Features.Catalog
 
         // Gather tradeable ThingDefs using the shared item filter; labels already handle lookup + fallback. NO cap -
         // chunking handles size, so the full modpack catalog reaches the server.
-        private static Dictionary<string, string> BuildCatalog(out int discovered, out Dictionary<string, long> values)
+        private static Dictionary<string, string> BuildCatalog(out int discovered, out Dictionary<string, long> values, out HashSet<string> fungible)
         {
             discovered = 0;
             Dictionary<string, string> result = new Dictionary<string, string>(
                 System.StringComparer.OrdinalIgnoreCase);
             values = new Dictionary<string, long>(System.StringComparer.OrdinalIgnoreCase);
+            fungible = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             try
             {
                 Dictionary<string, int> pickable = ItemDefBrowser.AllPickableItems();
@@ -109,6 +140,8 @@ namespace KMHPatch.Features.Catalog
                     ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
                     if (def != null && def.BaseMarketValue > 0f)
                         values[defName] = (long)System.Math.Round(def.BaseMarketValue);
+                    // Vouch fungibility so the server can consolidate legacy (pre-mergeable-flag) treasury payloads.
+                    if (def != null && Items.KmhThingCapture.IsFungible(def)) fungible.Add(defName);
                 }
             }
             catch (System.Exception ex)

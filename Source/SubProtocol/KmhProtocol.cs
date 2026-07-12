@@ -4,18 +4,18 @@ namespace KMHPatch.SubProtocol
     // collision-proof: no legitimate player name can start with a non-printable control character.
     internal static class KmhProtocol
     {
-        // Bump when the wire format changes incompatibly. Server announces its supported version in kmh.hello;
-        // clients refuse to send if mismatched. Bumped to 2 for v1.2.0 (deposit semantics changed - gate old clients).
+        // Bump when the wire format changes incompatibly. Server announces its supported version in kmh.hello; clients
+        // refuse to send if mismatched. Currently 2: deposit semantics changed, so pre-2 clients are gated out.
         public const int CurrentVersion = 2;
 
         // Human-readable release version, carried in kmh.hello purely so each side can DETECT a version gap and
         // nudge the player. It never gates the connection (that's CurrentVersion's job) and stays additive: a
         // pre-1.1.0 server omits it, so an empty value received here reliably means "older server".
-        public const string BuildVersion = "1.2.0";
+        public const string BuildVersion = "1.2.1";
 
-        // Short build tag bumped each dev pass so a running player can confirm WHICH client build is loaded (a stale
-        // installed DLL is the #1 "my fix isn't showing" cause). Shown in the KMH tab + Guild Hall title + logged on load.
-        public const string UiBuildTag = "rel-129";
+        // Build tag so a player can confirm which client DLL is loaded (a stale install is the usual "fix not showing"
+        // cause). Shown in the KMH tab + Guild Hall title + logged on load.
+        public const string UiBuildTag = "rel-143";
 
         // Identifiers stamped into PKT_Chat.Username. The chat handler intercept matches on these to recognize KMH
         // protocol traffic

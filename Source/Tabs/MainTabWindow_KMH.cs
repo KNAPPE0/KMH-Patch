@@ -205,7 +205,7 @@ namespace KMHPatch.Tabs
 
                 SafeButton(listing, "Link Discord", () =>
                 {
-                    if (!Features.LinkedAccounts.LinkedAccountsCache.IsLinked(SessionHandler.Username ?? "")
+                    if (!Features.LinkedAccounts.LinkedAccountsCache.IsLinked(KmhSession.Me)
                         && IconButton.DrawListingButton(listing, KMHTextures.About, "Link Discord",
                             tooltip: "Get a one-time code to link your Discord account - no chat commands needed."))
                         Features.LinkedAccounts.LinkedAccountsHandler.RequestCode();

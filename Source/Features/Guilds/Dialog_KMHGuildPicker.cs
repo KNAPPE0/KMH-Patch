@@ -14,7 +14,6 @@ namespace KMHPatch.Features.Guilds
 
         private string  _search = "";
         private Vector2 _scroll;
-        private float   _refreshTimer;
 
         public Dialog_KMHGuildPicker()
         {
@@ -23,19 +22,7 @@ namespace KMHPatch.Features.Guilds
             forcePause              = false;
             draggable               = true;
 
-            GuildHandler.RequestLeaderboard();
-            _refreshTimer = DialogLayout.AutoRefreshSeconds;
-        }
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                GuildHandler.RequestLeaderboard();
-            }
+            EnableAutoRefresh(() => GuildHandler.RequestLeaderboard());
         }
 
         protected override void DrawContents(Rect rect)

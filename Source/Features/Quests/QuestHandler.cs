@@ -65,7 +65,7 @@ namespace KMHPatch.Features.Quests
                 proof_image_url = proofImageUrl ?? "",
             });
             if (sent) KmhNotifications.Neutral("Submitting proof…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -79,7 +79,7 @@ namespace KMHPatch.Features.Quests
                 note     = note ?? "",
             });
             if (sent) KmhNotifications.Positive(approve ? "Approval sent" : "Rejection sent");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -100,7 +100,7 @@ namespace KMHPatch.Features.Quests
             payload["expires_hours"] = expiresInHours < 0 ? 0 : expiresInHours;
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestPost, payload);
             if (sent) KmhNotifications.Neutral("Posting quest…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -138,7 +138,7 @@ namespace KMHPatch.Features.Quests
                 expires_hours = expiresInHours < 0 ? 0 : expiresInHours,
             });
             if (sent) KmhNotifications.Neutral("Posting bounty…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -189,7 +189,7 @@ namespace KMHPatch.Features.Quests
                 expires_hours        = expiresInHours < 0 ? 0 : expiresInHours,
             });
             if (sent) KmhNotifications.Neutral("Posting quest…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -204,7 +204,7 @@ namespace KMHPatch.Features.Quests
             }
             else
             {
-                KmhNotifications.Rejected("Not connected to a KMH server");
+                KmhNotifications.NotConnected();
             }
             return sent;
         }

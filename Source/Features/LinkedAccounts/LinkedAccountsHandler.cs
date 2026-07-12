@@ -27,7 +27,7 @@ namespace KMHPatch.Features.LinkedAccounts
         public static bool RequestCode()
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.LinkRequest, null);
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 

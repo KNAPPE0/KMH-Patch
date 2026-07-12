@@ -16,8 +16,6 @@ namespace KMHPatch.Features.WantBoard
         public override Vector2 InitialSize => new Vector2(900f, 620f);
 
         private Vector2  _scroll;
-        private float    _refreshTimer   = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
 
         private string _filter   = "";
         private bool   _mineOnly = false;
@@ -37,30 +35,16 @@ namespace KMHPatch.Features.WantBoard
             draggable               = true;
             resizeable              = true;
 
-            WantHandler.RequestSnapshot();
-            _lastRefreshUtc   = DateTime.UtcNow;
-            WantCache.Updated += OnUpdated;
+            EnableAutoRefresh(() => WantHandler.RequestSnapshot());
+            WantCache.Updated += MarkRefreshed;
         }
 
-        public override void PostClose() { base.PostClose(); WantCache.Updated -= OnUpdated; }
-        private void OnUpdated() => _lastRefreshUtc = DateTime.UtcNow;
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                WantHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
-        }
+        public override void PostClose() { base.PostClose(); WantCache.Updated -= MarkRefreshed; }
 
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Want Board");
-            DialogLayout.DrawLiveBadge(rect, Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds));
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             const float btnW = 130f;
@@ -69,7 +53,7 @@ namespace KMHPatch.Features.WantBoard
             if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f, y, btnW - 4f, 28f), "Refresh"))
             {
                 WantHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             _filter = DialogLayout.SearchField(new Rect(0f, y, 300f, 28f), _filter, "Filter by item or player…");
             DialogLayout.DrawTightCheckbox(316f, y + 4f, "Mine", ref _mineOnly);
@@ -91,10 +75,9 @@ namespace KMHPatch.Features.WantBoard
 
         private void DrawList(Rect box)
         {
-            Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = 58f;
 
-            string me  = SessionHandler.Username ?? "";
+            string me  = KmhSession.Me;
             string flt = (_filter ?? "").Trim().ToLowerInvariant();
             object src = WantCache.HasSnapshot ? (object)WantCache.Snapshot.Wants : null;
 
@@ -107,24 +90,13 @@ namespace KMHPatch.Features.WantBoard
             List<WantDto> rows = _visible;
 
             long now = DateTime.UtcNow.Ticks;
-            float viewH = Mathf.Max(inner.height, rows.Count * rowH + 6f);
-            Rect viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
-            Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int first, out int last);
-            for (int i = first; i < last; i++)
-            {
-                Rect row = new Rect(0f, i * rowH, viewRect.width, rowH);
-                if (i % 2 == 0) Widgets.DrawAltRect(row);
-                Widgets.DrawHighlightIfMouseover(row);
-                DrawRow(row, rows[i], me, now);
-            }
-            if (rows.Count == 0)
-                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f),
-                    !WantCache.HasSnapshot ? $"<color=grey>{DialogLayout.AwaitingSnapshot("Loading wants…", "Wants")}</color>"
-                    : (flt.Length > 0 || _mineOnly) ? "<color=grey>No wants match.</color>"
-                    : "<color=grey>No open wants. Post one!</color>");
-            Widgets.EndScrollView();
+            string empty = !WantCache.HasSnapshot
+                ? $"<color=grey>{DialogLayout.AwaitingSnapshot("Loading wants…", "Wants")}</color>"
+                : (flt.Length > 0 || _mineOnly) ? "<color=grey>No wants match.</color>"
+                : "<color=grey>No open wants. Post one!</color>";
+
+            DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH, (i, row) => DrawRow(row, rows[i], me, now), empty);
         }
 
         // Filter + sort (ending soonest first). Built only on change, not per frame.
@@ -135,7 +107,7 @@ namespace KMHPatch.Features.WantBoard
             foreach (WantDto w in src)
             {
                 if (w == null) continue;
-                if (mineOnly && !Eq(w.BuyerUsername, me)) continue;
+                if (mineOnly && !KmhSession.Same(w.BuyerUsername, me)) continue;
                 if (flt.Length > 0)
                 {
                     string item = (ItemLabels.ResolveLabel(w.ItemDefName) ?? "").ToLowerInvariant();
@@ -156,7 +128,7 @@ namespace KMHPatch.Features.WantBoard
             const float reservedRight = 116f;
             float textW = inner.width - reservedRight;
 
-            bool mine      = Eq(w.BuyerUsername, me);
+            bool mine      = KmhSession.Same(w.BuyerUsername, me);
             int  remaining = Math.Max(0, w.QtyWanted - w.QtyFilled);
             string label   = ItemLabels.ResolveLabel(w.ItemDefName);
 

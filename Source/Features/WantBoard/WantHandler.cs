@@ -30,7 +30,7 @@ namespace KMHPatch.Features.WantBoard
                 allow_damaged     = allowDamaged,
             });
             if (sent) KmhNotifications.Neutral("Posting want…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -38,7 +38,7 @@ namespace KMHPatch.Features.WantBoard
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantFulfill, new { want_id = wantId, qty });
             if (sent) KmhNotifications.Neutral($"Delivering {qty}…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -46,7 +46,7 @@ namespace KMHPatch.Features.WantBoard
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantCancel, new { want_id = wantId });
             if (sent) KmhNotifications.Positive("Cancel sent");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 

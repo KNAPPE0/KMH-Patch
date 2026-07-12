@@ -74,7 +74,7 @@ namespace KMHPatch.Features.Treasury
             _pending[reqId] = intent;
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositPreflight, EconomyCtx.With(fields));
             if (sent) KmhNotifications.Neutral(flash);
-            else { _pending.Remove(reqId); KmhNotifications.Rejected("Not connected to a KMH server"); }
+            else { _pending.Remove(reqId); KmhNotifications.NotConnected(); }
             return sent;
         }
 
@@ -86,7 +86,21 @@ namespace KMHPatch.Features.Treasury
             if (string.IsNullOrEmpty(reqId) || !_pending.TryGetValue(reqId, out DepositIntent intent)) return;
             _pending.Remove(reqId);
             if (!(env?.GetBool("ok", false) ?? false))
-            { KmhNotifications.Rejected(env?.GetString("reason") ?? "Deposit not allowed right now."); return; }
+            {
+                // Compact deposit declined as complex: retry via the payload path. is_payload=true on the retry plus
+                // the !Complex guard prevent a loop.
+                if (intent.Kind == "item" && !intent.Complex && (env?.GetBool("needs_payload", false) ?? false))
+                {
+                    intent.Complex = true;
+                    SendPreflight(intent,
+                        new System.Collections.Generic.Dictionary<string, object>
+                            { { "kind", "item" }, { "item_def_name", intent.ItemDefName }, { "qty", intent.Qty }, { "is_payload", true } },
+                        $"Re-sending ×{intent.Qty} {ItemKeys.LabelForKey(intent.ItemDefName)} with full item state…");
+                    return;
+                }
+                KmhNotifications.Rejected(env?.GetString("reason") ?? "Deposit not allowed right now.");
+                return;
+            }
             string token = env?.GetString("token") ?? "";
             if (intent.Kind == "silver") CompleteSilver(intent.Amount, token);
             else CompleteItem(intent, token);
@@ -165,7 +179,7 @@ namespace KMHPatch.Features.Treasury
             if (amount <= 0) { KmhNotifications.Rejected("Amount must be greater than 0"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawSilver,
                 EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "amount", amount } }));
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -175,7 +189,7 @@ namespace KMHPatch.Features.Treasury
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawItem,
                 EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "item_def_name", itemDefName }, { "qty", qty } }));
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -186,7 +200,7 @@ namespace KMHPatch.Features.Treasury
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryWithdrawItem,
                 EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "fingerprint", fingerprint }, { "qty", qty } }));
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 

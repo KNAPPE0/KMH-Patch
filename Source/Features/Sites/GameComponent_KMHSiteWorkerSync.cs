@@ -6,6 +6,7 @@ using KMHPatch.Diagnostics;
 using KMHPatch.Features.Sites.Dto;
 using KMHPatch.Notifications;
 using KMHPatch.SubProtocol;
+using KMHPatch.UI;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
@@ -39,7 +40,7 @@ namespace KMHPatch.Features.Sites
         {
             if (!KmhDispatcher.IsKmhServer || !SiteCache.HasSnapshot) return;
             List<SiteEntry> sites = SiteCache.Snapshot?.Sites;
-            string me = SessionHandler.Username;
+            string me = KmhSession.Me;
             if (sites == null || string.IsNullOrEmpty(me)) return;
 
             WorldComponent_KMHSiteWorkers holding = WorldComponent_KMHSiteWorkers.Instance;

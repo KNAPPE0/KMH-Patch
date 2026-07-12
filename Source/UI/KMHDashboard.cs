@@ -23,7 +23,7 @@ namespace KMHPatch.UI
         private const string DisabledText = "<color=grey>disabled by server</color>";
         private const string LoadingText  = "<color=grey>loading…</color>";
         private static bool On(string feature) => Features.KmhFeatures.IsEnabled(feature);
-        private static string Me() => SessionHandler.Username ?? "";
+        private static string Me() => KmhSession.Me;
 
         // A dashboard row. Summary returns the current text (it decides loading/empty/data/stale). The server-disabled
         // state is handled centrally from Feature. Visible is an extra gate (e.g. Transport needs the local setting).
@@ -38,6 +38,14 @@ namespace KMHPatch.UI
         }
 
         private static List<Row> _rows;
+
+        // The dashboard is informational and its snapshots update slowly, but DoWindowContents runs on every OnGUI
+        // event (Layout + Repaint, ~2x/visual frame). Rebuilding all rows - several of which scan whole snapshot lists -
+        // that often is wasted work, so the built line set is cached and refreshed a few times a second. Row count only
+        // changes between rebuilds, which also keeps the panel height stable within a frame.
+        private static readonly TimeSpan RebuildInterval = TimeSpan.FromMilliseconds(250);
+        private static List<(string Label, string Value, Color color)> _cachedLines;
+        private static DateTime _lastBuildUtc = DateTime.MinValue;
 
         // Built once (the set of features is fixed for the mod). Order = display order.
         private static List<Row> Rows()
@@ -69,33 +77,7 @@ namespace KMHPatch.UI
 
         public static void Draw(Listing_Standard listing, Rect parentRect)
         {
-            List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
-
-            // Persistent version-mismatch notice (kept above the feature rows).
-            try
-            {
-                if (SubProtocol.KmhDispatcher.IsKmhServer)
-                {
-                    string sb = SubProtocol.KmhDispatcher.ServerBuild;
-                    if (string.IsNullOrEmpty(sb))
-                        lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white));
-                    else if (sb != SubProtocol.KmhProtocol.BuildVersion)
-                        lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white));
-                }
-            }
-            catch (Exception ex) { LogSectionOnce("version", ex); }
-
-            // Every row is rendered - a per-row failure yields an "error" cell, never a missing row.
-            foreach (Row r in Rows())
-            {
-                try
-                {
-                    if (r.Visible != null && !r.Visible()) continue;
-                    string text = !string.IsNullOrEmpty(r.Feature) && !On(r.Feature) ? DisabledText : (r.Summary() ?? LoadingText);
-                    lines.Add((r.Label, text, Color.white));
-                }
-                catch (Exception ex) { LogSectionOnce(r.Label, ex); lines.Add((r.Label, "<color=#D37C7C>error - refresh</color>", Color.white)); }
-            }
+            List<(string Label, string Value, Color color)> lines = BuildLines();
 
             // Render as two aligned columns. The loop restores GUI state so one bad row can't corrupt the panel/buttons.
             // rowH must be >= Text.LineHeight (22) - LabelTrunc grows shorter rows to a full line, so 20/1 made
@@ -125,6 +107,45 @@ namespace KMHPatch.UI
             }
             catch (Exception ex) { LogSectionOnce("panel-render", ex); }
             finally { Text.Font = prevFont; Text.Anchor = prevAnchor; GUI.color = prevColor; }
+        }
+
+        // Compute the row text set, cached and refreshed at most every RebuildInterval (see field note).
+        private static List<(string Label, string Value, Color color)> BuildLines()
+        {
+            DateTime now = DateTime.UtcNow;
+            if (_cachedLines != null && now - _lastBuildUtc < RebuildInterval) return _cachedLines;
+
+            List<(string Label, string Value, Color color)> lines = new List<(string, string, Color)>();
+
+            // Persistent version-mismatch notice (kept above the feature rows).
+            try
+            {
+                if (SubProtocol.KmhDispatcher.IsKmhServer)
+                {
+                    string sb = SubProtocol.KmhDispatcher.ServerBuild;
+                    if (string.IsNullOrEmpty(sb))
+                        lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white));
+                    else if (sb != SubProtocol.KmhProtocol.BuildVersion)
+                        lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white));
+                }
+            }
+            catch (Exception ex) { LogSectionOnce("version", ex); }
+
+            // Every row is rendered - a per-row failure yields an "error" cell, never a missing row.
+            foreach (Row r in Rows())
+            {
+                try
+                {
+                    if (r.Visible != null && !r.Visible()) continue;
+                    string text = !string.IsNullOrEmpty(r.Feature) && !On(r.Feature) ? DisabledText : (r.Summary() ?? LoadingText);
+                    lines.Add((r.Label, text, Color.white));
+                }
+                catch (Exception ex) { LogSectionOnce(r.Label, ex); lines.Add((r.Label, "<color=#D37C7C>error - refresh</color>", Color.white)); }
+            }
+
+            _cachedLines = lines;
+            _lastBuildUtc = now;
+            return lines;
         }
 
         // --- per-feature summary providers (each handles loading / empty / data; "" -> caller shows loading) ---
@@ -167,7 +188,7 @@ namespace KMHPatch.UI
             string me = Me(); int mine = 0; long total = 0;
             if (MarketplaceCache.Snapshot?.Listings != null && !string.IsNullOrEmpty(me))
                 foreach (MarketplaceListing l in MarketplaceCache.Snapshot.Listings)
-                    if (l != null && string.Equals(l.SellerUsername, me, StringComparison.OrdinalIgnoreCase)) { mine++; total += (long)l.RemainingQty * l.UnitPriceSilver; }
+                    if (l != null && string.Equals(l.SellerUsername, me, StringComparison.OrdinalIgnoreCase)) { mine++; total += l.TotalAskingSilver(l.RemainingQty); }
             int open = MarketplaceCache.Snapshot?.Listings?.Count ?? 0;
             return mine == 0 ? $"<color=grey>{open} listing(s) · you have 0</color>" : $"<b>{mine}</b> yours · escrow <b>{SilverFmt.Format(total)}</b> · {open} total";
         }

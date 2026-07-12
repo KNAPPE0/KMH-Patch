@@ -41,8 +41,7 @@ namespace KMHPatch.Features.Enforcement
             if (enabled || isAdmin)
                 LongEventHandler.ExecuteWhenFinished(Patches.EnforcementSettingsPatches.EnsureInstalled);
 
-            try { Updated?.Invoke(); }
-            catch (Exception ex) { KmhLog.Warn($"Enforcement Updated subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Enforcement");
         }
 
         // Active while connected+enforcing (non-exempt), or offline while a profile is still applied (keeps the

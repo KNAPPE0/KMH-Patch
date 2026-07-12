@@ -16,8 +16,6 @@ namespace KMHPatch.Features.Auctions
         public override Vector2 InitialSize => new Vector2(900f, 620f);
 
         private Vector2  _scroll;
-        private float    _refreshTimer   = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
 
         private string _filter   = "";
         private bool   _mineOnly = false;
@@ -53,31 +51,17 @@ namespace KMHPatch.Features.Auctions
             draggable               = true;
             resizeable              = true;
 
-            AuctionHandler.RequestSnapshot();
+            EnableAutoRefresh(() => AuctionHandler.RequestSnapshot());
             ReputationCache.RequestSnapshot();   // populate seller/bidder trust badges
-            _lastRefreshUtc   = DateTime.UtcNow;
-            AuctionCache.Updated += OnUpdated;
+            AuctionCache.Updated += MarkRefreshed;
         }
 
-        public override void PostClose() { base.PostClose(); AuctionCache.Updated -= OnUpdated; }
-        private void OnUpdated() => _lastRefreshUtc = DateTime.UtcNow;
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                AuctionHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
-        }
+        public override void PostClose() { base.PostClose(); AuctionCache.Updated -= MarkRefreshed; }
 
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Auction House");
-            DialogLayout.DrawLiveBadge(rect, Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds));
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             const float btnW = 130f;
@@ -86,20 +70,12 @@ namespace KMHPatch.Features.Auctions
             if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f, y, btnW - 4f, 28f), "Refresh"))
             {
                 AuctionHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             _filter = DialogLayout.SearchField(new Rect(0f, y, 300f, 28f), _filter, "Filter by item or player…");
             float cx = DialogLayout.DrawTightCheckbox(316f, y + 4f, "Mine", ref _mineOnly);
             if (Widgets.ButtonText(new Rect(cx + 8f, y, 150f, 26f), $"Sort: {SortLabel(_sort)}"))
-            {
-                List<FloatMenuOption> sortOpts = new List<FloatMenuOption>();
-                foreach (SortMode m in (SortMode[])Enum.GetValues(typeof(SortMode)))
-                {
-                    SortMode captured = m;
-                    sortOpts.Add(new FloatMenuOption(SortLabel(captured), () => _sort = captured));
-                }
-                Find.WindowStack.Add(new FloatMenu(sortOpts));
-            }
+                DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
             y += 34f;
 
             Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
@@ -111,10 +87,9 @@ namespace KMHPatch.Features.Auctions
 
         private void DrawList(Rect box)
         {
-            Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = 62f;
 
-            string me  = SessionHandler.Username ?? "";
+            string me  = KmhSession.Me;
             string flt = (_filter ?? "").Trim().ToLowerInvariant();
             object src = AuctionCache.HasSnapshot ? (object)AuctionCache.Snapshot.Auctions : null;
 
@@ -128,26 +103,18 @@ namespace KMHPatch.Features.Auctions
 
             long now = DateTime.UtcNow.Ticks;
             long soon = TimeSpan.FromMinutes(10).Ticks;
-            float viewH = Mathf.Max(inner.height, rows.Count * rowH + 6f);
-            Rect viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
-            Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            DialogLayout.VisibleRange(_scroll, inner.height, rowH, rows.Count, out int first, out int last);
-            for (int i = first; i < last; i++)
+            string empty = !AuctionCache.HasSnapshot
+                ? $"<color=grey>{DialogLayout.AwaitingSnapshot("Loading auctions…", "Auctions")}</color>"
+                : (flt.Length > 0 || _mineOnly) ? "<color=grey>No auctions match.</color>"
+                : "<color=grey>No live auctions. Post one!</color>";
+
+            DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH, (i, row) =>
             {
-                Rect row = new Rect(0f, i * rowH, viewRect.width, rowH);
-                if (i % 2 == 0) Widgets.DrawAltRect(row);
                 if (rows[i].EndsUtcTicks > 0 && rows[i].EndsUtcTicks - now < soon)
                     Widgets.DrawBoxSolid(row, new Color(0.95f, 0.55f, 0.2f, 0.10f)); // ending-soon tint
-                Widgets.DrawHighlightIfMouseover(row);
                 DrawRow(row, rows[i], me, now);
-            }
-            if (rows.Count == 0)
-                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f),
-                    !AuctionCache.HasSnapshot ? $"<color=grey>{DialogLayout.AwaitingSnapshot("Loading auctions…", "Auctions")}</color>"
-                    : (flt.Length > 0 || _mineOnly) ? "<color=grey>No auctions match.</color>"
-                    : "<color=grey>No live auctions. Post one!</color>");
-            Widgets.EndScrollView();
+            }, empty);
         }
 
         // Filter + sort. Built only on change, not per frame.
@@ -158,7 +125,7 @@ namespace KMHPatch.Features.Auctions
             foreach (AuctionDto a in src)
             {
                 if (a == null) continue;
-                if (mineOnly && !(Eq(a.SellerUsername, me) || Eq(a.HighBidder, me))) continue;
+                if (mineOnly && !(KmhSession.Same(a.SellerUsername, me) || KmhSession.Same(a.HighBidder, me))) continue;
                 if (flt.Length > 0)
                 {
                     string item = (ItemKeys.LabelForKey(a.ItemDefName) ?? "").ToLowerInvariant();
@@ -181,17 +148,15 @@ namespace KMHPatch.Features.Auctions
         // Sort key for price: the live top bid, or the starting bid when there are no bids yet.
         private static long EffBid(AuctionDto a) => a.CurrentBid > 0 ? a.CurrentBid : a.StartingBid;
 
-        private static bool Eq(string x, string y) => !string.IsNullOrEmpty(x) && string.Equals(x, y, StringComparison.OrdinalIgnoreCase);
-
         private static void DrawRow(Rect row, AuctionDto a, string me, long now)
         {
             Rect inner = row.ContractedBy(6f);
             const float reservedRight = 116f;
             float textW = inner.width - reservedRight;
 
-            bool mine    = !string.IsNullOrEmpty(me) && string.Equals(a.SellerUsername, me, StringComparison.OrdinalIgnoreCase);
+            bool mine    = KmhSession.Same(a.SellerUsername, me);
             bool hasBids = a.CurrentBid > 0 && !string.IsNullOrEmpty(a.HighBidder);
-            bool iLead   = hasBids && !string.IsNullOrEmpty(me) && string.Equals(a.HighBidder, me, StringComparison.OrdinalIgnoreCase);
+            bool iLead   = hasBids && KmhSession.Same(a.HighBidder, me);
 
             // Line 1: icon + info card + item + qty + seller
             ItemKeys.Split(a.ItemDefName, out string rowDef, out string rowStuff, out _);

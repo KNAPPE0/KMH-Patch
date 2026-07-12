@@ -17,7 +17,7 @@ namespace KMHPatch.Features.PlayerStats
         {
             if (string.IsNullOrEmpty(username)) return;
             _byUser[username] = detail;   // may be null = "no colonist for this player"
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"Colonist cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Colonist profile");
         }
 
         // True once a reply (even an empty one) has arrived for this user.

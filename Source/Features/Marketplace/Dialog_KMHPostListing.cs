@@ -97,7 +97,7 @@ namespace KMHPatch.Features.Marketplace
             y += 30f;
 
             y = DrawTextRow(rect, y, "Quantity",          ref _qty);
-            y = DrawTextRow(rect, y, "Unit price (silver)", ref _unitPriceSilver);
+            y = DrawTextRow(rect, y, "Unit price (silver, e.g. 0.55)", ref _unitPriceSilver);
             y = DrawTextRow(rect, y, "Expires in (hours, 0=never)", ref _expiresHours);
 
             // Visibility toggle row.
@@ -120,11 +120,11 @@ namespace KMHPatch.Features.Marketplace
 
             // Estimated payout after the server tax (guild sale tax / world events can shift it - hence "~").
             if (int.TryParse((_qty ?? "").Trim(), out int pvQty) && pvQty > 0
-                && int.TryParse((_unitPriceSilver ?? "").Trim(), out int pvPrice) && pvPrice > 0
+                && TryParseMilli(_unitPriceSilver, out int pvMilli)
                 && MarketplaceCache.HasSnapshot)
             {
                 int pct = System.Math.Max(0, MarketplaceCache.Snapshot?.ServerTaxPercent ?? 0);
-                long gross = (long)pvQty * pvPrice;
+                long gross = (long)System.Math.Round((long)pvMilli * (double)pvQty / 1000.0);   // rounded whole silver, like the sale
                 long net   = gross - (long)System.Math.Round(gross * (pct / 100.0));
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
                     $"<color=grey>If it fully sells: buyer pays <b>{SilverFmt.Format(gross)}</b>, you receive ~<b>{SilverFmt.Format(net)}</b> after the {pct}% server tax.</color>");
@@ -165,9 +165,9 @@ namespace KMHPatch.Features.Marketplace
                 Notifications.KmhNotifications.Rejected("Quantity: enter a positive whole number");
                 return;
             }
-            if (!int.TryParse((_unitPriceSilver ?? "").Trim(), out int price) || price <= 0)
+            if (!TryParseMilli(_unitPriceSilver, out int priceMilli))
             {
-                Notifications.KmhNotifications.Rejected("Unit price: enter a positive whole number");
+                Notifications.KmhNotifications.Rejected("Unit price: enter a positive amount (e.g. 0.55 or 12)");
                 return;
             }
             // Expiry: empty + "0" + omitted all mean "never expires". Reject negative explicitly to avoid silent
@@ -183,9 +183,21 @@ namespace KMHPatch.Features.Marketplace
                 }
             }
             bool ok = string.IsNullOrEmpty(_fingerprint)
-                ? MarketplaceHandler.TryPost(_itemDefName, qty, price, _visibility, expHours)
-                : MarketplaceHandler.TryPostPayload(_fingerprint, qty, price, _visibility, expHours);
+                ? MarketplaceHandler.TryPost(_itemDefName, qty, priceMilli, _visibility, expHours)
+                : MarketplaceHandler.TryPostPayload(_fingerprint, qty, priceMilli, _visibility, expHours);
             if (ok) Close();
+        }
+
+        // Parse a unit price like "0.55" or "12" into milli-silver (1000 = 1 silver). Accepts comma decimals too.
+        private static bool TryParseMilli(string s, out int milli)
+        {
+            milli = 0;
+            string t = (s ?? "").Trim().Replace(',', '.');
+            if (!double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double silver)) return false;
+            long m = (long)System.Math.Round(silver * 1000.0);
+            if (m <= 0 || m > int.MaxValue) return false;
+            milli = (int)m;
+            return true;
         }
     }
 }

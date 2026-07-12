@@ -32,8 +32,6 @@ namespace KMHPatch.Features.Guilds
 
         private Vector2  _membersScroll;
         private Vector2  _perksScroll;
-        private float    _refreshTimer   = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
 
         private List<GuildMemberDto> _orderedMembers;
         private object               _orderedMembersSource;
@@ -46,8 +44,7 @@ namespace KMHPatch.Features.Guilds
             draggable               = true;
             resizeable              = true;
 
-            GuildHandler.RequestSnapshot();
-            _lastRefreshUtc   = DateTime.UtcNow;
+            EnableAutoRefresh(() => GuildHandler.RequestSnapshot());
             GuildCache.Updated += OnSnapshotUpdated;
         }
 
@@ -57,22 +54,11 @@ namespace KMHPatch.Features.Guilds
             GuildCache.Updated -= OnSnapshotUpdated;
         }
 
+        // Also invalidate the ordered-members cache so the fresh snapshot rebuilds it.
         private void OnSnapshotUpdated()
         {
             _orderedMembers = null;
-            _lastRefreshUtc = DateTime.UtcNow;
-        }
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                GuildHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
+            MarkRefreshed();
         }
 
         protected override void DrawContents(Rect rect)
@@ -80,8 +66,7 @@ namespace KMHPatch.Features.Guilds
             string headerName = GuildCache.Guild?.Name ?? "(no guild)";
             float y = DialogLayout.DrawTitle(rect, $"Guild Hall - {headerName}");
 
-            int secsSince = Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds);
-            DialogLayout.DrawLiveBadge(rect, secsSince);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
 
             if (!GuildCache.HasSnapshot)
             {
@@ -243,7 +228,7 @@ namespace KMHPatch.Features.Guilds
             if (Widgets.ButtonText(new Rect(rect.width - 100f, y, 96f, bh), "Refresh"))
             {
                 GuildHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             y += 34f;
 
@@ -268,7 +253,7 @@ namespace KMHPatch.Features.Guilds
 
             // Guild vault (silver-only) + this member's lifetime contribution - shown by donate/perks so it reads clearly.
             long myDonated = 0;
-            GuildMemberDto meMem = g.Members?.Find(x => string.Equals(x.Username, SessionHandler.Username, StringComparison.OrdinalIgnoreCase));
+            GuildMemberDto meMem = g.Members?.Find(x => KmhSession.IsMe(x.Username));
             if (meMem != null) myDonated = meMem.SilverContributed;
             string vaultText = g.GuildTreasuryEnabled
                 ? $"<b>Guild vault:</b> <color=#E2C16B>{g.GuildSilver:N0} silver</color> <color=grey>(silver-only)</color>    <b>Your donated:</b> {myDonated:N0}"
@@ -320,11 +305,11 @@ namespace KMHPatch.Features.Guilds
         // Returns null if caller isn't in the member list (shouldn't happen for valid snapshots)
         private static string MyRank(GuildSnapshot g)
         {
-            string mine = SessionHandler.Username;
+            string mine = KmhSession.Me;
             if (string.IsNullOrEmpty(mine) || g?.Members == null) return null;
             foreach (GuildMemberDto m in g.Members)
             {
-                if (string.Equals(m.Username, mine, StringComparison.OrdinalIgnoreCase))
+                if (KmhSession.Same(m.Username, mine))
                     return m.Rank;
             }
             return null;
@@ -335,7 +320,7 @@ namespace KMHPatch.Features.Guilds
             Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = 28f;
             string myRank = MyRank(g);
-            string mine   = SessionHandler.Username ?? string.Empty;
+            string mine   = KmhSession.Me;
 
             // Sort: admins first, then moderators, officers, members. Within each rank, by silver contributed desc
             if (_orderedMembers == null || !ReferenceEquals(_orderedMembersSource, g.Members))
@@ -469,7 +454,7 @@ namespace KMHPatch.Features.Guilds
             // No caller rank known -> caller isn't in this guild's roster.
             if (string.IsNullOrEmpty(myRank)) return;
             // Can't act on yourself.
-            if (string.Equals(target.Username, mine, StringComparison.OrdinalIgnoreCase)) return;
+            if (KmhSession.Same(target.Username, mine)) return;
 
             int myOrder     = RankOrder(myRank);
             int targetOrder = RankOrder(target.Rank);

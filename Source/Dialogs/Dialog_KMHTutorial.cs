@@ -21,11 +21,12 @@ namespace KMHPatch.Dialogs
 
             ("Treasury - your server bank",
              "Your Treasury is a server-side vault for silver and items, separate from your colony. Deposit from a " +
-             "selected caravan or your colony; withdraw to drop it back into your colony. Complex items (weapons, " +
-             "apparel, minified buildings, modded gear) keep their exact state - damage, taint, quality, material and " +
-             "comp data survive the round-trip, and clean/tainted or damaged/undamaged stacks never merge. Plain " +
-             "resources stay compact. It's the backbone of trading, and you never travel to anyone - all transfers " +
-             "happen on the server ledger. If you're in a guild you can also contribute to the guild vault (silver)."),
+             "selected caravan or straight from your colony; withdraw to drop it back home. Complex gear (weapons, " +
+             "apparel, minified buildings, quality or modded items) keeps its exact state - damage, taint, quality, " +
+             "material and comp data survive the round-trip, and different states never merge. Plain resources stay " +
+             "compact. Tip: put \"KMH\" in a stockpile's name (e.g. \"KMH Depot\") and withdrawals always land there. " +
+             "It's the backbone of trading - you never travel to anyone; all transfers happen on the server ledger. In " +
+             "a guild you can also contribute to the guild vault (silver)."),
 
             ("Marketplace - buy & sell",
              "A server-wide board. Post an item (it's escrowed from your Treasury), set a unit price, and anyone can buy " +
