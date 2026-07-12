@@ -74,6 +74,12 @@ namespace KMHPatch.SubProtocol
                     if (_allowChatFallback && KmhTransport.Status != KmhTransportStatus.ApiConnected)
                         KmhTransport.Status = KmhTransportStatus.ChatFallback; // chat still serves features
                 }
+                // A session attempt that ended without the link up (unreachable, auth-reject, dropped) still needs to
+                // hydrate (catalog + snapshot refresh) - do it over chat (guarded; a no-op once done or if the API
+                // later connects and hydrates first). Skipped when the owner disallows chat fallback.
+                if (_activeStream == null && _allowChatFallback)
+                    KmhMainThread.Post(KmhHandshakeHandler.TryHydrateSession);
+
                 if (ct.IsCancellationRequested) break;
                 try { await Task.Delay(backoffMs, ct).ConfigureAwait(false); } catch { break; }
                 backoffMs = Math.Min(backoffMs * 2, 30_000);

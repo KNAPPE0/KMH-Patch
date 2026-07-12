@@ -17,7 +17,7 @@ namespace KMHPatch.Features.Guilds
         {
             Snapshot       = snapshot ?? new GuildLeaderboardSnapshot();
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (System.Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Guild leaderboard");
         }
 
         internal static void Clear()

@@ -36,7 +36,10 @@ namespace KMHPatch.Features.Marketplace.Dto
 
         [JsonProperty("remaining_qty")]       public int    RemainingQty    { get; set; } = 0;
         [JsonProperty("original_qty")]        public int    OriginalQty     { get; set; } = 0;
-        [JsonProperty("unit_price_silver")]   public int    UnitPriceSilver { get; set; } = 0;
+        [JsonProperty("unit_price_silver")]   public int    UnitPriceSilver { get; set; } = 0;   // rounded display / old-server fallback
+        // Canonical unit price in milli-silver (1000 = 1 silver) so items can cost below 1 full silver. 0 => an old
+        // server that only sent whole silver, so fall back to UnitPriceSilver * 1000.
+        [JsonProperty("unit_price_milli")]    public int    UnitPriceMilli  { get; set; } = 0;
 
         [JsonProperty("listed_utc_ticks")]    public long   ListedUtcTicks  { get; set; } = 0;
 
@@ -60,6 +63,12 @@ namespace KMHPatch.Features.Marketplace.Dto
         [JsonProperty("state_fingerprint")]   public string StateFingerprint { get; set; } = "";
         [JsonProperty("state_note")]          public string StateNote        { get; set; } = "";
 
-        public int TotalAskingSilver(int qty) => UnitPriceSilver * (qty < 0 ? 0 : qty);
+        // Effective unit price in milli-silver (falls back to whole silver for old-server listings).
+        public long EffectiveMilli => UnitPriceMilli > 0 ? UnitPriceMilli : (long)UnitPriceSilver * 1000;
+        // Fractional unit price in silver, for display (e.g. 0.55).
+        public double UnitPriceDisplay => EffectiveMilli / 1000.0;
+        // Total the buyer pays for `qty`, rounded to whole silver like RimWorld (1000 milli = 1 silver).
+        public int TotalAskingSilver(int qty)
+            => (int)System.Math.Min(int.MaxValue, System.Math.Round(EffectiveMilli * (double)(qty < 0 ? 0 : qty) / 1000.0));
     }
 }

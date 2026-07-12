@@ -14,7 +14,7 @@ namespace KMHPatch.Features.Sites
         internal static void Apply(SiteCatalogSnapshot cat)
         {
             Catalog = cat;
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"Catalog subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Site catalog");
         }
 
         internal static void Clear() => Catalog = null;

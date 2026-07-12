@@ -71,7 +71,7 @@ namespace KMHPatch.Features.Guilds
             }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildInvite,
                 Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "username", username } }));
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -82,7 +82,7 @@ namespace KMHPatch.Features.Guilds
             int tile = Treasury.EconomyCtx.CurrentTile();
             if (tile < 0) { KmhNotifications.Rejected("No colony or caravan to place the Guild Hall at"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallSet, new { tile = tile });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -92,14 +92,14 @@ namespace KMHPatch.Features.Guilds
         {
             if (tile < 0) { KmhNotifications.Rejected("Pick a valid world tile for the Guild Hall"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallSet, new { tile = tile });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
         public static bool TryRemoveHall()
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildHallRemove, null);
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -107,14 +107,14 @@ namespace KMHPatch.Features.Guilds
         {
             if (string.IsNullOrWhiteSpace(guildName)) return false;
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildDeclineInvite, new { guild = guildName });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
         public static bool TrySetOpenJoin(bool open)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildSetOpenJoin, new { open = open });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -127,7 +127,7 @@ namespace KMHPatch.Features.Guilds
             }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildJoin,
                 Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object> { { "guild", guildName } }));
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -143,7 +143,7 @@ namespace KMHPatch.Features.Guilds
             // hall rule is enabled, and ignores it otherwise.
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildCreate, new { name = name, hall_tile = Treasury.EconomyCtx.CurrentTile() });
             if (sent) KmhNotifications.Positive($"Creating guild {name}…");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -157,7 +157,7 @@ namespace KMHPatch.Features.Guilds
             // No optimistic success toast - the server sends the authoritative "Purchased…/Could not buy…" notice
             // (a buy can fail on rank, funds, or a maxed perk), so showing success on send would be a lie.
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildBuyPerk, new { perk_key = perkKey });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -165,7 +165,7 @@ namespace KMHPatch.Features.Guilds
         public static bool TryLeave()
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildLeave, null);
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -187,7 +187,7 @@ namespace KMHPatch.Features.Guilds
                 _lastDonateSendUtc = System.DateTime.UtcNow;
                 Treasury.GameComponent_KMHDepositLedger.Instance?.RecordDeposit(reqId);
             }
-            else KmhNotifications.Rejected("Not connected to a KMH server");
+            else KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -203,7 +203,7 @@ namespace KMHPatch.Features.Guilds
                 Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
                     { { "amount", amount }, { "req_id", System.Guid.NewGuid().ToString("N") } }));
             if (sent) _lastWithdrawSendUtc = System.DateTime.UtcNow;
-            else KmhNotifications.Rejected("Not connected to a KMH server");
+            else KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -212,7 +212,7 @@ namespace KMHPatch.Features.Guilds
         {
             if (string.IsNullOrWhiteSpace(username)) return false;
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildTransferOwner, new { username = username });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -221,7 +221,7 @@ namespace KMHPatch.Features.Guilds
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildSetMotd, new { motd = motd ?? "" });
             if (sent) KmhNotifications.Positive("MOTD update sent");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -250,7 +250,7 @@ namespace KMHPatch.Features.Guilds
             // sub-object of kmh.guild.snapshot byte-for-byte
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildSaveSettings, settings);
             if (sent) KmhNotifications.Positive("Settings save sent");
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -263,7 +263,7 @@ namespace KMHPatch.Features.Guilds
             }
             bool sent = KmhDispatcher.Send(kind, new { other_guild = otherGuild });
             if (sent) KmhNotifications.Positive(flashOnSent);
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -276,7 +276,7 @@ namespace KMHPatch.Features.Guilds
             }
             bool sent = KmhDispatcher.Send(kind, new { username = username });
             if (sent) KmhNotifications.Positive(flashOnSent);
-            else      KmhNotifications.Rejected("Not connected to a KMH server");
+            else      KmhNotifications.NotConnected();
             return sent;
         }
 

@@ -27,6 +27,21 @@ namespace KMHPatch.Items
             return true;
         }
 
+        // Superset of IsSimple that ALSO allows rottable food/meals: a fungible item the server may stack with an
+        // equal-identity one (wear weight-averaged). Still excludes weapons/apparel/minified and quality/biocode/art/
+        // persona (real per-instance identity). Only used to set the Mergeable flag - it does NOT change what's
+        // captured (exact HP + full scribe blob are still kept, so nothing is stripped or refreshed).
+        public static bool IsFungible(ThingDef d)
+        {
+            if (d == null || d.category != ThingCategory.Item) return false;
+            if (d.stackLimit <= 1) return false;
+            if (d.IsApparel || d.IsWeapon) return false;
+            if (typeof(MinifiedThing).IsAssignableFrom(d.thingClass)) return false;
+            if (d.HasComp(typeof(CompQuality)) || d.HasComp(typeof(CompBiocodable))
+                || d.HasComp(typeof(CompArt)) || d.HasComp(typeof(CompBladelinkWeapon))) return false;
+            return true;
+        }
+
         public static KmhThingPayload Capture(Thing thing)
         {
             if (thing == null) return null;
@@ -48,6 +63,16 @@ namespace KMHPatch.Items
             };
             try { if (thing.def != null && thing.def.useHitPoints) { p.HitPoints = thing.HitPoints; p.MaxHitPoints = thing.MaxHitPoints; } } catch { }
             try { p.MarketValue = (long)Math.Round(thing.MarketValue); } catch { }
+
+            // Fungible-stacking metadata (additive; does not change the captured state). Mark stackable food/resources
+            // so the server may merge equal stacks, and carry rot so it can weight-average freshness on merge.
+            try
+            {
+                p.Mergeable = IsFungible(thing.def);
+                CompRottable rot = thing.TryGetComp<CompRottable>();
+                if (rot != null) p.RotProgressTicks = (long)rot.RotProgress;
+            }
+            catch { }
 
             if (IsSimple(thing.def))
             {
@@ -83,6 +108,9 @@ namespace KMHPatch.Items
                 if (t != null)
                 {
                     if (p.StackCount > 1 && t.def != null && t.def.stackLimit >= p.StackCount) t.stackCount = p.StackCount;
+                    // Fungible stacks are weight-averaged server-side on merge, so the payload's rot/HP is the
+                    // authoritative freshness (all merged stacks share one representative blob) - apply it over the blob.
+                    if (p.Mergeable) ApplyAveragedWear(t, p);
                     return t;
                 }
                 KmhLog.Warn($"KMH: exact item restore failed for {p.DefName}; rebuilding from captured state (some detail may be lost).");
@@ -127,6 +155,24 @@ namespace KMHPatch.Items
                 foreach (byte b in h) sb.Append(b.ToString("x2"));
                 return sb.ToString();
             }
+        }
+
+        // Apply a fungible payload's (server-averaged) rot + HP onto a freshly-restored blob item, so a merged stack's
+        // freshness is what the server computed - not whatever the single representative blob happened to carry.
+        private static void ApplyAveragedWear(Thing t, KmhThingPayload p)
+        {
+            if (t == null || p == null) return;
+            try
+            {
+                if (p.RotProgressTicks >= 0)
+                {
+                    CompRottable rot = t.TryGetComp<CompRottable>();
+                    if (rot != null) rot.RotProgress = p.RotProgressTicks;
+                }
+                if (p.HitPoints > 0 && t.def != null && t.def.useHitPoints)
+                    t.HitPoints = Math.Min(p.HitPoints, t.MaxHitPoints);
+            }
+            catch (Exception ex) { KmhLog.Debug($"KMH: apply averaged wear for {p.DefName} threw: {ex.Message}"); }
         }
 
         private static string SafeLabel(Thing t)

@@ -16,7 +16,7 @@ namespace KMHPatch.Features.WantBoard
         {
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"Want cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Want");
         }
 
         internal static void Clear()

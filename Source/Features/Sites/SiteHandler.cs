@@ -35,7 +35,7 @@ namespace KMHPatch.Features.Sites
                 owner_destination      = ownerDestination ?? SiteEntry.DestTreasury,
                 marketplace_unit_price = marketplaceUnitPrice,
             });
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 
@@ -55,7 +55,7 @@ namespace KMHPatch.Features.Sites
         private static bool Send(string kind, object data)
         {
             bool sent = KmhDispatcher.Send(kind, data);
-            if (!sent) KmhNotifications.Rejected("Not connected to a KMH server");
+            if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
 

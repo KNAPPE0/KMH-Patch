@@ -35,7 +35,7 @@ namespace KMHPatch.Features.Treasury
         {
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (System.Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Treasury");
         }
 
         internal static void Clear()

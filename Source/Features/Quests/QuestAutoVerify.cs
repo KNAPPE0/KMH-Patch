@@ -5,6 +5,7 @@ using KMHPatch.Diagnostics;
 using KMHPatch.Features.Quests.Dto;
 using KMHPatch.Patches;
 using KMHPatch.SubProtocol;
+using KMHPatch.UI;
 using RimWorld;
 using Verse;
 
@@ -52,14 +53,14 @@ namespace KMHPatch.Features.Quests
             if (!KmhDispatcher.IsKmhServer || !QuestCache.HasSnapshot) return;
             QuestSnapshot snap = QuestCache.Snapshot;
             if (snap?.Quests == null) return;
-            string me = SessionHandler.Username;
+            string me = KmhSession.Me;
             if (string.IsNullOrEmpty(me)) return;
 
             foreach (QuestEntry q in snap.Quests)
             {
                 if (q == null) continue;
                 if (q.State != QuestEntry.StateClaimed) continue;   // acceptance changes the state, ending the loop
-                if (!string.Equals(q.ClaimedByUsername, me, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!KmhSession.Same(q.ClaimedByUsername, me)) continue;
 
                 bool done = q.Kind == QuestEntry.KindHunt  ? HuntDone(q)
                           : q.Kind == QuestEntry.KindBuild ? BuildDone(q)

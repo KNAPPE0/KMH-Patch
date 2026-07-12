@@ -30,11 +30,6 @@ namespace KMHPatch.Features.Treasury
             public KMHPatch.Items.KmhThingPayload Payload;   // set for full-state stacks; Key/Count unused then
         }
 
-        // Auto-refresh on an 8s cadence. Server pushes unsolicited snapshots on mutations too, so this is the
-        // failover.
-        private float    _refreshTimer  = DialogLayout.AutoRefreshSeconds;
-        private DateTime _lastRefreshUtc = DateTime.UtcNow;
-
         public Dialog_KMHTreasury()
         {
             doCloseX                = true;
@@ -43,29 +38,15 @@ namespace KMHPatch.Features.Treasury
             draggable               = true;
             resizeable              = true;
 
-            TreasuryHandler.RequestSnapshot();
-            _lastRefreshUtc = DateTime.UtcNow;
-            TreasuryCache.Updated += OnSnapshotUpdated;
+            // Auto-refresh failover; the server also pushes unsolicited snapshots on mutations.
+            EnableAutoRefresh(() => TreasuryHandler.RequestSnapshot());
+            TreasuryCache.Updated += MarkRefreshed;
         }
 
         public override void PostClose()
         {
             base.PostClose();
-            TreasuryCache.Updated -= OnSnapshotUpdated;
-        }
-
-        private void OnSnapshotUpdated() => _lastRefreshUtc = DateTime.UtcNow;
-
-        public override void WindowUpdate()
-        {
-            base.WindowUpdate();
-            _refreshTimer -= Time.unscaledDeltaTime;
-            if (_refreshTimer <= 0f)
-            {
-                _refreshTimer = DialogLayout.AutoRefreshSeconds;
-                TreasuryHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
-            }
+            TreasuryCache.Updated -= MarkRefreshed;
         }
 
         protected override void DrawContents(Rect rect)
@@ -77,8 +58,7 @@ namespace KMHPatch.Features.Treasury
 
             float y = DialogLayout.DrawTitle(rect, headerTitle);
 
-            int secsSince = Math.Max(0, (int)(DateTime.UtcNow - _lastRefreshUtc).TotalSeconds);
-            DialogLayout.DrawLiveBadge(rect, secsSince);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
 
             if (!TreasuryCache.HasSnapshot)
             {
@@ -167,7 +147,7 @@ namespace KMHPatch.Features.Treasury
             if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f - 8f, btnY, btnW, btnH), "Refresh"))
             {
                 TreasuryHandler.RequestSnapshot();
-                _lastRefreshUtc = DateTime.UtcNow;
+                MarkRefreshed();
             }
             if (Widgets.ButtonText(new Rect(rect.width - btnW, btnY, btnW, btnH), "Close")) Close();
         }

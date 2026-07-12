@@ -60,6 +60,34 @@ namespace KMHPatch.UI
             last = Mathf.Min(count, first + (int)(viewportHeight / rowH) + 2);
         }
 
+        // One-call scrolling, virtualized row list for the KMH list dialogs (auctions, wants, marketplace, quests,
+        // sites, standings…). Handles the identical boilerplate every one of them used to repeat: inner inset, view
+        // height + scrollbar reserve, BeginScrollView, the visible-range window, per-row alternating tint and
+        // mouseover highlight, the empty-state label, and EndScrollView. The caller only draws each row's content via
+        // drawRow(index, rowRect) and supplies an optional message for the empty case. `scroll` is the caller's
+        // persisted scroll position. Draw any panel background (DrawMenuSection) around `box` before calling.
+        public static void ScrollList(Rect box, ref Vector2 scroll, int count, float rowH,
+                                      System.Action<int, Rect> drawRow, string emptyLabel = null)
+        {
+            Rect inner = box.ContractedBy(ListInnerPad);
+            float viewH = Mathf.Max(inner.height, count * rowH + 6f);
+            Rect viewRect = new Rect(0f, 0f, inner.width - ScrollbarReserveWidth, viewH);
+
+            Widgets.BeginScrollView(inner, ref scroll, viewRect);
+            VisibleRange(scroll, inner.height, rowH, count, out int first, out int last);
+            for (int i = first; i < last; i++)
+            {
+                Rect row = new Rect(0f, i * rowH, viewRect.width, rowH);
+                if (i % 2 == 0) Widgets.DrawAltRect(row);
+                Widgets.DrawHighlightIfMouseover(row);
+                try { drawRow?.Invoke(i, row); }
+                catch (System.Exception ex) { KMHPatch.Diagnostics.KmhLog.Warn($"ScrollList row {i} draw threw: {ex.Message}"); }
+            }
+            if (count == 0 && !string.IsNullOrEmpty(emptyLabel))
+                LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f), emptyLabel);
+            Widgets.EndScrollView();
+        }
+
         // Placeholder for a feature list still waiting on its first server snapshot. A pre-1.1.0 server never sends
         // the v1.1.0 snapshots, so its empty ServerBuild means the snapshot will never arrive - say that plainly
         // instead of spinning on "Loading…" forever. Caller wraps the result in its own colour tags.
@@ -222,6 +250,20 @@ namespace KMHPatch.UI
             Widgets.Checkbox(x, y - 2f, ref value, boxSize);
             Widgets.Label(new Rect(x + boxSize + padding, y, labelW + 4f, 22f), label);
             return x + boxSize + padding + labelW + trail;
+        }
+
+        // Pop a float menu listing every value of enum T (labeled by `label`), invoking `onPick` with the chosen one.
+        // Replaces the identical "new List<FloatMenuOption> → foreach Enum.GetValues → capture → add → new FloatMenu"
+        // boilerplate every enum dropdown (sort pickers, etc.) used to repeat.
+        public static void EnumFloatMenu<T>(System.Func<T, string> label, System.Action<T> onPick) where T : System.Enum
+        {
+            System.Collections.Generic.List<FloatMenuOption> opts = new System.Collections.Generic.List<FloatMenuOption>();
+            foreach (T v in (T[])System.Enum.GetValues(typeof(T)))
+            {
+                T captured = v;
+                opts.Add(new FloatMenuOption(label(captured), () => onPick(captured)));
+            }
+            Find.WindowStack.Add(new FloatMenu(opts));
         }
 
         // Friendly version of an enum name - drops the CamelCase and adds spaces so "EconomyScore" -> "Economy

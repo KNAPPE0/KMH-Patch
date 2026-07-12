@@ -68,7 +68,7 @@ namespace KMHPatch.Features.Reputation
                 if (!string.IsNullOrEmpty(e?.Username)) next[e.Username] = e;
             _byUser = next;
             HasSnapshot = true;
-            try { Updated?.Invoke(); } catch (Exception ex) { KmhLog.Warn($"Reputation cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Reputation");
         }
     }
 }

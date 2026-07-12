@@ -17,7 +17,7 @@ namespace KMHPatch.Features.Sites
         {
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Site");
         }
 
         internal static void Clear()

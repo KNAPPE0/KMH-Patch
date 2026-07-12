@@ -31,7 +31,7 @@ namespace KMHPatch.Features.PlayerStats
             LastUpdatedUtc = DateTime.UtcNow;
 
             // Wrap in try so a misbehaving subscriber can't poison the packet-receive thread.
-            try { Updated?.Invoke(); } catch (System.Exception ex) { Diagnostics.KmhLog.Warn($"Cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Player stats");
         }
 
         internal static void Clear()

@@ -60,6 +60,25 @@ function Remove-IfExists {
     }
 }
 
+# Guards against the recurring failure mode where a stale flavor payload (e.g. an old RTClient) is left in the output
+# dir and ships silently inside the release. Every built KMH assembly must carry the current mod version.
+function Assert-AssemblyVersions {
+    param([string[]]$Paths, [string]$Expected)
+
+    foreach ($p in $Paths) {
+        try {
+            $v = [System.Reflection.AssemblyName]::GetAssemblyName($p).Version
+        } catch {
+            throw "Could not read assembly version of $p : $($_.Exception.Message)"
+        }
+        $short = "$($v.Major).$($v.Minor).$($v.Build)"
+        if ($short -ne $Expected) {
+            throw "Version mismatch: $([System.IO.Path]::GetFileName($p)) is $v but the mod version is $Expected (stale build? rebuild both flavors)."
+        }
+    }
+    Write-Host "[mod] Version check OK - all KMH assemblies are v$Expected."
+}
+
 $project = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
 $releases = Join-Path $PSScriptRoot "Releases"
 $version = Get-ModVersion
@@ -110,6 +129,8 @@ foreach ($built in $requiredBuilt) {
         throw "Required build output missing: $built"
     }
 }
+
+Assert-AssemblyVersions -Paths $requiredBuilt -Expected $version
 
 Write-Host "[mod] Build outputs:" -ForegroundColor Green
 Get-Item $requiredBuilt | Select-Object FullName, LastWriteTime, Length | Format-Table -AutoSize

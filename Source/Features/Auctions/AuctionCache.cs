@@ -16,7 +16,7 @@ namespace KMHPatch.Features.Auctions
         {
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
-            try { Updated?.Invoke(); } catch (Exception ex) { Diagnostics.KmhLog.Warn($"Auction cache subscriber threw: {ex.Message}"); }
+            KmhCacheEvents.Raise(Updated, "Auction");
         }
 
         internal static void Clear()

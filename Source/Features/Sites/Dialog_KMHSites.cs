@@ -59,7 +59,7 @@ namespace KMHPatch.Features.Sites
                 return;
             }
 
-            string mine = SessionHandler.Username ?? "";
+            string mine = KmhSession.Me;
             float rowH = 96f;   // room for the worker-roster line
             Rect view = new Rect(0f, y, rect.width, rect.height - y - 6f);
             Rect content = new Rect(0f, 0f, view.width - 16f, snap.Sites.Count * rowH);
@@ -78,7 +78,7 @@ namespace KMHPatch.Features.Sites
             Widgets.DrawMenuSection(r);
             Rect inner = r.ContractedBy(8f);
 
-            bool isOwner  = string.Equals(s.OwnerUsername, mine, StringComparison.OrdinalIgnoreCase);
+            bool isOwner  = KmhSession.Same(s.OwnerUsername, mine);
             // Worker state, priority order:
             //  - heldHere: I hold a pawn inside this site (tile-authoritative - survives reload / empty snapshot /
             //    username mismatch on reconnect).
@@ -199,7 +199,7 @@ namespace KMHPatch.Features.Sites
         // present. If holding fails for any reason, fall back to the tag-only assignment so the worker still counts.
         private static void AssignWorker(SiteEntry s, Pawn pawn, int level, string name)
         {
-            string mine = SessionHandler.Username ?? "";
+            string mine = KmhSession.Me;
             bool held = WorkerHolding?.Hold(pawn, s.Tile, mine) == true;
             SiteHandler.TryJoin(s.Tile, level, name, pawn.thingIDNumber, present: true);
             Notifications.KmhNotifications.Positive(held

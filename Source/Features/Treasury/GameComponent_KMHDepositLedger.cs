@@ -22,6 +22,12 @@ namespace KMHPatch.Features.Treasury
         private DateTime _lastHeartbeatUtc = DateTime.MinValue;
         private int      _lastSeenPending  = -1;
 
+        // Monotonic save generation: bumped once per save and scribed, so it rides with the goods-removal it commits.
+        // Reported on confirm/reconcile so the server can spot a rolled-back (save-scummed) client and reverse deposits
+        // finalized past the generation the client now holds - closes the treasury-deposit + save-recovery dupe.
+        // (Client half only; server enforcement lands in a later release - old servers just ignore the field.)
+        private long     _epoch;
+
         public GameComponent_KMHDepositLedger(Game game) { }
 
         public static GameComponent_KMHDepositLedger Instance => Current.Game?.GetComponent<GameComponent_KMHDepositLedger>();
@@ -39,7 +45,12 @@ namespace KMHPatch.Features.Treasury
                 while (_durable.Count > MaxLedger) _durable.RemoveAt(0);
                 KmhLog.Debug($"[KMH Treasury] Save detected (scribe write): folded {added} pending deposit txn(s) into durable ({_durable.Count} total).");
             }
+            // Bump the generation on every save, BEFORE scribing it, so the value written equals this save's
+            // generation and any older save loads a strictly lower one. Atomic with the durable fold above, so the
+            // epoch never disagrees with the goods-removal it rode in with.
+            if (Scribe.mode == LoadSaveMode.Saving) _epoch++;
             Scribe_Collections.Look(ref _durable, "kmhDepositLedger", LookMode.Value);
+            Scribe_Values.Look(ref _epoch, "kmhDepositEpoch", 0L);
             if (_durable == null) _durable = new List<string>();
             // Confirm AFTER the write succeeds (next update / post-save hook), never mid-serialization - a save that
             // never finishes must never confirm.
@@ -118,8 +129,8 @@ namespace KMHPatch.Features.Treasury
         {
             try
             {
-                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable });
-                KmhLog.Debug($"[KMH Treasury] Session reconcile of {_durable.Count} durable txn(s): {(ok ? "sent" : "FAILED to send")}.");
+                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable, epoch = _epoch });
+                KmhLog.Debug($"[KMH Treasury] Session reconcile of {_durable.Count} durable txn(s) at gen {_epoch}: {(ok ? "sent" : "FAILED to send")}.");
             }
             catch (Exception ex) { KmhLog.Warn($"Deposit reconcile send threw: {ex.Message}"); }
         }
@@ -129,8 +140,8 @@ namespace KMHPatch.Features.Treasury
             if (ids == null || ids.Count == 0) { KmhLog.Debug($"[KMH Treasury] Confirm skipped ({source}): no durable txns."); return false; }
             try
             {
-                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositConfirm, new { txn_ids = ids });
-                KmhLog.Debug($"[KMH Treasury] Finalize confirm for {ids.Count} deposit txn(s) ({source}): {(ok ? "sent" : "FAILED to send")}.");
+                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositConfirm, new { txn_ids = ids, epoch = _epoch });
+                KmhLog.Debug($"[KMH Treasury] Finalize confirm for {ids.Count} deposit txn(s) at gen {_epoch} ({source}): {(ok ? "sent" : "FAILED to send")}.");
                 return ok;
             }
             catch (Exception ex) { KmhLog.Warn($"Deposit confirm send threw: {ex.Message}"); return false; }

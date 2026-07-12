@@ -154,9 +154,9 @@ namespace KMHPatch.Features.Standings
                 _pKey = key;
             }
             List<PlayerLeaderboardEntry> rows = _pView;
-            string me = SessionHandler.Username ?? "";
+            string me = KmhSession.Me;
             StandingsTable.Draw(list, rows, cols, ref _scroll,
-                e => string.Equals(e.Username, me, StringComparison.OrdinalIgnoreCase),
+                e => KmhSession.Same(e.Username, me),
                 e => Find.WindowStack.Add(new Dialog_KMHPlayerProfile(e.Username)));
         }
 
@@ -380,9 +380,9 @@ namespace KMHPatch.Features.Standings
             Widgets.DrawMenuSection(list);
 
             List<ReputationEntryDto> rows = ReputationCache.Leaderboard();   // already sorted + cheap; not re-sorted here
-            string me = SessionHandler.Username ?? "";
+            string me = KmhSession.Me;
             StandingsTable.Draw(list, rows, cols, ref _scroll,
-                e => string.Equals(e.Username, me, StringComparison.OrdinalIgnoreCase), null);
+                e => KmhSession.Same(e.Username, me), null);
         }
 
         // ---- colonist records board (rows = ColonistEntry from the flattened roster) ----
@@ -432,9 +432,9 @@ namespace KMHPatch.Features.Standings
                 _cKey = ckey;
             }
             List<ColonistEntry> rows = _cView;
-            string me = SessionHandler.Username ?? "";
+            string me = KmhSession.Me;
             StandingsTable.Draw(list, rows, cols, ref _scroll,
-                e => string.Equals(e.Owner, me, StringComparison.OrdinalIgnoreCase),
+                e => KmhSession.Same(e.Owner, me),
                 e => OpenColonistInfo(e, me));
         }
 
@@ -443,7 +443,7 @@ namespace KMHPatch.Features.Standings
         private static void OpenColonistInfo(ColonistEntry e, string me)
         {
             if (e == null) return;
-            if (string.Equals(e.Owner, me, StringComparison.OrdinalIgnoreCase))
+            if (KmhSession.Same(e.Owner, me))
             {
                 Pawn p = FindLocalColonist(e.Name);
                 if (p != null) { Find.WindowStack.Add(new Dialog_InfoCard(p)); return; }

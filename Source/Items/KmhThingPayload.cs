@@ -31,5 +31,11 @@ namespace KMHPatch.Items
         [JsonProperty("fingerprint")]    public string Fingerprint   { get; set; } = "";
         [JsonProperty("legacy")]         public bool   Legacy        { get; set; } = false;
         [JsonProperty("warnings")]       public List<string> Warnings { get; set; } = new List<string>();
+
+        // Fungible-stacking (additive/back-compatible). Mergeable = this is a fungible food/resource the server may
+        // stack with an equal one (wear weight-averaged); RotProgressTicks (-1 = not rottable) is the rot the client
+        // re-applies on withdraw, so the server-averaged freshness survives the round-trip and nothing is refreshed.
+        [JsonProperty("mergeable")]          public bool Mergeable        { get; set; } = false;
+        [JsonProperty("rot_progress_ticks")] public long RotProgressTicks { get; set; } = -1;
     }
 }
