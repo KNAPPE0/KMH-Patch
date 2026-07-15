@@ -24,7 +24,7 @@ namespace KMHPatch
             var sw = System.Diagnostics.Stopwatch.StartNew();
             KmhLog.DebugEnabled = KMHPatchMod.Settings?.DebugLogging ?? false;   // payload wires the loader's setting
             KmhLog.Info($"Bootstrap starting ({typeof(KmhEntry).Assembly.GetName().Name} {typeof(KmhEntry).Assembly.GetName().Version})");
-            KmhLog.Info($"KMH-Patch UI build {SubProtocol.KmhProtocol.BuildVersion}·{SubProtocol.KmhProtocol.UiBuildTag} loaded (guild-vault + category-picker pass). If the Guild Hall title doesn't show this tag, the game is loading an OLDER KMH-Patch DLL.");
+            KmhLog.Info($"KMH-Patch UI build {SubProtocol.KmhProtocol.DisplayVersion}·{SubProtocol.KmhProtocol.UiBuildTag} loaded. If the Guild Hall title doesn't show this tag, the game is loading an OLDER KMH-Patch DLL.");
 
             // Crash recovery first - if we died mid config-apply last session, restore the player's personal configs before other mods read theirs
             SafeRun("enforce-recovery", Features.Enforcement.EnforcementProfileApplier.Bootstrap);

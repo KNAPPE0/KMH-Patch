@@ -20,8 +20,8 @@ namespace KMHPatch.Features.Enforcement
                 if (!EnforcementCache.IsAdmin || !KmhDispatcher.IsKmhServer) return;
 
                 string pkg = c.PackageId ?? "";
-                if (pkg.StartsWith("ludeon.rimworld", StringComparison.OrdinalIgnoreCase)) return;        // Core + DLC
-                if (string.Equals(pkg, Constants.PackageId, StringComparison.OrdinalIgnoreCase)) return;  // KMH itself
+                if (pkg.StartsWith("ludeon.rimworld", StringComparison.OrdinalIgnoreCase)) return;   // Core + DLC
+                if (EnforcementCache.IsKmhItself(c)) return;                                         // KMH itself
 
                 bool safe = EnforcementCache.IsSafeId(pkg) || EnforcementCache.IsSafeId(c.Name);
 

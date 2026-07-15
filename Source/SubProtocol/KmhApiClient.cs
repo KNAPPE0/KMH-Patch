@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -24,7 +24,8 @@ namespace KMHPatch.SubProtocol
         private static string _host, _token, _username;
         private static int _port;
         private static bool _allowChatFallback = true;
-        private static bool _failAnnounced;
+        // Warn once per DISTINCT failure; repeats go to the protocol log. Cleared once the API links up.
+        private static string _lastFailReason;
         private static NetworkStream _activeStream;          // non-null only while the API link is up
         private static readonly object _sendLock = new object();
 
@@ -39,7 +40,7 @@ namespace KMHPatch.SubProtocol
             Disconnect();
             if (string.IsNullOrEmpty(host) || port <= 0) { KmhLog.Warn("KMH API: no host/port - staying on chat."); return; }
             _host = host; _port = port; _username = username ?? ""; _token = token ?? ""; _allowChatFallback = allowChatFallback;
-            _failAnnounced = false;
+            _lastFailReason = null;
             _cts = new CancellationTokenSource();
             KmhTransport.Status = KmhTransportStatus.ApiConnecting;
             KmhLog.Info($"KMH API: transport on - dialing {host}:{port} as {(string.IsNullOrEmpty(_username) ? "?" : _username)}.");
@@ -59,18 +60,14 @@ namespace KMHPatch.SubProtocol
             {
                 try
                 {
-                    await ServeOnce(ct).ConfigureAwait(false);
-                    backoffMs = 1_000; // clean session ended (peer closed) - reset backoff
+                    // Reset the ladder ONLY on a real link, so a rejecting server backs off instead of retrying at 1s.
+                    if (await ServeOnce(ct).ConfigureAwait(false)) backoffMs = 1_000;
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
-                    if (!_failAnnounced)
-                    {
-                        _failAnnounced = true;   // first failure visible; later retries debug-only
-                        KmhLog.Warn($"KMH API: {_host}:{_port} unreachable ({ex.Message}) - {(_allowChatFallback ? "staying on RWT chat" : "offline")}. Retrying in the background.");
-                    }
-                    else KmhLog.Protocol($"KMH API: link error: {ex.Message}");
+                    NoteFailure(ex.Message,
+                        $"KMH API: {_host}:{_port} unreachable ({ex.Message}) - {(_allowChatFallback ? "staying on RWT chat" : "offline")}. Retrying in the background.");
                     if (_allowChatFallback && KmhTransport.Status != KmhTransportStatus.ApiConnected)
                         KmhTransport.Status = KmhTransportStatus.ChatFallback; // chat still serves features
                 }
@@ -86,7 +83,19 @@ namespace KMHPatch.SubProtocol
             }
         }
 
-        private static async Task ServeOnce(CancellationToken ct)
+        // Warn on the first occurrence of a distinct failure; repeats of the same reason go to the protocol log only.
+        private static void NoteFailure(string reason, string message)
+        {
+            if (!string.Equals(_lastFailReason, reason ?? "", StringComparison.Ordinal))
+            {
+                _lastFailReason = reason ?? "";
+                KmhLog.Warn(message);
+            }
+            else KmhLog.Protocol(message);
+        }
+
+        // True only when the handshake succeeded and the link went live, so the caller knows it may reset the backoff.
+        private static async Task<bool> ServeOnce(CancellationToken ct)
         {
             using (TcpClient client = new TcpClient())
             {
@@ -107,11 +116,12 @@ namespace KMHPatch.SubProtocol
                         string reason = ack?.GetString("reason") ?? "no ack";
                         KmhTransport.Status = reason == "auth" ? KmhTransportStatus.AuthFailed
                             : (_allowChatFallback ? KmhTransportStatus.ChatFallback : KmhTransportStatus.Offline);
-                        KmhLog.Warn($"KMH API: handshake rejected ({reason}) - {(_allowChatFallback ? "falling back to chat." : "offline.")}");
-                        return; // don't hammer-retry an auth failure; loop backoff applies
+                        NoteFailure(reason, $"KMH API: handshake rejected ({reason}) - {(_allowChatFallback ? "falling back to chat." : "offline.")}");
+                        return false;   // link never came up: keep chat serving features and let the backoff grow
                     }
 
                     _activeStream = stream;   // enables TrySend; KMH traffic now flows over the API, off RWT chat
+                    _lastFailReason = null;   // a real link clears the warn-once state so a later failure is visible
                     KmhLog.Success("KMH API: connected - KMH traffic now uses the API transport.");
                     // API ack is the handshake when chat's down; activate KMH on main from its v/build
                     Features.KmhFeatures.SetDisabled(ack.GetString("disabled"));   // null when omitted -> keep last-known-good
@@ -137,6 +147,7 @@ namespace KMHPatch.SubProtocol
                     }
                 }
             }
+            return true;   // handshake succeeded earlier; the session has now ended, so a quick retry is fine
         }
 
         private static async Task Heartbeat(CancellationToken ct)

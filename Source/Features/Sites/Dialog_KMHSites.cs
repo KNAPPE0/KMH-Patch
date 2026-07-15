@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using GameClient.Misc;
@@ -100,8 +100,10 @@ namespace KMHPatch.Features.Sites
             // Paused sites (no workers) never show a bogus cycle time - clear "Paused" text + the caravan->assign hint.
             string prodLine = !s.IsProducing
                 ? $"<color=#ffcf59>Paused, no workers</color> <color=grey>· {s.BaseAmountPerCycle}/cycle · {s.Workers.Count}/{s.MaxWorkers} workers · send a caravan to tile {s.Tile} and assign a colonist</color>"
-                : $"<color=#cccccc>{s.BaseAmountPerCycle}/cycle × {s.ProductionMultiplier:0.00} · ~{s.EffectiveCycleMinutes:0} min/cycle · {s.Workers.Count}/{s.MaxWorkers} workers</color>";
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 20f, inner.width - 220f, 18f), prodLine);
+                : $"<color=#cccccc>{s.BaseAmountPerCycle}/cycle × {s.ProductionMultiplier:0.00}{OutputCapTag(s)} · ~{s.EffectiveCycleMinutes:0} min/cycle · {s.Workers.Count}/{s.MaxWorkers} workers</color>";
+            Rect prodRect = new Rect(inner.x, inner.y + 20f, inner.width - 220f, 18f);
+            DialogLayout.LabelTrunc(prodRect, prodLine);
+            if (s.IsProducing && Mouse.IsOver(prodRect)) TooltipHandler.TipRegion(prodRect, OutputTip(s));   // build on hover only
 
             string myPawn = WorkerPawn(s, mine);
             if (string.IsNullOrEmpty(myPawn) && heldHere) myPawn = WorkerHolding.HeldPawnAtTile(s.Tile)?.Name?.ToStringShort ?? "";
@@ -271,6 +273,22 @@ namespace KMHPatch.Features.Sites
             => s?.WorkerProgress != null && s.WorkerProgress.TryGetValue(user, out WorkerProgressDto wp) ? wp.CurrentLevel : 0;
         private static string WorkerDest(SiteEntry s, string user)
             => s?.WorkerProgress != null && s.WorkerProgress.TryGetValue(user, out WorkerProgressDto wp) ? wp.Destination : SiteEntry.DestTreasury;
+
+        // Higher tiers ship capped at 1.0, so a maxed colonist shows a permanent x1.00 next to their level and reads
+        // as broken. Flag when the cap, not the worker, is the limit.
+        private static bool OutputCapped(SiteEntry s)
+            => s.TierMaxOutputMultiplier > 0 && s.ProductionMultiplier >= s.TierMaxOutputMultiplier - 0.001;
+
+        private static string OutputCapTag(SiteEntry s)
+            => OutputCapped(s) ? " <color=grey>(T" + s.OutputTier + " cap)</color>" : "";
+
+        private static string OutputTip(SiteEntry s)
+        {
+            string speed = $"Workers set speed (T{s.OutputTier} cap ×{s.TierMaxSpeedMultiplier:0.00}); skill sets output (cap ×{s.TierMaxOutputMultiplier:0.00}).";
+            return s.TierMaxOutputMultiplier <= 1.0
+                ? speed + $"\n\nThis tier's output cap is ×1.00, so colonist skill does not raise yield here at any level. Add workers to shorten the cycle instead."
+                : speed + (OutputCapped(s) ? "\n\nOutput is at this tier's cap - more skill will not raise it further." : "");
+        }
 
         private static string AccessTag(string a)
             => a == SiteEntry.AccessPublic ? "<color=#80ff80>[public]</color>"
