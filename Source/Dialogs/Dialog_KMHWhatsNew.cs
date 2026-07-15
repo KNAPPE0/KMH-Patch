@@ -54,7 +54,7 @@ namespace KMHPatch.Dialogs
             Text.Anchor = TextAnchor.UpperCenter;
             Widgets.Label(
                 new Rect(0f, y, rect.width, 40f),
-                $"What's new in {Constants.DisplayName} v{KmhProtocol.BuildVersion}");
+                $"What's new in {Constants.DisplayName} v{KmhProtocol.DisplayVersion}");
 
             y += 44f;
 

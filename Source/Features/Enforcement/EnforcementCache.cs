@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 using Verse;
@@ -58,12 +58,19 @@ namespace KMHPatch.Features.Enforcement
         public static bool IsSafeId(string id)
             => !string.IsNullOrWhiteSpace(id) && _safe.Contains(id.Trim());
 
+        // Workshop installs suffix PackageId with "_steam", so an exact compare misses KMH's own mod: the lock then
+        // hides its settings and skips WriteSettings, silently reverting them. PackageIdPlayerFacing is undecorated.
+        public static bool IsKmhItself(ModContentPack content)
+            => content != null
+            && (string.Equals(content.PackageId, Constants.PackageId, StringComparison.OrdinalIgnoreCase)
+             || string.Equals(content.PackageIdPlayerFacing, Constants.PackageId, StringComparison.OrdinalIgnoreCase));
+
         // Editable when the lock is off, or this mod is safe (by packageId/name).
         public static bool IsModEditable(ModContentPack content)
         {
             if (content == null) return true;
             // KMH-Patch's own settings stay reachable (the restore button lives there).
-            if (string.Equals(content.PackageId, Constants.PackageId, StringComparison.OrdinalIgnoreCase)) return true;
+            if (IsKmhItself(content)) return true;
             if (!IsLockActive()) return true;
             // Connected: live safe list. Offline: lock only what the profile wrote.
             if (Enabled) return IsSafeId(content.PackageId) || IsSafeId(content.Name);

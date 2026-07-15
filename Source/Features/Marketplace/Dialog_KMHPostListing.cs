@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using KMHPatch.UI;
 using RimWorld.Planet;
 using UnityEngine;
@@ -11,10 +11,11 @@ namespace KMHPatch.Features.Marketplace
     {
         public override Vector2 InitialSize => new Vector2(580f, 440f);
 
-        // Treasury snapshot at open time. Listings escrow from your TREASURY server-side (MarketplaceStore.Post
-        // -> WithdrawItem), so you list vault items, not raw caravan. Cancel + reopen to refresh.
+        // Listings escrow from your TREASURY server-side, so you list vault items, not caravan. These two are only
+        // the vault as it looked at open - use Live* for anything shown or used as a quantity bound.
         private readonly Dictionary<string, int> _treasuryItems;
         private readonly List<KMHPatch.Items.KmhThingPayload> _payloads;
+        private bool _subscribed;
 
         private string _itemDefName    = "";
         private string _fingerprint    = "";     // non-empty => full-state payload listing
@@ -79,7 +80,7 @@ namespace KMHPatch.Features.Marketplace
                     {
                         _itemDefName   = defName;
                         _fingerprint   = "";
-                        _itemAvailable = _treasuryItems.TryGetValue(defName, out int max) ? max : 0;
+                        _itemAvailable = LiveCount(defName);
                         _qty           = qty.ToString();
                     },
                     refreshSource:   () => Treasury.TreasuryCache.Snapshot?.Items,
@@ -188,14 +189,53 @@ namespace KMHPatch.Features.Marketplace
             if (ok) Close();
         }
 
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            if (!_subscribed) { Treasury.TreasuryCache.Updated += OnTreasuryUpdated; _subscribed = true; }
+        }
+
+        public override void PostClose()
+        {
+            if (_subscribed) { Treasury.TreasuryCache.Updated -= OnTreasuryUpdated; _subscribed = false; }
+            base.PostClose();
+        }
+
+        // A deposit, sale or compaction can land while the composer sits open - re-read what's about to be listed.
+        private void OnTreasuryUpdated()
+        {
+            if (!string.IsNullOrEmpty(_fingerprint))
+            {
+                List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
+                if (live == null) return;   // no snapshot cached: keep what we have, never read null as "empty"
+                foreach (KMHPatch.Items.KmhThingPayload p in live)
+                    if (p != null && p.Fingerprint == _fingerprint) { _itemAvailable = p.StackCount; return; }
+                _itemAvailable = 0;         // that exact stack is gone (withdrawn, sold, or merged by compaction)
+                return;
+            }
+            if (!string.IsNullOrEmpty(_itemDefName)) _itemAvailable = LiveCount(_itemDefName);
+        }
+
+        // A cached snapshot is authoritative (absent = 0); the opening copy is a fallback only when none exists, so
+        // a null snapshot is never mistaken for an empty vault.
+        private int LiveCount(string defName)
+        {
+            Dictionary<string, int> live = Treasury.TreasuryCache.Snapshot?.Items;
+            if (live != null) return live.TryGetValue(defName, out int n) ? n : 0;
+            return _treasuryItems.TryGetValue(defName, out int copy) ? copy : 0;
+        }
+
         // Parse a unit price like "0.55" or "12" into milli-silver (1000 = 1 silver). Accepts comma decimals too.
+        // decimal, not double: 0.001/0.55 are exact in decimal, so no binary round-trip drift on the milli value.
         private static bool TryParseMilli(string s, out int milli)
         {
             milli = 0;
             string t = (s ?? "").Trim().Replace(',', '.');
-            if (!double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double silver)) return false;
-            long m = (long)System.Math.Round(silver * 1000.0);
-            if (m <= 0 || m > int.MaxValue) return false;
+            if (!decimal.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal silver))
+                return false;
+            decimal m = silver * 1000m;
+            if (m != decimal.Truncate(m)) return false;              // finer than milli-silver (e.g. 0.0005)
+            if (m <= 0m || m > int.MaxValue) return false;           // zero, negative, or overflow
             milli = (int)m;
             return true;
         }

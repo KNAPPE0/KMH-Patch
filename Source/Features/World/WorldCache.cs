@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using KMHPatch.Features.World.Dto;
 
 namespace KMHPatch.Features.World
@@ -10,7 +10,25 @@ namespace KMHPatch.Features.World
         public static DateTime      LastUpdatedUtc { get; private set; } = DateTime.MinValue;
 
         public static bool HasSnapshot => Snapshot != null;
-        public static bool HasEvents => Snapshot?.Events != null && Snapshot.Events.Count > 0;
+        public static bool HasEvents => ActiveEvents().Count > 0;
+
+        // Requires a future end time, matching what GameComponent_KMHWorldWeather has always demanded before applying a
+        // condition - the two must agree or the UI advertises weather the engine refuses to apply.
+        //
+        // EndsUtcTicks == 0 is NOT "runs forever": the server writes 0 for an instantaneous event (house stipend) and
+        // for a force-expired one ("kmh event end"), and its own sweep skips 0, so those linger in the snapshot for the
+        // life of the server. Showing them pins dead events on screen permanently.
+        public static System.Collections.Generic.List<WorldEventDto> ActiveEvents()
+        {
+            var list = new System.Collections.Generic.List<WorldEventDto>();
+            var ev = Snapshot?.Events;
+            if (ev == null) return list;
+            long now = DateTime.UtcNow.Ticks;
+            foreach (var e in ev)
+                if (e != null && e.EndsUtcTicks > now)
+                    list.Add(e);
+            return list;
+        }
 
         // Active global (server) quests only - the snapshot also carries recently-ended ones so the result lingers.
         public static System.Collections.Generic.List<Dto.ServerQuestDto> ActiveServerQuests()
@@ -35,7 +53,10 @@ namespace KMHPatch.Features.World
             Snapshot       = Sanitize(snapshot);
             LastUpdatedUtc = DateTime.UtcNow;
             if (Diagnostics.KmhLog.DebugEnabled)
-                Diagnostics.KmhLog.Debug($"Snapshot received: world.snapshot - {(HasEvents ? Snapshot.Events.Count + " event(s)" : "no events")}, {ActiveServerQuests().Count} global quest(s). Dashboard rows World Events + Global Quests will update.");
+            {
+                int active = ActiveEvents().Count;   // active, not Events.Count: the raw list can still hold expired ones
+                Diagnostics.KmhLog.Debug($"Snapshot received: world.snapshot - {(active > 0 ? active + " event(s)" : "no events")}, {ActiveServerQuests().Count} global quest(s). Dashboard rows World Events + Global Quests will update.");
+            }
             KmhCacheEvents.Raise(Updated, "World");
         }
 

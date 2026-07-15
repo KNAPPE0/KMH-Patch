@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using KMHPatch.UI;
 using UnityEngine;
 using Verse;
@@ -10,8 +10,10 @@ namespace KMHPatch.Features.Auctions
     {
         public override Vector2 InitialSize => new Vector2(580f, 470f);
 
+        // Only the vault as it looked when the form opened - read Live* for anything shown or used as a quantity bound.
         private readonly Dictionary<string, int> _treasuryItems;
         private readonly List<KMHPatch.Items.KmhThingPayload> _payloads;
+        private bool _subscribed;
 
         private string _itemKey       = "";
         private string _fingerprint   = "";
@@ -73,7 +75,7 @@ namespace KMHPatch.Features.Auctions
                     {
                         _itemKey       = key;
                         _fingerprint   = "";
-                        _itemAvailable = _treasuryItems.TryGetValue(key, out int max) ? max : 0;
+                        _itemAvailable = LiveCount(key);
                         _qty           = qty.ToString();
                     },
                     refreshSource:   () => Treasury.TreasuryCache.Snapshot?.Items,
@@ -135,6 +137,42 @@ namespace KMHPatch.Features.Auctions
                 ? AuctionHandler.TryPost(_itemKey, "", 0, qty, start, inc, buyout, hours, _visibility)
                 : AuctionHandler.TryPostPayload(_fingerprint, qty, start, inc, buyout, hours, _visibility);
             if (ok) Close();
+        }
+
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            if (!_subscribed) { Treasury.TreasuryCache.Updated += OnTreasuryUpdated; _subscribed = true; }
+        }
+
+        public override void PostClose()
+        {
+            if (_subscribed) { Treasury.TreasuryCache.Updated -= OnTreasuryUpdated; _subscribed = false; }
+            base.PostClose();
+        }
+
+        // A deposit, sale or compaction can land while the form sits open - re-read what's about to be auctioned.
+        private void OnTreasuryUpdated()
+        {
+            if (!string.IsNullOrEmpty(_fingerprint))
+            {
+                List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
+                if (live == null) return;   // no snapshot cached: keep what we have, never read null as "empty"
+                foreach (KMHPatch.Items.KmhThingPayload p in live)
+                    if (p != null && p.Fingerprint == _fingerprint) { _itemAvailable = p.StackCount; return; }
+                _itemAvailable = 0;         // that exact stack is gone (withdrawn, sold, or merged by compaction)
+                return;
+            }
+            if (!string.IsNullOrEmpty(_itemKey)) _itemAvailable = LiveCount(_itemKey);
+        }
+
+        // A cached snapshot is authoritative (absent = 0); the opening copy is a fallback only when none exists, so
+        // a null snapshot is never mistaken for an empty vault.
+        private int LiveCount(string key)
+        {
+            Dictionary<string, int> live = Treasury.TreasuryCache.Snapshot?.Items;
+            if (live != null) return live.TryGetValue(key, out int n) ? n : 0;
+            return _treasuryItems.TryGetValue(key, out int copy) ? copy : 0;
         }
 
         private static string T(string s) => (s ?? "").Trim();

@@ -33,7 +33,7 @@ namespace KMHPatch.Patches
                 if (whatsNewWanted)
                 {
                     Find.WindowStack.Add(new Dialog_KMHWhatsNew(chainWelcome: welcomeWanted));
-                    KmhLog.Info($"What's-new dialog opened for build {KmhProtocol.BuildVersion}");
+                    KmhLog.Info($"What's-new dialog opened for build {KmhProtocol.DisplayVersion}");
                 }
                 else if (welcomeWanted)
                 {

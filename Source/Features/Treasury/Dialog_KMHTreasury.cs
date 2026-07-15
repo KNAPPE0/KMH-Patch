@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.Treasury.Dto;
@@ -250,7 +250,7 @@ namespace KMHPatch.Features.Treasury
 
                 string amountText = string.IsNullOrEmpty(tx.ItemDefName)
                     ? SilverFmt.Format(tx.Amount)
-                    : $"×{tx.Amount} {ItemLabels.ResolveLabel(tx.ItemDefName)}";
+                    : DescribeTxItem(tx);
                 Text.Anchor = TextAnchor.UpperRight;
                 DialogLayout.LabelTrunc(new Rect(viewRect.width - 200f, ly + 2f, 196f, 20f), amountText);
                 Text.Anchor = TextAnchor.UpperLeft;
@@ -393,6 +393,21 @@ namespace KMHPatch.Features.Treasury
                 }));
 
             Find.WindowStack.Add(new FloatMenu(opts));
+        }
+
+        // The ledger's item field is either a bare defName or, for payload moves, a server description that already
+        // leads with its own count ("75x Wood plank") - prefixing that would render "x75 75x Wood plank".
+        private static string DescribeTxItem(TreasuryTransaction tx)
+        {
+            string item = tx.ItemDefName ?? "";
+            return LeadsWithCount(item) ? item : $"×{tx.Amount} {ItemLabels.ResolveLabel(item)}";
+        }
+
+        private static bool LeadsWithCount(string s)
+        {
+            int i = 0;
+            while (i < s.Length && char.IsDigit(s[i])) i++;
+            return i > 0 && i + 1 < s.Length && (s[i] == 'x' || s[i] == 'X') && s[i + 1] == ' ';
         }
 
         // Maps transaction kind string to a color matching the action's tone. (Deposit = inflow green; Withdraw =

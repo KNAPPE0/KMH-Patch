@@ -1,4 +1,4 @@
-# KMH Patch - build the official GitHub release assets.
+﻿# KMH Patch - build the official GitHub release assets.
 #
 # Usage:
 #   .\package-mod.ps1
@@ -65,14 +65,18 @@ function Remove-IfExists {
 function Assert-AssemblyVersions {
     param([string[]]$Paths, [string]$Expected)
 
+    # Compare all four components (unset -> 0) so 1.2.1 still matches its 1.2.1.0 assembly and 1.2.1.1 is exact.
+    $w = [version]$Expected
+    $want = [version]::new($w.Major, $w.Minor, [Math]::Max($w.Build, 0), [Math]::Max($w.Revision, 0))
+
     foreach ($p in $Paths) {
         try {
             $v = [System.Reflection.AssemblyName]::GetAssemblyName($p).Version
         } catch {
             throw "Could not read assembly version of $p : $($_.Exception.Message)"
         }
-        $short = "$($v.Major).$($v.Minor).$($v.Build)"
-        if ($short -ne $Expected) {
+        $got = [version]::new($v.Major, $v.Minor, [Math]::Max($v.Build, 0), [Math]::Max($v.Revision, 0))
+        if ($got -ne $want) {
             throw "Version mismatch: $([System.IO.Path]::GetFileName($p)) is $v but the mod version is $Expected (stale build? rebuild both flavors)."
         }
     }
