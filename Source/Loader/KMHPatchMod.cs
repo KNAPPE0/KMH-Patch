@@ -7,9 +7,8 @@ using Verse;
 
 namespace KMHPatch
 {
-    // Version-agnostic bootstrap. RWT 26.6.9.1 renamed its assemblies (GameClient -> RTClient etc.), so KMH ships
-    // one payload per generation in 1.6/KMHLib and this stub loads the one matching the installed RWT. Keeps the
-    // KMHPatchMod class name so the settings file stays the same
+    // Version-agnostic bootstrap: KMH ships one payload per RWT generation in 1.6/KMHLib and this stub loads the
+    // one matching the installed RWT. Class name is kept so the settings file stays the same.
     public class KMHPatchMod : Mod
     {
         public static KMHPatchSettings Settings { get; private set; }
@@ -52,12 +51,20 @@ namespace KMHPatch
             }
         }
 
-        // The RWT client assembly name doubles as the payload key.
+        // 26.6.9.1 and 26.7.25.1 both ship an assembly called RTClient, so the name alone can't tell them apart.
+        // Probe for a type that moved instead of keeping a list of versions.
         private static string DetectRwtFlavour()
         {
-            var names = new System.Collections.Generic.HashSet<string>(
-                AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name));
-            if (names.Contains("RTClient"))  return "RTClient";
+            var loaded = AppDomain.CurrentDomain.GetAssemblies();
+            var names = new System.Collections.Generic.HashSet<string>(loaded.Select(a => a.GetName().Name));
+
+            if (names.Contains("RTClient"))
+            {
+                Assembly shared = loaded.FirstOrDefault(a => a.GetName().Name == "RTShared");
+                bool movedToMisc = shared != null && shared.GetType("RTShared.Misc.PacketHeader", false) != null;
+                return movedToMisc ? "RTClientV2" : "RTClient";   // 26.7.25.1+ vs 26.6.9.1
+            }
+
             if (names.Contains("GameClient")) return "GameClient";
             return null;
         }

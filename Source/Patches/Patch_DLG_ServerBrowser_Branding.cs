@@ -1,4 +1,3 @@
-using GameClient.Dialogs.ServerBrowser;
 using HarmonyLib;
 using UnityEngine;
 using Verse;

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using GameClient.Misc;
 using KMHPatch.Features.Auctions.Dto;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.Reputation;

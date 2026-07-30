@@ -1,5 +1,4 @@
 using System;
-using GameClient.Misc;
 using KMHPatch.Diagnostics;
 using KMHPatch.Notifications;
 

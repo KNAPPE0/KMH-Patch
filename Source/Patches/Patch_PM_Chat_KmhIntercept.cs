@@ -1,5 +1,4 @@
 using System.Text;
-using GameClient.PacketManagers;
 using HarmonyLib;
 using KMHPatch.Diagnostics;
 using KMHPatch.SubProtocol;

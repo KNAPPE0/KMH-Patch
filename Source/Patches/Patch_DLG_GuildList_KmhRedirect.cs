@@ -23,9 +23,9 @@ namespace KMHPatch.Patches
         {
             try
             {
-                // 26.6.23.1 moved it under .Guild; ResolveType also simple-name-searches for any future move.
-                Type t = RwtCompat.ResolveType("GameClient.Dialogs", "DLG_GuildList",
-                    "GameClient.Dialogs.DLG_GuildList", "GameClient.Dialogs.Guild.DLG_GuildList");
+                // 26.6.23.1 moved it under .Guild, 26.7.25.1 renamed the root; ResolveType also covers future moves.
+                string ns = RwtCompat.ClientNsRoot + ".Dialogs";
+                Type t = RwtCompat.ResolveType(ns, "DLG_GuildList", ns + ".DLG_GuildList", ns + ".Guild.DLG_GuildList");
                 if (t == null)
                 {
                     KmhLog.Info("Guild redirect: DLG_GuildList not present in this RWT build - skipped (use the KMH tab's Guild Hall).");
