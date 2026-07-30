@@ -1,5 +1,4 @@
 using System;
-using GameClient.Managers;
 using KMHPatch.Diagnostics;
 using KMHPatch.SubProtocol;
 using Verse;

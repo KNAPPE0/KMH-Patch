@@ -36,7 +36,8 @@ function Assert-OnlyExpectedBinaries {
         "KMHPatch.dll",
         "KMH.Sdk.Client.dll",
         "KMHPatch.GameClient.dll",
-        "KMHPatch.RTClient.dll"
+        "KMHPatch.RTClient.dll",
+        "KMHPatch.RTClientV2.dll"
     )
 
     $stray = Get-ChildItem $Path -Recurse -File -Include *.dll,*.exe -ErrorAction SilentlyContinue |
@@ -121,11 +122,18 @@ if ($LASTEXITCODE -ne 0) {
     throw "New/RTClient build failed with exit code $LASTEXITCODE."
 }
 
+Write-Host "[mod] Building KMH Patch payload: RT/RTClientV2..."
+& dotnet build $project -c Release -p:RwtFlavor=RT | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "RT/RTClientV2 build failed with exit code $LASTEXITCODE."
+}
+
 $requiredBuilt = @(
     (Join-Path $PSScriptRoot "1.6\Assemblies\KMHPatch.dll"),
     (Join-Path $PSScriptRoot "1.6\Assemblies\KMH.Sdk.Client.dll"),
     (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.GameClient.dll"),
-    (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.RTClient.dll")
+    (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.RTClient.dll"),
+    (Join-Path $PSScriptRoot "1.6\KMHLib\KMHPatch.RTClientV2.dll")
 )
 
 foreach ($built in $requiredBuilt) {

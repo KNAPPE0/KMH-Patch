@@ -1,19 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- KMH payload, built once per RWT generation (dotnet build -p:RwtFlavor=Old|New).
-       The assembly name doubles as the loader's probe key: it matches the RWT
-       client assembly the payload binds (GameClient = 26.5.24.1, RTClient =
-       26.6.9.1+). Payloads land in 1.6/KMHLib - NOT Assemblies - so RimWorld
-       doesn't auto-load both; the loader picks the right one at runtime. -->
+  <!-- One build per RWT generation (dotnet build -p:RwtFlavor=Old|New|RT). The assembly
+       name is the loader's payload key:
+         GameClient  = 26.5.24.1    (GameClient assembly, GameClient.* namespaces)
+         RTClient    = 26.6.9.1     (RTClient assembly, still GameClient.* namespaces)
+         RTClientV2  = 26.7.25.1+   (RTClient assembly, RTClient.* namespaces, RTShared.Misc)
+       Payloads land in 1.6/KMHLib - NOT Assemblies - so RimWorld doesn't auto-load them
+       all; the loader picks one at runtime. -->
   <PropertyGroup>
     <RwtFlavor Condition="'$(RwtFlavor)' == ''">Old</RwtFlavor>
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>KMHPatch</RootNamespace>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>1.2.1.1</Version>
-    <AssemblyVersion>1.2.1.1</AssemblyVersion>
-    <FileVersion>1.2.1.1</FileVersion>
+    <Version>1.2.2</Version>
+    <AssemblyVersion>1.2.2</AssemblyVersion>
+    <FileVersion>1.2.2</FileVersion>
 
     <OutputPath>..\1.6\KMHLib</OutputPath>
     <IntermediateOutputPath>obj\$(RwtFlavor)\$(Configuration)\</IntermediateOutputPath>
@@ -33,6 +35,11 @@
     <AssemblyName>KMHPatch.RTClient</AssemblyName>
     <DefineConstants>$(DefineConstants);RWT_NEW</DefineConstants>
     <RwtAssembliesPath Condition="'$(RwtAssembliesPath)' == ''">E:\RWT Related\rwt-26.6.9.1\1.6\Assemblies</RwtAssembliesPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RwtFlavor)' == 'RT'">
+    <AssemblyName>KMHPatch.RTClientV2</AssemblyName>
+    <DefineConstants>$(DefineConstants);RWT_RT</DefineConstants>
+    <RwtAssembliesPath Condition="'$(RwtAssembliesPath)' == ''">E:\RWT Related\rwt-RTServer\Client</RwtAssembliesPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -64,7 +71,7 @@
     <Reference Include="Shared"><HintPath>$(RwtAssembliesPath)\Shared.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="TCPNetwork"><HintPath>$(RwtAssembliesPath)\TCPNetwork.dll</HintPath><Private>False</Private></Reference>
   </ItemGroup>
-  <ItemGroup Condition="'$(RwtFlavor)' == 'New'">
+  <ItemGroup Condition="'$(RwtFlavor)' == 'New' or '$(RwtFlavor)' == 'RT'">
     <Reference Include="RTClient"><HintPath>$(RwtAssembliesPath)\RTClient.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="RTShared"><HintPath>$(RwtAssembliesPath)\RTShared.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="RTNetwork"><HintPath>$(RwtAssembliesPath)\RTNetwork.dll</HintPath><Private>False</Private></Reference>

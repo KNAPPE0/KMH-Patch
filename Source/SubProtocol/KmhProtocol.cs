@@ -12,12 +12,12 @@
         // nudge the player. It never gates the connection (that's CurrentVersion's job) and stays additive: a
         // pre-1.1.0 server omits it, so an empty value received here reliably means "older server".
         //
-        // Stays 1.2.1 on the 1.2.1.1 client: compared for EQUALITY against the server's build, so bumping it would
-        // make a wire-identical v1.2.1 server report a false version gap. Player-facing text uses DisplayVersion.
-        public const string BuildVersion = "1.2.1";
+        // Compared for EQUALITY against the server's build, so it only moves when both sides ship together - as they
+        // do for 1.2.2 (RWT 26.7.25.1 support). Player-facing text uses DisplayVersion.
+        public const string BuildVersion = "1.2.2";
 
         // What the player sees (What's New, load log). Diverges from BuildVersion on client-only releases.
-        public const string DisplayVersion = "1.2.1.1";
+        public const string DisplayVersion = "1.2.2";
 
         // Build tag so a player can confirm which client DLL is loaded (a stale install is the usual "fix not showing"
         // cause). Shown in the KMH tab + Guild Hall title + logged on load.

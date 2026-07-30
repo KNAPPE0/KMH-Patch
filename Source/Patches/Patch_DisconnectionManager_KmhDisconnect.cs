@@ -1,4 +1,3 @@
-using GameClient.Managers;
 using HarmonyLib;
 using KMHPatch.Diagnostics;
 using KMHPatch.SubProtocol;

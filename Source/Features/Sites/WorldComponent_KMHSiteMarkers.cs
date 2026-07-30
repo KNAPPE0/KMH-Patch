@@ -18,6 +18,25 @@ namespace KMHPatch.Features.Sites
     {
         private static float _lastReconcileReal = -999f;
 
+        // Tiles the current world doesn't have. Reconcile runs continuously, so warn once each instead of every pass.
+        private static readonly HashSet<int> _warnedTiles = new HashSet<int>();
+
+        // A server site can name a tile this planet has no index for (site made on a different world/seed, or a
+        // smaller planet coverage). Resolving it throws deep inside RimWorld, so screen it out first.
+        private static bool TileExists(int tile)
+        {
+            if (tile < 0) return false;
+            try { return Find.WorldGrid != null && tile < Find.WorldGrid.TilesCount; }
+            catch { return false; }
+        }
+
+        private static void WarnMissingTileOnce(int tile, string what)
+        {
+            if (!_warnedTiles.Add(tile)) return;
+            KmhLog.Warn($"{what} sits on world tile {tile}, which this planet does not have - marker skipped. " +
+                        "The entry still works from the KMH tab; it was created on a different world.");
+        }
+
         // RimWorld.Planet.World qualified - the KMHPatch.Features.World namespace would otherwise shadow bare 'World'
         public WorldComponent_KMHSiteMarkers(RimWorld.Planet.World world) : base(world) { }
 
@@ -50,7 +69,11 @@ namespace KMHPatch.Features.Sites
 
             Dictionary<int, SiteEntry> desired = new Dictionary<int, SiteEntry>();
             foreach (SiteEntry s in SiteCache.Snapshot.Sites)
-                if (s != null && s.Tile >= 0) desired[s.Tile] = s;
+            {
+                if (s == null || s.Tile < 0) continue;
+                if (!TileExists(s.Tile)) { WarnMissingTileOnce(s.Tile, "Site"); continue; }
+                desired[s.Tile] = s;
+            }
 
             HashSet<int> have = new HashSet<int>();
             foreach (KMHSiteWorldObject m in existing)
@@ -97,6 +120,7 @@ namespace KMHPatch.Features.Sites
 
             var g = Guilds.GuildCache.Guild;
             bool want = KmhDispatcher.IsKmhServer && g?.Hall != null && g.Hall.HasHall && g.Hall.Tile >= 0;
+            if (want && !TileExists(g.Hall.Tile)) { WarnMissingTileOnce(g.Hall.Tile, "Guild hall"); want = false; }
 
             // Remove anything that isn't the wanted hall (disconnect, hall removed/moved, or a stray duplicate).
             bool applied = false;

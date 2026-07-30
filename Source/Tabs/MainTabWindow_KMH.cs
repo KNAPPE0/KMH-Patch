@@ -1,4 +1,3 @@
-using GameClient.Misc;
 using KMHPatch.Dialogs;
 using KMHPatch.Features.Guilds;
 using KMHPatch.Features.Marketplace;
@@ -10,7 +9,6 @@ using KMHPatch.UI;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using static GameClient.Hooks.TCPNetwork.ClientNetwork;
 
 namespace KMHPatch.Tabs
 {

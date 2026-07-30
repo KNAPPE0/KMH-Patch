@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using GameClient.Misc;
 using KMHPatch.Diagnostics;
 using KMHPatch.Features.Quests.Dto;
 using KMHPatch.Patches;
