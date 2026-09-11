@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.PlayerStats.Dto;
@@ -29,7 +29,7 @@ namespace KMHPatch.Features.PlayerStats
             PlayerStatsHandler.RequestColonist(_username);
         }
 
-        public override Vector2 InitialSize => new Vector2(620f, 640f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(620f, 640f);
 
         protected override void DrawContents(Rect rect)
         {
@@ -74,21 +74,15 @@ namespace KMHPatch.Features.PlayerStats
                 y += 20f;
             }
 
-            float tx = 0f;
-            tx = Tabber(tx, y, "Bio",     Tab.Bio);
-            tx = Tabber(tx, y, "Health",  Tab.Health);
-            tx = Tabber(tx, y, "Combat",  Tab.Combat);
-            tx = Tabber(tx, y, "Skills",  Tab.Skills);
-            _  = Tabber(tx, y, "History", Tab.History);
-            y += 32f;
+            // Wrapping tab strip - the five tabs ran past the right edge on a narrow window and could not be clicked.
+            int cur = 0;
+            for (int i = 0; i < TabOrder.Length; i++) if (TabOrder[i] == _tab) { cur = i; break; }
+            y = DialogLayout.TabRow(y, rect.width, TabLabels, cur, i => _tab = TabOrder[i]);
 
-            Rect body = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect body = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(body);
 
-            if (_tab == Tab.History)
-                DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f),
-                    "<color=grey>Per-colonist history (notable events, milestones) arrives in a later update.</color>");
-            else if (!ColonistProfileCache.Has(_username))
+            if (!ColonistProfileCache.Has(_username))
                 DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=grey>Loading colonist…</color>");
             else if (d == null)
                 DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=grey>No colonist detail available.</color>");
@@ -98,15 +92,8 @@ namespace KMHPatch.Features.PlayerStats
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
 
-        private float Tabber(float x, float y, string label, Tab tab)
-        {
-            float w = Mathf.Max(66f, Text.CalcSize(label).x + 20f);
-            Color old = GUI.color;
-            if (_tab == tab) GUI.color = new Color(0.45f, 0.75f, 1f);
-            if (Widgets.ButtonText(new Rect(x, y, w, 28f), label)) _tab = tab;
-            GUI.color = old;
-            return x + w + 4f;
-        }
+        private static readonly Tab[]    TabOrder  = { Tab.Bio, Tab.Health, Tab.Combat, Tab.Skills, Tab.History };
+        private static readonly string[] TabLabels = { "Bio", "Health", "Combat", "Skills", "History" };
 
         private List<(string text, bool header)> BuildLines(ColonistProfile d)
         {
@@ -147,6 +134,31 @@ namespace KMHPatch.Features.PlayerStats
                     else foreach (ColonistSkill sk in d.Skills) R($"{sk.Name}   <b>{sk.Level}</b> {Passion(sk.Passion)}");
                     break;
 
+                case Tab.History:
+                {
+                    H("Service");
+                    R($"Days in colony: <b>{d.DaysInColony}</b>"
+                      + (d.DaysInColony > 0 ? $"  <color=grey>· about {Mathf.Max(1, d.DaysInColony / 60)} year(s) of colony time</color>" : ""));
+                    R($"Origin: <color=#cccccc>{(string.IsNullOrEmpty(d.Childhood) ? "-" : d.Childhood)}</color>");
+                    if (!string.IsNullOrEmpty(d.Adulthood))
+                        R($"Became: <color=#cccccc>{d.Adulthood}</color>");
+
+                    L.Add(("", false));
+                    H("What they have been through");
+                    R($"Kills: <b>{d.TotalKills}</b>  <color=grey>· {d.HumanlikeKills} humanlike, {d.MechanoidKills} mechanoid, {d.AnimalKills} animal</color>");
+                    R($"Damage taken: {d.DamageTaken}");
+                    if (d.RecentCombat != null && d.RecentCombat.Count > 0)
+                        foreach (string c in d.RecentCombat) R($"• {c}");
+                    else R("<color=grey>No recent combat recorded.</color>");
+
+                    L.Add(("", false));
+                    H("Lasting marks");
+                    if (d.Conditions != null && d.Conditions.Count > 0)
+                        foreach (string c in d.Conditions) R($"• {c}");
+                    else R("<color=grey>None - unscarred so far.</color>");
+                    break;
+                }
+
                 default: // Bio
                     H("Backstory");
                     R($"Childhood: <color=#cccccc>{(string.IsNullOrEmpty(d.Childhood) ? "-" : d.Childhood)}</color>");
@@ -168,7 +180,7 @@ namespace KMHPatch.Features.PlayerStats
         private void DrawLines(Rect body, List<(string text, bool header)> lines)
         {
             Rect inner = body.ContractedBy(8f);
-            const float lineH = 22f;
+            float lineH = DialogLayout.TextRowH;
             float viewH = Mathf.Max(inner.height, lines.Count * lineH + 6f);
             Rect viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 

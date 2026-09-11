@@ -67,8 +67,7 @@ namespace KMHPatch.Features.Quests
 
                 if (done)
                 {
-                    // Re-report every ~30s while the quest stays Claimed: the server floors very early verifies
-                    // (anti-macro), so a legit fast completion must retry until the floor passes - never lost.
+                    // Retried while Claimed: the server's anti-macro floor rejects a legitimately fast completion once.
                     int nowTick = Find.TickManager.TicksGame;
                     bool first = !_sent.Contains(q.Id);
                     if (!first && _sentAtTick.TryGetValue(q.Id, out int last) && nowTick - last < RetryTicks) continue;

@@ -3,8 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Catalog.Dto
 {
-    // Wire DTO for kmh.item_labels; names must match the addon's ItemLabelsPush or the server reads an empty map.
-    // Kept under Features.Catalog to avoid shadowing KMHPatch.UI.ItemLabels in nested feature files.
+    // One DTO per file, names matching the addon's copy: the contract check compares the two files field for field.
     public class ItemLabelsPush
     {
         [JsonProperty("labels")]
@@ -14,13 +13,11 @@ namespace KMHPatch.Features.Catalog.Dto
         [JsonProperty("values")]
         public Dictionary<string, long> Values { get; set; } = new Dictionary<string, long>();
 
-        // Fungible defNames in this chunk (KmhThingCapture.IsFungible), so the server can consolidate legacy treasury
-        // payloads stored before the per-payload mergeable flag existed.
+        // Lets the server consolidate treasury payloads stored before the per-payload mergeable flag existed.
         [JsonProperty("fungible")]
         public List<string> Fungible { get; set; } = new List<string>();
 
-        // Chunking for large modpacks (thousands of defs): each message is one chunk; the server accumulates them
-        // (Apply is additive). 1-based index; total lets the server log completion. Old clients omit both (single push).
+        // 1-based, and both omitted by an old client sending a single push.
         [JsonProperty("chunk_index")] public int ChunkIndex { get; set; } = 0;
         [JsonProperty("chunk_total")] public int ChunkTotal { get; set; } = 0;
     }

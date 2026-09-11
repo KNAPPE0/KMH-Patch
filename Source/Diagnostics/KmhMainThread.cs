@@ -4,8 +4,7 @@ using Verse;
 
 namespace KMHPatch.Diagnostics
 {
-    // Marshals work onto the main thread - the API transport's TCP threads can't touch Verse.Log/Messages/Find.*
-    // directly. Posted here, drained each frame by Patch_Root_Update_KmhPump.
+    // The transport's TCP threads cannot touch Verse.Log, Messages or Find.* directly.
     internal static class KmhMainThread
     {
         private static readonly ConcurrentQueue<Action> _queue = new ConcurrentQueue<Action>();
@@ -13,7 +12,11 @@ namespace KMHPatch.Diagnostics
         public static void Post(Action action)
         {
             if (action == null) return;
-            if (UnityData.IsInMainThread) Run(action);   // already on main
+            bool onMain;
+            // UnityData cannot answer before the game is up or after it is gone, and a transport thread must not die over that.
+            try { onMain = UnityData.IsInMainThread; }
+            catch { _queue.Enqueue(action); return; }
+            if (onMain) Run(action);   // already on main
             else _queue.Enqueue(action);
         }
 
@@ -21,6 +24,12 @@ namespace KMHPatch.Diagnostics
         {
             while (_queue.TryDequeue(out Action action)) Run(action);
         }
+
+        // Test seam standing in for one call site's generation re-check, proving the queue drops work from an ended session.
+        internal static void PostForTest(int generation, Action action)
+            => _queue.Enqueue(() => { if (generation == SubProtocol.KmhDispatcher.SessionGeneration) Run(action); });
+
+        internal static void PumpForTest() => Pump();
 
         private static void Run(Action action)
         {

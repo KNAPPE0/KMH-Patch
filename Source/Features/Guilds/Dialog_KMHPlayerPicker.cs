@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Guilds.Dto;
 using KMHPatch.UI;
@@ -10,10 +10,11 @@ namespace KMHPatch.Features.Guilds
     // Invite picker: searchable server roster of guildless players (online first, offline invitable too).
     public class Dialog_KMHPlayerPicker : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(460f, 560f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(460f, 560f);
 
         private readonly Action<string> _onPick;
         private string  _search = "";
+        private readonly UI.KmhFilteredView<InvitablePlayerDto> _view = new UI.KmhFilteredView<InvitablePlayerDto>();
         private Vector2 _scroll;
 
         public Dialog_KMHPlayerPicker(Action<string> onPick)
@@ -36,7 +37,7 @@ namespace KMHPatch.Features.Guilds
             y += 24f;
 
             _search = Widgets.TextField(new Rect(0f, y, rect.width - 118f, 28f), _search ?? "");
-            if (Widgets.ButtonText(new Rect(rect.width - 110f, y, 110f, 28f), "By name…"))
+            if (Widgets.ButtonText(new Rect(rect.width - 110f, y, 110f, 28f), "By name"))
             {
                 Find.WindowStack.Add(new Dialog_KMHTextInput(
                     title:        "Invite by exact name",
@@ -49,13 +50,18 @@ namespace KMHPatch.Features.Guilds
             y += 34f;
 
             List<InvitablePlayerDto> all = GuildHandler.Invitables;
-            List<InvitablePlayerDto> shown = new List<InvitablePlayerDto>();
             string q = (_search ?? "").Trim();
-            foreach (InvitablePlayerDto p in all)
-                if (q.Length == 0 || p.Username.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
-                    shown.Add(p);
+            List<InvitablePlayerDto> shown = _view.Get(all, q, () =>
+            {
+                List<InvitablePlayerDto> outList = new List<InvitablePlayerDto>();
+                if (all != null)
+                    foreach (InvitablePlayerDto p in all)
+                        if (q.Length == 0 || p.Username.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                            outList.Add(p);
+                return outList;
+            });
 
-            Rect view = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect view = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             float rowH = 32f;
             Rect inner = new Rect(0f, 0f, view.width - 16f, Math.Max(shown.Count * rowH, view.height));
             Widgets.BeginScrollView(view, ref _scroll, inner);

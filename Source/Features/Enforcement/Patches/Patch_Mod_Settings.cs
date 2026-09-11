@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -8,10 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement.Patches
 {
-    // Locks a non-safe mod's options: draws a "locked" notice instead of its settings and skips WriteSettings. Safe
-    // mods + exempt admins pass through. DoSettingsWindowContents/WriteSettings are virtual, so the base AND every
-    // override get patched - which is expensive (one Harmony patch per mod), so it is NOT part of startup PatchAll.
-    // EnsureInstalled() runs it on demand: enforcement active, admin on a KMH server, or first Options open
+    // The targets are virtual, so base plus every override gets patched - one Harmony patch per mod, hence install-on-demand.
     internal static class EnforcementSettingsPatches
     {
         private static bool _installed;
@@ -58,8 +55,7 @@ namespace KMHPatch.Features.Enforcement.Patches
 
         private static bool _diagLogged;
 
-        // __args[0] is the Rect; reading by position dodges per-override param-name differences that would break a
-        // named Rect parameter
+        // __args[0] is the Rect; reading by position dodges per-override param-name differences that would break a named Rect parameter
         public static bool DrawPrefix(Verse.Mod __instance, object[] __args)
         {
             if (!_diagLogged)
@@ -74,8 +70,6 @@ namespace KMHPatch.Features.Enforcement.Patches
             return false;
         }
 
-        // After a mod draws its settings (admins + safe mods reach this), an admin gets the one-click "mark safe /
-        // unmark safe" button
         public static void DrawPostfix(Verse.Mod __instance, object[] __args)
         {
             if (__args != null && __args.Length > 0 && __args[0] is Rect r)
@@ -85,8 +79,7 @@ namespace KMHPatch.Features.Enforcement.Patches
         public static bool WritePrefix(Verse.Mod __instance)
             => EnforcementCache.IsModEditable(__instance); // false = skip the write
 
-        // Safety net: first Options open installs the lock if anything needs it (covers stale edge cases without
-        // paying the cost at startup)
+        // Safety net: first Options open installs the lock, covering stale edge cases without paying the cost at startup
         [HarmonyPatch(typeof(RimWorld.Dialog_Options), MethodType.Constructor, new Type[0])]
         internal static class Patch_Dialog_Options_Ctor
         {

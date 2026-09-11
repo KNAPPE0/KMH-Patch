@@ -8,11 +8,15 @@ namespace KMHPatch.UI
     [StaticConstructorOnStartup]
     internal static class KMHTextures
     {
-        // Main tab feature buttons.
+        // Main tab feature buttons - one per first-class destination.
         public static readonly Texture2D Guild       = Load("KMHPatch/UI/Guild");
         public static readonly Texture2D Quests      = Load("KMHPatch/UI/Quests");
         public static readonly Texture2D Marketplace = Load("KMHPatch/UI/Marketplace");
         public static readonly Texture2D Treasury    = Load("KMHPatch/UI/Treasury");
+        public static readonly Texture2D Sites       = Load("KMHPatch/UI/Sites");
+        public static readonly Texture2D Roadworks   = Load("KMHPatch/UI/Roadworks");
+        public static readonly Texture2D Comms       = Load("KMHPatch/UI/Comms");
+        public static readonly Texture2D World       = Load("KMHPatch/UI/World");
         public static readonly Texture2D Leaderboard = Load("KMHPatch/UI/Leaderboard");
         public static readonly Texture2D Ping        = Load("KMHPatch/UI/Ping");
         public static readonly Texture2D Log         = Load("KMHPatch/UI/Log");
@@ -30,7 +34,7 @@ namespace KMHPatch.UI
 
         // Startup check for KMH UI icons, so admins can see how many PNG slots loaded without opening every dialog.
         public static int LoadedCount { get; private set; }
-        public static int TotalSlots  => 16;
+        public static int TotalSlots  => 20;
 
         static KMHTextures()
         {
@@ -39,6 +43,10 @@ namespace KMHPatch.UI
             if (Quests      != null) n++;
             if (Marketplace != null) n++;
             if (Treasury    != null) n++;
+            if (Sites       != null) n++;
+            if (Roadworks   != null) n++;
+            if (Comms       != null) n++;
+            if (World       != null) n++;
             if (Leaderboard != null) n++;
             if (Ping        != null) n++;
             if (Log         != null) n++;

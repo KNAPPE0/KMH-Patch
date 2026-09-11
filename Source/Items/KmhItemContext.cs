@@ -1,6 +1,5 @@
 namespace KMHPatch.Items
 {
-    // What a Thing is about to be used for. Some contexts are stricter than others, but the unsafe-type blocks in
-    // KmhItemSafety apply to ALL of them - KMH must never move an item it can't preserve, display, and restore exactly.
+    // Context can tighten a rule but never loosen one: the unsafe-type blocks apply to every context.
     internal enum KmhItemContext { Store, Trade, Reward, Generate, Display, Restore }
 }

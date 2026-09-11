@@ -1,19 +1,13 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.UI
 {
-    // Reusable single-positive-integer input modal. Cancel + Confirm.
-    //
-    // Used by every KMH mutation that needs the player to enter a count - Treasury deposit/withdraw silver,
-    // Marketplace buy qty, future perk-level / tax-percent / withdraw-cap settings dialogs, etc
-    //
-    // maxHint is purely informational ("Available: N {unitLabel}" subline). 0 = no hint shown. We don't enforce it
-    // client-side - server is authoritative for actual balance/permission/quantity validation
+    // maxHint is informational only: the server is authoritative, and a client-side cap would only disagree with it.
     public class Dialog_KMHAmountInput : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(380f, 180f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(380f, 180f);
 
         private readonly string       _title;
         private readonly string       _confirmLabel;

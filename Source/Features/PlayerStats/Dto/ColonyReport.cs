@@ -25,6 +25,15 @@ namespace KMHPatch.Features.PlayerStats.Dto
         [JsonProperty("top_colonist_kills")]    public int    TopColonistKills   { get; set; } = 0;
         [JsonProperty("colonist")]          public ColonistProfile Colonist { get; set; }
         [JsonProperty("roster")]            public List<ColonistEntry> Roster { get; set; } = new List<ColonistEntry>();
+        [JsonProperty("settlements")]       public List<SettlementReport> Settlements { get; set; } = new List<SettlementReport>();
+    }
+
+    // Breakdown of the single Wealth figure above; the sum of these is that figure, so a reader can see where it sits.
+    public class SettlementReport
+    {
+        [JsonProperty("name")]       public string Name       { get; set; } = "";
+        [JsonProperty("wealth")]     public long   Wealth     { get; set; } = 0;
+        [JsonProperty("population")] public int    Population { get; set; } = 0;
     }
 
     public class ColonistRosterSnapshot

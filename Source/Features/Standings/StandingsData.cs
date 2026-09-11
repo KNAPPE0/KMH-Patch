@@ -42,13 +42,14 @@ namespace KMHPatch.Features.Standings
             {
                 if (string.IsNullOrEmpty(e.GuildName)) continue;
                 if (!map.TryGetValue(e.GuildName, out GuildAgg g)) { g = new GuildAgg { Name = e.GuildName }; map[e.GuildName] = g; }
+                // Map wealth only: each member's KMH figure already carries a share of the vault this board adds as Treasury.
                 g.Wealth         += e.Wealth;
                 g.Kills          += e.Kills;
                 g.SiteSilver     += e.SiteSilverProduced;
                 g.SalesEarned    += e.SalesEarned;
                 g.PurchasesSpent += e.PurchasesSpent;
                 g.Contracts      += e.QuestsCompleted;
-                g.Sites          += e.SitesBuilt;
+                g.Sites          += e.SitesOwned;
                 int rep = ReputationCache.ScoreFor(e.Username);
                 g.RepSum += rep; g.RepCount++;
             }
@@ -67,13 +68,13 @@ namespace KMHPatch.Features.Standings
             return new List<GuildAgg>(map.Values);
         }
 
-        // Composite "how much is this player helping" score for Member Contributions.
-        public static long Contribution(PlayerLeaderboardEntry e)
-            => e.SilverDonated
-             + e.SalesEarned / 2
-             + (long)e.QuestsCompleted * 100L
-             + (long)e.SitesBuilt * 50L
-             + e.WorkerXp / 10L;
+        // Both halves are measured by the server, so this is comparable across players; -1 means nothing to score yet.
+        public static int Focus(long activeSeconds, long connectedSeconds)
+        {
+            if (connectedSeconds <= 0 || activeSeconds <= 0) return -1;
+            long pct = activeSeconds * 100L / connectedSeconds;
+            return pct > 100L ? 100 : (int)pct;
+        }
 
         public static int  Rep(string username)     => ReputationCache.ScoreFor(username);
         public static string RepTier(string username) => ReputationCache.TierFor(username);

@@ -5,8 +5,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Patches
 {
-    // Inbound side of the KMH sub-protocol. Prefix PM_Chat.Receive and SKIP RWT's chat-display path when a message is
-    // KMH protocol (identified by the system username); regular chat returns true and RWT proceeds as normal.
+    // Inbound side of the sub-protocol: KMH messages are swallowed, and anything else returns true for RWT to display.
     [HarmonyPatch(typeof(PM_Chat), nameof(PM_Chat.Receive))]
     internal static class Patch_PM_Chat_KmhIntercept
     {
@@ -15,7 +14,7 @@ namespace KMHPatch.Patches
         [HarmonyPrefix]
         private static bool Prefix(byte[] bytes)
         {
-            // diagnostic: prove the hook fires at all on this RWT build (the whole KMH handshake rides PM_Chat)
+            // The whole handshake rides PM_Chat, so proving the hook fires at all is worth one line.
             if (KmhLog.DebugEnabled && !_seenChat) { _seenChat = true; KmhLog.Debug("chat intercept: active - PM_Chat.Receive is hooked."); }
 
             PKT_Chat pkt;
@@ -31,14 +30,12 @@ namespace KMHPatch.Patches
 
             if (pkt == null || pkt.Username != KmhProtocol.SystemUsername)
             {
-                // diagnostic: a KMH-shaped payload that didn't match our system username means this RWT build mangled
-                // the tag in transit - log the actual username so we can see what changed.
+                // A KMH-shaped payload under another username means this RWT build mangled the tag in transit.
                 if (KmhLog.DebugEnabled && pkt?.Message != null && pkt.Message.Contains("\"kind\""))
                     KmhLog.Debug($"chat intercept: KMH-looking payload, username='{Escape(pkt.Username)}' != system '{Escape(KmhProtocol.SystemUsername)}' - not dispatched.");
                 return true;
             }
 
-            // KMH protocol message. Parse the envelope, hand to dispatcher, and SWALLOW so the JSON never reaches chat.
             KmhEnvelope env = KmhEnvelope.TryParse(pkt.Message);
             if (env == null)
             {
@@ -46,7 +43,9 @@ namespace KMHPatch.Patches
                 return false;
             }
 
-            KmhDispatcher.Receive(env);
+            // Network thread; the generation captured here and re-checked at the pump keeps a packet from an ending session off the next one's caches.
+            int gen = KmhDispatcher.SessionGeneration;
+            KmhMainThread.Post(() => { if (gen == KmhDispatcher.SessionGeneration) KmhDispatcher.Receive(env); });
             return false;
         }
 

@@ -1,16 +1,13 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 using KMHPatch.Notifications;
 
 namespace KMHPatch.SubProtocol
 {
-    // Built-in handshake handler. Flips KmhDispatcher.IsKmhServer to true once the server announces compatible KMH
-    // support - the gate that allows outbound KMH traffic, so a patched client on a stock RWT server never reaches
-    // the .Send() path (fail-safe by design).
     internal static class KmhHandshakeHandler
     {
-        // Last time SendPing was called - used by OnPong to compute round-trip. Volatile because Send happens on
-        // whichever thread feature code is running on, while OnPong fires from the chat-receive thread
+        // Volatile: Send runs on whichever thread feature code is on, while OnPong fires from the chat-receive thread.
         private static volatile object _lastPingSentBox;
 
         public static void Register()
@@ -18,37 +15,86 @@ namespace KMHPatch.SubProtocol
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.Hello,  OnHello);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.Pong,   OnPong);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.Notice, OnNotice);
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.OpResult, OnOpResult);
         }
 
-        // Public API for diagnostic UI (e.g., the in-game KMH tab Ping button). Records the send timestamp so
-        // OnPong can report round-trip ms
+        private static void OnOpResult(KmhEnvelope env) => KmhOpId.SettledById(env?.GetString("op"));
+
         public static bool SendPing()
         {
             _lastPingSentBox = DateTime.UtcNow;
             return KmhDispatcher.Send(KmhProtocol.Kind.Ping, null);
         }
 
-        // Chat-transport handshake. Activates the session, acks, and (if the API didn't already come up on connect)
-        // dials it using the one-time token the server advertised.
+        // Both transports deliver a hello, so an older revision must not put stale presentation over fresh.
+        private static int _commsRev;
+
+        internal static void ResetCommsRevision() => _commsRev = 0;
+
+        // A server counts from 1 again on restart, so a number carried over from an ended session means nothing.
+        internal static int AppliedRevisionFor(bool inSession, int applied) => inSession ? applied : 0;
+
+        // 0 means the server never said, and equal is a legitimate re-send of the same generation.
+        internal static bool IsStaleRevision(int incoming, int applied) => incoming > 0 && incoming < applied;
+
+        // Nothing here affects permission, identity or what the session may do, so skipping a stale one costs only colours.
+        private static void ApplyPresentation(KmhEnvelope env)
+        {
+            UI.KmhTheme.ApplyServerTheme(env.GetString("theme_accent"),  env.GetString("theme_server"),
+                                         env.GetString("theme_guild"),  env.GetString("theme_dm"),
+                                         env.GetString("theme_discord"));
+            UI.KmhTheme.ApplyServerChatTheme(env.GetString("theme_name"),    env.GetString("theme_text"),
+                                             env.GetString("theme_name_dc"), env.GetString("theme_text_dc"),
+                                             env.GetString("discord_marker"));
+            // Absent on an older server, which reads as "no preference" and leaves KMH's own marker colours standing.
+            Features.Sites.KmhMarkerColors.ApplyServerColors(env.GetString("marker_mine"), env.GetString("marker_theirs"));
+            Features.Identity.KmhStaff.ApplyWire(env.GetString("staff_badges"));
+            // Who holds each role, not just how a role looks: without it a badge never appears for an offline author.
+            Features.Identity.KmhStaff.ApplyRoles(env.GetString("staff_roles"));
+            Features.Chat.ChatImageCache.SetServerMaxBytes(env.GetInt("max_image_bytes", 0));   // 0/absent -> KMH default
+            // Absent on an older server, which reads as "no resolver" and leaves the plain url path alone.
+            Features.Chat.ChatMediaClient.SetAvailable(env.GetBool("media_resolver"));
+            Features.Chat.ChatVideoPlayer.SetMaxSeconds(env.GetInt("max_video_seconds", 0));
+            Features.Chat.ChatYouTube.Configure(env.GetBool("yt_playback"), env.GetInt("yt_max_height", 720),
+                                                env.GetInt("yt_max_seconds", 0));
+            Features.Chat.ChatVideoServer.Configure(env.GetBool("yt_server"));
+
+            KmhLog.Info($"KMH presentation applied: {Features.Identity.KmhStaff.RoleCount} staff role(s), "
+                      + $"{Features.Identity.KmhStaff.BadgeCount} badge style(s), "
+                      + $"media resolver {(Features.Chat.ChatMediaClient.Available ? "on" : "off")}, "
+                      + $"video links {(Features.Chat.ChatYouTube.Available ? "playable in game" : "browser only")}");
+        }
+
         private static void OnHello(KmhEnvelope env)
         {
             Features.KmhFeatures.SetDisabled(env.GetString("disabled"));   // null when omitted -> keep last-known-good
+            string caps = env.GetString("capabilities");
+            KmhCapabilities.Apply(caps, present: caps != null);            // absent -> keep the inferred v1.2.1 baseline
             KmhDispatcher.ServerName = env.GetString("server_name") ?? "";   // shown so players can tell servers apart
-            Diagnostics.KmhDebugUplink.ServerRequested = env.GetBool("debug_uplink");   // owner-side debug -> auto uplink
-            // ActivateSession acks FIRST, then hydrates - the ack must reach the server before labels/snapshot requests
-            // or the router's handshake gate drops them all ("dropped ... no compatible handshake" spam).
+            // A REQUEST only. It never starts a transmission - the pump raises a consent prompt and the player decides.
+            Diagnostics.KmhDebugUplink.ServerRequested = env.GetBool("debug_uplink");
+
+            // Presentation only: returning from the whole handler would skip the ack and the dial, so the session never starts.
+            int rev = env.GetInt("comms_rev", 0);
+            _commsRev = AppliedRevisionFor(KmhDispatcher.IsKmhServer, _commsRev);
+            bool stale = IsStaleRevision(rev, _commsRev);
+            if (stale) KmhLog.Debug($"KMH hello: keeping Communications revision {_commsRev}, this hello carries {rev}");
+            else
+            {
+                if (rev > 0) _commsRev = rev;
+                ApplyPresentation(env);
+            }
+
             if (!ActivateSession(env.GetInt("v", 0), env.GetString("build") ?? "", KmhTransportStatus.ChatFallback))
                 return;
 
-            // Dial the API with the one-time token this server advertised (nothing dials earlier - see
-            // Patch_PM_GlobalData). When the API is coming up it carries the catalog on activation, off the chat carrier.
+            // The one-time token arrives here and nowhere earlier, so this is the only place the API can be dialled.
             bool apiComing = KMHPatchMod.Settings?.UseKmhApiTransport == true && env.GetBool("api_enabled");
             try
             {
                 if (apiComing)
                 {
-                    // Honor the server's policy: if the owner disabled chat fallback, the client must not tunnel features
-                    // over chat even if its own setting allows it (old servers omit the flag -> defaults true, unchanged).
+                    // If the owner disabled chat fallback the client must not tunnel over chat, whatever its own setting says.
                     bool effFallback = KMHPatchMod.Settings.AllowChatTransportFallback && env.GetBool("allow_chat_fallback", true);
                     if (!KmhApiClient.Active)
                     {
@@ -66,14 +112,11 @@ namespace KMHPatch.SubProtocol
             }
             catch (Exception ex) { KmhLog.Warn($"KMH API: connect attempt threw: {ex.Message}"); apiComing = false; }
 
-            // Chat-only session (or the dial didn't take): push the catalog over chat now. When the API is coming up we
-            // leave it to that link's activation - and KmhApiClient falls back to a chat push if the API can't connect.
+            // Chat-only session: when the API is coming up, its own activation hydrates instead.
             if (!apiComing) TryHydrateSession();
         }
 
-        // Activate (or refresh) the KMH session once the server is confirmed - shared by the chat hello and the API ack
-        // so either transport lights up KMH. Idempotent: the one-time notify/catalog work runs on first activate only,
-        // and a live API link is never downgraded to chat.
+        // Shared by the chat hello and the API ack, so it is idempotent and never downgrades a live API link to chat.
         internal static bool ActivateSession(int serverVersion, string serverBuild, KmhTransportStatus status)
         {
             if (serverVersion != KmhProtocol.CurrentVersion)
@@ -90,19 +133,15 @@ namespace KMHPatch.SubProtocol
 
             bool first = !KmhDispatcher.IsKmhServer;
             KmhDispatcher.IsKmhServer = true;
-            if (first) { _catalogPushed = false; _snapshotsRequested = false; }   // fresh session: allow one hydration (see TryHydrateSession)
+            if (first) { ResetHydrationForTest(); Diagnostics.KmhSelfTest.RunOnceIfDebug(); }   // fresh session: hydrate again from scratch
             UI.KmhDashboardState.MarkConfirmed();   // sticky: keep feature buttons visible across a re-handshake
             KmhDispatcher.ServerProtocolVersion = serverVersion;
             KmhDispatcher.ServerBuild = serverBuild ?? "";
-            // Ack BEFORE any hydration below, so the server marks this connection compatible before labels/requests
-            // arrive (also sent on API activation - it marks the chat path for any fallback packets).
+            // Before any hydration below, or the router's handshake gate drops every label and snapshot request.
             KmhDispatcher.Send(KmhProtocol.Kind.HelloAck, new { v = KmhProtocol.CurrentVersion });
             if (status == KmhTransportStatus.ApiConnected || KmhTransport.Status != KmhTransportStatus.ApiConnected)
                 KmhTransport.Status = status;   // don't downgrade a live API link to chat
 
-            // Once the API link is up, hydrate over it (catalog + full snapshot refresh), kept off the RWT chat
-            // carrier. The chat-first activation defers; OnHello's chat-only path and KmhApiClient's API-failure
-            // fallback cover the rest.
             if (status == KmhTransportStatus.ApiConnected) TryHydrateSession();
 
             if (!first) return true;
@@ -113,17 +152,13 @@ namespace KMHPatch.SubProtocol
                 ? $"KMH server connected (protocol v{serverVersion})"
                 : $"Connected to KMH server '{KmhDispatcher.ServerName}' (protocol v{serverVersion})");
 
-            if (string.IsNullOrEmpty(KmhDispatcher.ServerBuild))
-                KmhNotifications.Neutral("This server runs an older KMH build (pre-1.1.0). New features (auctions, want board, world events) stay hidden until the server owner updates.");
-            else if (KmhDispatcher.ServerBuild != KmhProtocol.BuildVersion)
+            // A server that sent a manifest is trusted to self-describe, so only one too old to send any is nagged.
+            if (!KmhCapabilities.ManifestSeen)
             {
-                int cmp = CompareBuilds(KmhDispatcher.ServerBuild, KmhProtocol.BuildVersion);
-                if (cmp > 0)
-                    KmhNotifications.Neutral($"This server runs a newer KMH build ({KmhDispatcher.ServerBuild}) than your mod ({KmhProtocol.BuildVersion}) - update your KMH Patch to use its newer features.");
-                else if (cmp < 0)
-                    KmhNotifications.Neutral($"Your KMH Patch ({KmhProtocol.BuildVersion}) is newer than this server ({KmhDispatcher.ServerBuild}) - some features may not work until the owner updates the addon.");
+                if (string.IsNullOrEmpty(KmhDispatcher.ServerBuild))
+                    KmhNotifications.Neutral("This server runs an older KMH build (pre-1.1.0). New features (auctions, want board, world events) stay hidden until the server owner updates.");
                 else
-                    KmhNotifications.Neutral($"KMH build differs - server {KmhDispatcher.ServerBuild}, your mod {KmhProtocol.BuildVersion}. Update so both sides match.");
+                    KmhNotifications.Neutral($"This server runs an older KMH build ({KmhDispatcher.ServerBuild}). Newer KMH features stay hidden until the owner updates the addon; everything it does support works normally.");
             }
 
             string endpoint = string.IsNullOrEmpty(TCPNetwork.Network.Ip) ? "" : $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}";
@@ -133,52 +168,92 @@ namespace KMHPatch.SubProtocol
             // Remember this KMH server + its versions for the local server directory (RWT version = ours, matched at login).
             try
             {
-                string rwt = ""; try { rwt = CommonValues.ExecutableVersion ?? ""; } catch { }
-                Features.Servers.SeenServersStore.Record(endpoint, KmhDispatcher.ServerBuild, rwt);
+                Features.Servers.SeenServersStore.Record(endpoint, KmhDispatcher.ServerBuild, RwtCompat.ExecutableVersion);
             }
             catch (Exception ex) { KmhLog.Warn($"Seen-servers record threw: {ex.Message}"); }
 
-            // (Cache hydration - RequestAll - is deferred to TryHydrateSession so its dozen requests ride the API
-            // transport instead of flooding the chat carrier during the pre-API handshake window.)
             return true;
         }
 
-        // Session hydration - the item catalog (labels + base values + condition defs, several chunks) AND a full
-        // snapshot refresh (RequestAll's dozen requests) - is deferred to whichever transport actually carries it: the
-        // API activation (preferred), OnHello's chat-only path, or KmhApiClient's chat fallback when the API can't be
-        // reached. Firing it the instant the chat hello lands used to dump ~20 packets onto the RWT chat carrier before
-        // the API transport finished connecting. Each half is guarded to run once per session (catalog latches only on
-        // a real send, so a premature/refused attempt can retry).
+        // Deferred to whichever transport actually carries it, or ~20 packets land on the chat carrier before the API connects.
         private static bool _catalogPushed;
         private static bool _snapshotsRequested;
+
+        // Hydration counts as done only when this is empty, so a send refused at startup cannot leave the map blank all session.
+        private static readonly List<string> _pendingHydration = new List<string>();
+        private static int _hydrationAttempts;
+        internal const int MaxHydrationAttempts = 5;
 
         internal static void TryHydrateSession()
         {
             TryPushCatalog();
-            if (!_snapshotsRequested)
+            if (_snapshotsRequested) { RetryPendingHydration(); return; }
+            _snapshotsRequested = true;
+            try
             {
-                _snapshotsRequested = true;
-                try { KmhRefresh.RequestAll(); }
-                catch (Exception ex) { KmhLog.Warn($"KMH join hydration threw: {ex.Message}"); }
+                KmhRefresh.RequestAll(out List<string> failed);
+                _pendingHydration.Clear();
+                _pendingHydration.AddRange(failed);
             }
+            catch (Exception ex) { KmhLog.Warn($"KMH join hydration threw: {ex.Message}"); }
         }
+
+        // Bounded and driven by existing traffic, so a server that never accepts these costs a few packets, not a loop.
+        private static float _lastRetryReal = -999f;
+
+        internal static void RetryPendingHydration()
+        {
+            if (!KmhDispatcher.IsKmhServer) return;
+            bool catalogPending = !_catalogPushed;
+            if (_pendingHydration.Count == 0 && !catalogPending) return;
+            if (_hydrationAttempts >= MaxHydrationAttempts) return;
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (now - _lastRetryReal < 3f && now >= _lastRetryReal) return;
+            _lastRetryReal = now;
+            _hydrationAttempts++;
+
+            // The catalog decides what the server can price and classify, so a failed push cannot wait for the next reconnect.
+            if (catalogPending) TryPushCatalog();
+
+            foreach ((string name, Func<bool> send) in KmhRefresh.All)
+            {
+                if (!_pendingHydration.Contains(name)) continue;
+                bool ok = false;
+                try { ok = send(); } catch { }
+                if (ok) _pendingHydration.Remove(name);
+            }
+            if (_pendingHydration.Count == 0 && _catalogPushed) KmhLog.Debug("KMH hydration: complete.");
+        }
+
+        // A reconnect is a different world and possibly a different server, so hydration starts over.
+        internal static void ResetHydrationForTest()
+        {
+            _catalogPushed = false; _snapshotsRequested = false;
+            _pendingHydration.Clear(); _hydrationAttempts = 0;
+            Features.Catalog.SiteMetadataSender.ResetForServerSwitch();
+        }
+
+        internal static bool HydrationComplete => HydrationCompleteWhen(_snapshotsRequested, _pendingHydration.Count);
+
+        // The rule alone, so a test can prove a pending request blocks completion without a live transport.
+        internal static bool HydrationCompleteWhen(bool requested, int pending) => requested && pending == 0;
 
         private static void TryPushCatalog()
         {
-            if (_catalogPushed) return;
-            bool ok = false;
-            try { ok = Features.Catalog.ItemLabelsSender.PushOnce(); }
-            catch (Exception ex) { KmhLog.Warn($"ItemLabels: catalog push threw: {ex.Message}"); }
-            if (ok) _catalogPushed = true;
+            if (!_catalogPushed)
+            {
+                bool ok = false;
+                try { ok = Features.Catalog.ItemLabelsSender.PushOnce(); }
+                catch (Exception ex) { KmhLog.Warn($"ItemLabels: catalog push threw: {ex.Message}"); }
+                if (ok) _catalogPushed = true;
+            }
+
+            // Its own latch, cleared by the server naming a different catalog: behind the label latch a refused metadata push was never retried.
+            if (!Features.Catalog.SiteMetadataSender.NeedsPush) return;
+            try { Features.Catalog.SiteMetadataSender.PushOnce(); }
+            catch (Exception ex) { KmhLog.Warn($"SiteMeta: metadata push threw: {ex.Message}"); }
         }
 
-        // Compare KMH build strings ("1.1.0"). >0 server newer, <0 client newer, 0 if equal or unparseable.
-        private static int CompareBuilds(string serverBuild, string clientBuild)
-            => Version.TryParse(serverBuild, out Version sv) && Version.TryParse(clientBuild, out Version cv)
-                ? sv.CompareTo(cv) : 0;
-
-        // Server-pushed transient toast { level, text }. Feature handlers on the server use it for action feedback
-        // (e.g. a failed guild invite)
         private static void OnNotice(KmhEnvelope env)
         {
             string text = env?.GetString("text");

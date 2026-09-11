@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -11,8 +11,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Hard enforcement, client side. Backs up Config once, applies the server's zip profile (tracking what it
-    // wrote), reverts edits, restores on request. A crash marker drives recovery on next launch
+    // Backs up Config once, applies the server's zip profile tracking what it wrote, restores on request; a crash marker drives recovery on next launch.
     internal static class EnforcementProfileApplier
     {
         private static string ConfigPath   => GenFilePaths.ConfigFolderPath;
@@ -29,7 +28,6 @@ namespace KMHPatch.Features.Enforcement
 
         private static readonly object _applyLock = new object();
 
-        // -- chunked receive buffer --
         private static readonly object _rxLock = new object();
         private static string _rxHash;
         private static int    _rxChunkCount;
@@ -39,8 +37,7 @@ namespace KMHPatch.Features.Enforcement
         private static State _state;
         private static bool  _booted;
 
-        // ---- bootstrap / crash recovery (call once at mod load) ----
-
+        // Call once at mod load: a profile left applied by a crash has to be found before anything reads it.
         public static void Bootstrap()
         {
             if (_booted) return;
@@ -50,13 +47,11 @@ namespace KMHPatch.Features.Enforcement
                 Directory.CreateDirectory(ProfilesRoot);
                 LoadState();
 
-                // The lock patches are install-on-demand (they cost ~0.4s on big modlists); with a profile applied
-                // the main menu needs them
+                // Lock patches install on demand (~0.4s on big modlists); with a profile applied the main menu needs them.
                 if (_state != null && _state.IsEnforcedActive)
                     LongEventHandler.ExecuteWhenFinished(Patches.EnforcementSettingsPatches.EnsureInstalled);
 
-                // Died mid-apply last session - the Config could be half the server's, half the player's. Put the
-                // personal backup back
+                // Died mid-apply: Config could be half the server's and half the player's, so put the personal backup back.
                 if (File.Exists(CrashMark) && Directory.Exists(BackupPath))
                 {
                     KmhLog.Warn("Enforcement: crash-during-apply marker found - restoring personal backup.");
@@ -71,13 +66,10 @@ namespace KMHPatch.Features.Enforcement
             catch (Exception ex) { KmhLog.Warn($"Enforcement bootstrap failed: {ex.Message}"); }
         }
 
-        // ---- public state surface ----
-
         public static bool   IsApplied   => _state != null && _state.IsEnforcedActive;
         public static string AppliedHash => _state?.ActiveProfileHash ?? "";
 
-        // The preserve-personal mode the active profile was applied under (so the offline lock matches what's
-        // actually on disk)
+        // The mode the active profile was applied under, so the offline lock matches what's actually on disk.
         public static bool PreservePersonalApplied => _state?.PreservePersonal ?? false;
 
         // The files the active profile wrote (the offline lock list).
@@ -96,8 +88,6 @@ namespace KMHPatch.Features.Enforcement
             }
             return false;
         }
-
-        // ---- chunked receive (server -> client) ----
 
         public static void OnProfileBegin(string hash, int chunkCount, int totalBytes)
         {
@@ -168,8 +158,6 @@ namespace KMHPatch.Features.Enforcement
             });
         }
 
-        // ---- apply / reapply / restore ----
-
         private static void ApplyProfile(string hash, long updatedTicks)
         {
             lock (_applyLock)
@@ -218,8 +206,7 @@ namespace KMHPatch.Features.Enforcement
             }
         }
 
-        // Re-write the active profile over Config (no backup, no restart) - watcher drift correction + same-profile
-        // reconnect
+        // Re-writes the active profile over Config with no backup and no restart: drift correction and same-profile reconnect.
         private static void ReapplyIfActive(bool softReload)
         {
             lock (_applyLock)
@@ -241,8 +228,7 @@ namespace KMHPatch.Features.Enforcement
             catch (Exception ex) { KmhLog.Warn($"Enforcement: reapply failed: {ex.Message}"); }
         }
 
-        // Copy the extracted profile over Config (subfolders included), dropping previously-managed files first,
-        // and record what we wrote
+        // Drops the files an earlier apply managed before copying, and records what this one wrote.
         private static int CopyProfileToConfig(string profileFolder, bool updateManifest)
         {
             Directory.CreateDirectory(ConfigPath);
@@ -293,13 +279,26 @@ namespace KMHPatch.Features.Enforcement
             if (_state?.ManagedFiles == null) return;
             foreach (string rel in _state.ManagedFiles)
             {
-                if (string.IsNullOrWhiteSpace(rel)) continue;
-                TryDelete(Path.Combine(ConfigPath, rel));
+                // ManagedFiles comes back from disk, not a live enumeration, so re-check containment before an irreversible delete.
+                string full = ResolveUnderConfig(rel);
+                if (full == null) { KmhLog.Warn($"Enforcement: managed entry '{rel}' resolves outside Config - not deleting."); continue; }
+                TryDelete(full);
             }
         }
 
-        // Wipe Config, copy the original backup back, clear state. (Restore button, server restore signal, joining
-        // a non-enforcing server.)
+        // Null if the entry escapes Config; the trailing separator stops a sibling folder ("Config_old") passing the prefix test.
+        private static string ResolveUnderConfig(string rel)
+        {
+            if (string.IsNullOrWhiteSpace(rel)) return null;
+            try
+            {
+                string root = Path.GetFullPath(ConfigPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string full = Path.GetFullPath(Path.Combine(ConfigPath, rel));
+                return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full : null;
+            }
+            catch { return null; }
+        }
+
         public static void Restore() => RestoreInternal(softReload: true);
 
         private static void RestoreInternal(bool softReload)
@@ -331,17 +330,16 @@ namespace KMHPatch.Features.Enforcement
             }
         }
 
-        // ---- backup helpers ----
-
+        // Fail-LOUD: an incomplete backup must throw so ApplyProfile aborts rather than overwriting originals with no way back.
         private static void EnsureBackup()
         {
-            try
-            {
-                if (Directory.Exists(BackupPath)) return; // already have the originals
-                Directory.CreateDirectory(BackupPath);
-                if (Directory.Exists(ConfigPath)) CopyDir(ConfigPath, BackupPath);
-            }
-            catch (Exception ex) { KmhLog.Warn($"Enforcement: backup failed: {ex.Message}"); }
+            if (Directory.Exists(BackupPath)) return;   // already have the (complete) originals
+            if (!Directory.Exists(ConfigPath)) { Directory.CreateDirectory(BackupPath); return; } // no configs to save - empty backup restores cleanly
+            string tmp = BackupPath + ".partial";
+            SafeDeleteDir(tmp);
+            Directory.CreateDirectory(tmp);
+            CopyDir(ConfigPath, tmp);           // a failure here throws OUT (not swallowed) -> ApplyProfile aborts, originals untouched
+            Directory.Move(tmp, BackupPath);    // atomic: BackupPath appears only once the copy is complete
         }
 
         private static void RestoreBackupToConfig(bool softReload)
@@ -351,8 +349,6 @@ namespace KMHPatch.Features.Enforcement
             CopyDir(BackupPath, ConfigPath);
             if (softReload) SoftReload();
         }
-
-        // ---- tamper-revert watcher (coalesced) ----
 
         private static FileSystemWatcher _watcher;
         private static CancellationTokenSource _watchToken;
@@ -432,8 +428,6 @@ namespace KMHPatch.Features.Enforcement
             }
         }
 
-        // ---- restart ----
-
         private static void RestartNow()
         {
             try
@@ -444,8 +438,6 @@ namespace KMHPatch.Features.Enforcement
             }
             catch (Exception ex) { KmhLog.Warn($"Enforcement: restart failed: {ex.Message}"); }
         }
-
-        // ---- helpers ----
 
         private static string GetProfileFolder(string hash) => Path.Combine(ProfilesRoot, SafeHash(hash));
 
@@ -521,8 +513,6 @@ namespace KMHPatch.Features.Enforcement
 
         private static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
         private static void SafeDeleteDir(string path) { try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { } }
-
-        // ---- state ----
 
         private static void LoadState()
         {

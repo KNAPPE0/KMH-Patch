@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using KMHPatch.Features.Marketplace.Dto;
 
 namespace KMHPatch.Features.Marketplace
@@ -15,6 +15,9 @@ namespace KMHPatch.Features.Marketplace
 
         internal static void Apply(MarketplaceSnapshot snapshot)
         {
+            // Transports reorder; the disconnect clear is what lets a new server's lower revision still apply.
+            if (snapshot == null) return;
+            if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Marketplace");

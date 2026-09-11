@@ -3,12 +3,11 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Persistent per-game kill tally by defName (written by Patch_Pawn_Kill_HuntTally, read by hunt auto-verify).
-    // Saved with the game so a reload doesn't wipe hunt progress. Auto-instantiated for every GameComponent subclass.
+    // A GameComponent so hunt progress is saved with the game and survives a reload.
     public class GameComponent_KMHKillTally : GameComponent
     {
         private Dictionary<string, int> _kills = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
-        private int _colonistDeaths;   // lifetime player-colonist losses, for Battle Records
+        private int _colonistDeaths;
 
         public GameComponent_KMHKillTally(Game game) { }
 
@@ -32,7 +31,7 @@ namespace KMHPatch.Patches
             base.ExposeData();
             Scribe_Collections.Look(ref _kills, "kmhKills", LookMode.Value, LookMode.Value);
             Scribe_Values.Look(ref _colonistDeaths, "kmhColonistDeaths", 0);
-            // restore the case-insensitive comparer Scribe drops on load, + null-guard
+            // Scribe drops the case-insensitive comparer on load.
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 _kills = new Dictionary<string, int>(_kills ?? new Dictionary<string, int>(),
                                                      System.StringComparer.OrdinalIgnoreCase);

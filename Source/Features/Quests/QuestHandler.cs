@@ -5,15 +5,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Quests
 {
-    // Registers the quest-board sub-protocol handler + exposes the public request and mutation methods dialogs use
-    //
-    // Mutation methods (Claim / Submit / Cancel) send a small envelope with just the quest id. The server applies
-    // the change and broadcasts a fresh kmh.quest.snapshot - so the cache update path is exactly the same as a
-    // polled refresh, no per-mutation response handler needed
-    //
-    // Post (creating a new quest) is wired end-to-end via TryPostDeliverItem / TryPostBounty +
-    // Dialog_KMHPostQuest's composer with DefDatabase item picker. Bounty kind has no delivery target (poster
-    // Approves manually when satisfied)
+    // Mutations send only the quest id and the server rebroadcasts, so no mutation needs its own response handler.
     internal static class QuestHandler
     {
         public static void Register()
@@ -47,15 +39,13 @@ namespace KMHPatch.Features.Quests
             return SendMutation(KmhProtocol.Kind.QuestAbandon, questId, "Abandon sent");
         }
 
-        // Claimer reports completion of a verifiable kind (escort/defend/hunt/ build). The server trusts the report
-        // and pays the escrowed bounty
+        // The server trusts this report and pays the escrowed bounty.
         public static bool TryVerify(long questId)
         {
             return SendMutation(KmhProtocol.Kind.QuestVerify, questId, "Completion reported");
         }
 
-        // Claimer submits proof (text + optional https image) for a Custom
-        // quest. Moves it to PendingReview for the poster to approve/reject.
+        // Moves a Custom quest to PendingReview for the poster to approve or reject.
         public static bool TrySubmitProof(long questId, string proofText, string proofImageUrl)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestSubmitProof, new
@@ -83,9 +73,7 @@ namespace KMHPatch.Features.Quests
             return sent;
         }
 
-        // Post any quest kind by sending the full draft. The server reads the whole QuestEntry shape (DataAs), so
-        // per-kind fields ride along. Returns false if not connected. Server validates per-kind + replies with a
-        // chat reason on rejection
+        // Sends the whole QuestEntry shape, so per-kind fields ride along and the server validates them all.
         public static bool TryPostDraft(Dto.QuestEntry draft, int expiresInHours)
         {
             if (draft == null) return false;
@@ -94,26 +82,23 @@ namespace KMHPatch.Features.Quests
                 KmhNotifications.Rejected("Quest needs a title");
                 return false;
             }
-            // Send the draft fields plus expires_hours (which lives outside the QuestEntry shape). Newtonsoft
-            // serializes the draft's JsonProperty names, matching the server's DataAs<QuestEntry>
+            // Built as a JObject because expires_hours lives outside the QuestEntry shape.
             var payload = Newtonsoft.Json.Linq.JObject.FromObject(draft);
             payload["expires_hours"] = expiresInHours < 0 ? 0 : expiresInHours;
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestPost, payload);
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestPost, payload,
+                KmhOpId.For($"quest.post|{draft.Kind}|{draft.Title}|{draft.BountySilver}"));
             if (sent) KmhNotifications.Neutral("Posting quest…");
             else      KmhNotifications.NotConnected();
             return sent;
         }
 
-        // Bounty-kind sign-off: poster marks a Submitted Bounty quest as Completed. DeliverItem quests
-        // auto-complete server-side via the treasury check inside Submit, so this only ever fires for Bounty-kind
-        // quests
+        // Bounty-kind only: DeliverItem auto-completes server-side on the treasury check inside Submit.
         public static bool TryApprove(long questId)
         {
             return SendMutation(KmhProtocol.Kind.QuestApprove, questId, "Approval sent");
         }
 
-        // Bounty kind has no delivery target - server marks it as manual sign-off (poster confirms when satisfied).
-        // Minimal envelope. expiresInHours: 0 = never expires; > 0 = auto-expire + refund
+        // No delivery target, so the server marks it manual sign-off; expiresInHours 0 = never, > 0 = expire + refund.
         public static bool TryPostBounty(string title, string description, int bountySilver,
                                          string visibility = QuestVisibilityPublic,
                                          int    expiresInHours = 0)
@@ -136,14 +121,13 @@ namespace KMHPatch.Features.Quests
                 description   = description ?? "",
                 bounty_silver = bountySilver,
                 expires_hours = expiresInHours < 0 ? 0 : expiresInHours,
-            });
+            }, KmhOpId.For($"quest.post|bounty|{title}|{bountySilver}"));
             if (sent) KmhNotifications.Neutral("Posting bounty…");
             else      KmhNotifications.NotConnected();
             return sent;
         }
 
-        // Visibility constants for the Quest Post envelope. Same snake_case strings QuestEntry uses on the snapshot
-        // side
+        // The same snake_case strings QuestEntry uses on the snapshot side.
         public const string QuestVisibilityPublic    = "public";
         public const string QuestVisibilityGuildOnly = "guild_only";
 
@@ -187,7 +171,7 @@ namespace KMHPatch.Features.Quests
                 target_item_def_name = targetItemDefName,
                 target_item_qty      = targetItemQty,
                 expires_hours        = expiresInHours < 0 ? 0 : expiresInHours,
-            });
+            }, KmhOpId.For($"quest.post|deliver_item|{title}|{targetItemDefName}|{targetItemQty}|{bountySilver}"));
             if (sent) KmhNotifications.Neutral("Posting quest…");
             else      KmhNotifications.NotConnected();
             return sent;
@@ -198,8 +182,7 @@ namespace KMHPatch.Features.Quests
             bool sent = KmhDispatcher.Send(kind, new { quest_id = questId });
             if (sent)
             {
-                // Optimistic local feedback - authoritative state lands in the next snapshot push. If the request
-                // fails server-side (already claimed, etc.) the next snapshot will reflect reality
+                // Optimistic only; a server-side refusal is corrected by the next snapshot.
                 KmhNotifications.Positive(flashOnSent);
             }
             else

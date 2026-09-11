@@ -5,8 +5,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Client cache of the server's enforcement state (from the snapshot). The lock patches ask IsModEditable() per
-    // mod
+    // Client cache of the server's enforcement snapshot; the lock patches ask IsModEditable() per mod.
     internal static class EnforcementCache
     {
         public static bool Enabled         { get; private set; }
@@ -18,6 +17,13 @@ namespace KMHPatch.Features.Enforcement
 
         private static HashSet<string> _safe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        internal const int MaxSafeMods   = 2048;
+        internal const int MaxModIdChars = 256;
+        internal const int MaxHashChars  = 128;
+
+        private static string Bounded(string s, int max)
+            => string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s.Substring(0, max));
+
         // Raised whenever a fresh snapshot lands, so any open UI can refresh.
         public static event Action Updated;
 
@@ -28,24 +34,26 @@ namespace KMHPatch.Features.Enforcement
             PreservePersonal = preservePersonal;
             IsAdmin         = isAdmin;
             HasProfile      = hasProfile;
-            ServerProfileHash = serverProfileHash ?? "";
+            ServerProfileHash = Bounded(serverProfileHash, MaxHashChars);
 
+            // Bounded: this list is drawn in a dialog and consulted per mod, so a malformed snapshot can't cost unbounded memory.
             HashSet<string> set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (safeMods != null)
                 foreach (string m in safeMods)
-                    if (!string.IsNullOrWhiteSpace(m)) set.Add(m.Trim());
+                {
+                    if (set.Count >= MaxSafeMods) break;
+                    if (!string.IsNullOrWhiteSpace(m)) set.Add(Bounded(m.Trim(), MaxModIdChars));
+                }
             _safe = set;
 
-            // Lock patches are install-on-demand; a snapshot that can lock (or an admin who gets the mark-safe
-            // button) needs them in place
+            // Lock patches install on demand; a snapshot that can lock, or an admin who gets the mark-safe button, needs them in place.
             if (enabled || isAdmin)
                 LongEventHandler.ExecuteWhenFinished(Patches.EnforcementSettingsPatches.EnsureInstalled);
 
             KmhCacheEvents.Raise(Updated, "Enforcement");
         }
 
-        // Active while connected+enforcing (non-exempt), or offline while a profile is still applied (keeps the
-        // main menu locked until restore)
+        // Stays active offline while a profile is applied, which keeps the main menu locked until restore.
         public static bool IsLockActive()
         {
             if (Enabled) return !(AdminBypass && IsAdmin);
@@ -58,8 +66,7 @@ namespace KMHPatch.Features.Enforcement
         public static bool IsSafeId(string id)
             => !string.IsNullOrWhiteSpace(id) && _safe.Contains(id.Trim());
 
-        // Workshop installs suffix PackageId with "_steam", so an exact compare misses KMH's own mod: the lock then
-        // hides its settings and skips WriteSettings, silently reverting them. PackageIdPlayerFacing is undecorated.
+        // Workshop suffixes PackageId with "_steam"; an exact compare misses KMH itself and silently reverts its own settings.
         public static bool IsKmhItself(ModContentPack content)
             => content != null
             && (string.Equals(content.PackageId, Constants.PackageId, StringComparison.OrdinalIgnoreCase)
@@ -77,13 +84,11 @@ namespace KMHPatch.Features.Enforcement
             return !EnforcementProfileApplier.IsModConfigEnforced(content.FolderName);
         }
 
-        // Preserve-personal keeps personal field VALUES on apply (the merge); it does NOT unlock the UI. Surfaced
-        // for the client status view
+        // Preserve-personal keeps personal field VALUES on apply; it does NOT unlock the UI.
         public static bool PreservePersonalActive()
             => Enabled ? PreservePersonal : EnforcementProfileApplier.PreservePersonalApplied;
 
-        // One-line state dump for diagnosing "why isn't this mod locked?" - logged once per session the first time
-        // a mod's settings are drawn
+        // One-line state dump for diagnosing "why isn't this mod locked?".
         public static string DiagState(ModContentPack content)
             => $"enabled={Enabled}, lockActive={IsLockActive()}, isAdmin={IsAdmin}, adminBypass={AdminBypass}, " +
                $"preserve={PreservePersonalActive()}, applied={EnforcementProfileApplier.IsApplied}, safeCount={SafeCount}, " +

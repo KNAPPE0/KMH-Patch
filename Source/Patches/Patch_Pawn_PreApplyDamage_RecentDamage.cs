@@ -3,8 +3,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Records player-caused damage to pawns for hunt-quest bleed-out attribution (see KmhRecentDamage). Postfix so we
-    // can skip fully-absorbed hits (shields), and it never disturbs the damage pipeline.
+    // Postfix so a fully absorbed hit, such as one a shield ate, can be skipped.
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.PreApplyDamage))]
     internal static class Patch_Pawn_PreApplyDamage_RecentDamage
     {

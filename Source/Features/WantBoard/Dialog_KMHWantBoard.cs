@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.WantBoard.Dto;
@@ -8,11 +8,10 @@ using Verse;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // Want-to-buy board: browse open buy requests, fulfill them from your treasury for the posted price, post + cancel
-    // your own. The buyer's silver is escrowed server-side; fulfilling moves items treasury->treasury, so every move is server-authoritative.
+    // The buyer's silver is escrowed server-side and fulfilling moves items treasury->treasury, so every move is server-authoritative.
     public class Dialog_KMHWantBoard : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(900f, 620f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(900f, 620f);
 
         private Vector2  _scroll;
 
@@ -43,29 +42,41 @@ namespace KMHPatch.Features.WantBoard
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Want Board");
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            const float btnW = 130f;
-            if (IconButton.Draw(new Rect(rect.width - btnW, y, btnW - 4f, 28f), KMHTextures.Post, "Post want…"))
-                Dialog_KMHPostWant.Open();
-            if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f, y, btnW - 4f, 28f), "Refresh"))
+            // Below ~650px the left cursor (~380px) and the right-anchored buttons overlapped, so the buttons wrap to their own row.
+            float btnW = Mathf.Max(IconButton.WidthFor("Refresh", false), IconButton.WidthFor("Post want", true));
+            bool  oneRow = rect.width >= 380f + btnW * 2f + 8f;
+            float leftW  = oneRow ? rect.width - btnW * 2f - 8f : rect.width;
+            float filterW = Mathf.Clamp(leftW - 80f, 110f, 300f);
+
+            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter, "Filter by item or player");
+            DialogLayout.DrawTightCheckbox(filterW + 16f, y + 4f, "Mine", ref _mineOnly);
+
+            float btnY = oneRow ? y : y + 32f;
+            float cell = oneRow ? btnW : rect.width / 2f;
+            float btnX = oneRow ? rect.width - btnW * 2f : 0f;
+
+            if (Widgets.ButtonText(new Rect(btnX, btnY, cell - 4f, 28f), "Refresh"))
             {
                 WantHandler.RequestSnapshot();
-                MarkRefreshed();
             }
-            _filter = DialogLayout.SearchField(new Rect(0f, y, 300f, 28f), _filter, "Filter by item or player…");
-            DialogLayout.DrawTightCheckbox(316f, y + 4f, "Mine", ref _mineOnly);
-            y += 34f;
+            if (IconButton.Draw(new Rect(btnX + cell, btnY, cell - 4f, 28f), KMHTextures.Post, "Post want"))
+                Dialog_KMHPostWant.Open();
 
+            y = btnY + 34f;
+
+            // Measured: the hint wraps to two lines on a narrow window, where a fixed 18px box cut the second line off.
             Color old = GUI.color;
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f),
-                "Deliver from your treasury (deposit the goods to your vault first) to fulfill a want for its posted price.");
+            const string hint = "Deliver from your treasury (deposit the goods to your vault first) to fulfill a want for its posted price.";
+            float hintH = Text.CalcHeight(hint, rect.width);
+            Widgets.Label(new Rect(0f, y, rect.width, hintH), hint);
             GUI.color = old;
-            y += 20f;
+            y += hintH + 4f;
 
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawList(listBox);
 
@@ -74,7 +85,8 @@ namespace KMHPatch.Features.WantBoard
 
         private void DrawList(Rect box)
         {
-            const float rowH = 58f;
+            // Three stacked text lines plus padding, measured rather than assumed.
+            float rowH = DialogLayout.TextRowsH(3, 8f);
 
             string me  = KmhSession.Me;
             string flt = (_filter ?? "").Trim().ToLowerInvariant();
@@ -125,7 +137,8 @@ namespace KMHPatch.Features.WantBoard
         {
             Rect inner = row.ContractedBy(6f);
             const float reservedRight = 116f;
-            float textW = inner.width - reservedRight;
+            // Floored: on a narrow row this subtraction went negative and the text column ran back under the action buttons.
+            float textW = Mathf.Max(0f, inner.width - reservedRight);
 
             bool mine      = KmhSession.Same(w.BuyerUsername, me);
             int  remaining = Math.Max(0, w.QtyWanted - w.QtyFilled);
@@ -136,22 +149,21 @@ namespace KMHPatch.Features.WantBoard
             UI.KmhItemInfo.ButtonForDef(inner.x + iconSize + 4f, inner.y, w.ItemDefName);
 
             // Line 1: item + qty progress + buyer
-            DialogLayout.LabelTrunc(new Rect(inner.x + iconSize + UI.KmhItemInfo.Size + 8f, inner.y, textW - iconSize - UI.KmhItemInfo.Size - 8f, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x + iconSize + UI.KmhItemInfo.Size + 8f, inner.y, textW - iconSize - UI.KmhItemInfo.Size - 8f, DialogLayout.TextRowH),
                 $"<b>#{w.Id}  {label}</b>  <color=grey>·</color> {w.QtyFilled}/{w.QtyWanted} filled  <color=grey>· wanted by</color> {Buyer(w.BuyerUsername)}");
 
             // Line 2: unit price + total escrow
             Color old = GUI.color; GUI.color = new Color(0.85f, 0.85f, 0.85f);
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 20f, textW, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, textW, DialogLayout.TextRowH),
                 $"Pays <color=yellow>{SilverFmt.Format(w.UnitPriceSilver)}</color> each  <color=grey>· {SilverFmt.Format(w.EscrowRemaining)} left in escrow</color>");
             GUI.color = old;
 
             // Line 3: time left + accepted-state constraints
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 38f, textW, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, textW, DialogLayout.TextRowH),
                 $"ends in {DialogLayout.TimeLeft(w.EndsUtcTicks, now)}{Accepts(w)}");
             GUI.color = old;
 
-            // Actions
             float bw = 106f, bx = inner.xMax - bw;
             if (mine)
             {
@@ -170,7 +182,11 @@ namespace KMHPatch.Features.WantBoard
         {
             int have = 0;
             Treasury.Dto.TreasurySnapshot snap = Treasury.TreasuryCache.Snapshot;
-            if (snap?.Items != null) snap.Items.TryGetValue(w.ItemDefName, out have);
+            // Compact stacks are keyed def|stuff|quality, so a bare-defName lookup misses every stuffed or quality item.
+            if (snap?.Items != null)
+                foreach (KeyValuePair<string, int> kv in snap.Items)
+                    if (ItemKeys.Matches(kv.Key, w.ItemDefName, w.RequiredStuff, w.MinQuality))
+                        have += Math.Max(0, kv.Value);
             // Complex wants match full-state gear held in the payload store; count those units too (server re-validates).
             if (w.AllowComplex && snap?.ItemPayloads != null)
                 foreach (Items.KmhThingPayload p in snap.ItemPayloads)
@@ -193,20 +209,25 @@ namespace KMHPatch.Features.WantBoard
         private static string Buyer(string u)
             => LinkedAccountsCache.Format(u);   // Format() already renders empty as "(unknown)"
 
-        // Badge showing what non-clean states this want will accept; nothing shown for the safe default (clean simple only).
+        // Requirements exclude stock while allow-flags admit stock the safe default rejects, so they read as two sentences, not one "accepts" list.
         private static string Accepts(WantDto w)
         {
-            List<string> bits = new List<string>();
-            if (w.AllowComplex) bits.Add("used gear");
-            if (w.AllowDamaged) bits.Add("damaged");
-            if (w.AllowTainted) bits.Add("tainted");
-            if (w.MinQuality > 0) bits.Add("q" + w.MinQuality + "+");
-            if (!string.IsNullOrEmpty(w.RequiredStuff)) bits.Add(w.RequiredStuff);
-            return bits.Count > 0 ? "  <color=grey>· accepts " + string.Join(", ", bits) + "</color>" : "";
+            List<string> requires = new List<string>();
+            if (w.MinQuality > 0) requires.Add(ItemKeys.QualityName(w.MinQuality) + " or better");
+            if (!string.IsNullOrEmpty(w.RequiredStuff)) requires.Add(ItemLabels.ResolveLabel(w.RequiredStuff));
+
+            List<string> accepts = new List<string>();
+            if (w.AllowComplex) accepts.Add("used gear");
+            if (w.AllowDamaged) accepts.Add("damaged");
+            if (w.AllowTainted) accepts.Add("tainted");
+
+            string s = "";
+            if (requires.Count > 0) s += "  <color=grey>· requires " + string.Join(", ", requires) + "</color>";
+            if (accepts.Count > 0)  s += "  <color=grey>· accepts " + string.Join(", ", accepts) + "</color>";
+            return s;
         }
 
-        // Client-side preview mirror of TreasuryStore.TryWithdrawMatchingPayloads: does this held payload satisfy the want?
-        // Server re-validates on fulfill; this only sizes the seller's "you have N" cap for complex wants.
+        // Client-side mirror of TreasuryStore.TryWithdrawMatchingPayloads, only to size the "you have N" cap; the server re-validates on fulfill.
         private static bool WantMatches(WantDto w, Items.KmhThingPayload p)
         {
             if (p == null) return false;

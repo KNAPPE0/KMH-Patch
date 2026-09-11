@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using KMHPatch.Diagnostics;
 using UnityEngine;
@@ -6,12 +6,12 @@ using Verse;
 
 namespace KMHPatch.Dialogs
 {
-    // In-game tail viewer for kmh-patch.log.
     public class Dialog_KMHLogViewer : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(820f, 540f);
+        protected override bool ClosesOnSessionEnd => false;
 
-        // Keep large logs responsive.
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(820f, 540f);
+
         private const int MaxLines = 400;
 
         private List<string> _lines = new List<string>();
@@ -35,16 +35,17 @@ namespace KMHPatch.Dialogs
             const float footerH = 38f;
             const float padding = 6f;
 
-            Text.Font   = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, inRect.width, headerH), "KMH Log");
-            Text.Font   = GameFont.Small;
+            // Separate rects: one shared rect anchored left and right only looks like two columns while it is wide.
+            float statusW = string.IsNullOrEmpty(_statusLine) ? 0f : Mathf.Min(260f, inRect.width * 0.5f);
+            float titleW  = Mathf.Max(0f, inRect.width - statusW - 8f);
 
-            if (!string.IsNullOrEmpty(_statusLine))
-            {
-                Text.Anchor = TextAnchor.UpperRight;
-                Widgets.Label(new Rect(0f, 0f, inRect.width, headerH), _statusLine);
-                Text.Anchor = TextAnchor.UpperLeft;
-            }
+            Text.Font = GameFont.Medium;
+            UI.DialogLayout.LabelTrunc(new Rect(0f, 0f, titleW, headerH), "KMH Log");
+            Text.Font = GameFont.Small;
+
+            if (statusW > 0f)
+                UI.DialogLayout.LabelTrunc(new Rect(inRect.width - statusW, 0f, statusW, headerH),
+                                           _statusLine, TextAnchor.UpperRight);
 
             Widgets.DrawLineHorizontal(0f, headerH, inRect.width);
 
@@ -52,30 +53,34 @@ namespace KMHPatch.Dialogs
                 0f,
                 headerH + padding,
                 inRect.width,
-                inRect.height - headerH - footerH - padding * 2f);
+                Mathf.Max(UI.DialogLayout.MinBodyHeight, inRect.height - headerH - footerH - padding * 2f));
 
             Widgets.DrawMenuSection(bodyRect);
             Rect bodyInner = bodyRect.ContractedBy(4f);
 
             float lineH       = Text.LineHeight;
             float contentH    = _lines.Count * lineH + 8f;
-            Rect  viewRect    = new Rect(0f, 0f, bodyInner.width - 16f, Mathf.Max(contentH, bodyInner.height));
+            Rect  viewRect    = new Rect(0f, 0f,
+                Mathf.Max(1f, bodyInner.width - UI.DialogLayout.ScrollbarReserveWidth),
+                Mathf.Max(contentH, bodyInner.height));
 
             Widgets.BeginScrollView(bodyInner, ref _scroll, viewRect);
             try
             {
-                float y = 0f;
-                foreach (string line in _lines)
+                // On-screen rows only; 400 labels per repaint is flat waste.
+                UI.DialogLayout.VisibleRange(_scroll, bodyInner.height, lineH, _lines.Count, out int first, out int last);
+                Color prev = GUI.color;
+                for (int i = first; i < last; i++)
                 {
-                    Color prev = GUI.color;
-                    if (line.Contains("[ERROR]"))      GUI.color = new Color(1f, 0.55f, 0.55f);
-                    else if (line.Contains("[WARN]"))  GUI.color = new Color(1f, 0.85f, 0.55f);
+                    string line = _lines[i];
+                    if (line.Contains("[ERROR]"))     GUI.color = new Color(1f, 0.55f, 0.55f);
+                    else if (line.Contains("[WARN]")) GUI.color = new Color(1f, 0.85f, 0.55f);
+                    else                              GUI.color = prev;
 
-                    Widgets.Label(new Rect(0f, y, viewRect.width, lineH), line);
-
-                    GUI.color = prev;
-                    y += lineH;
+                    // Truncated, not wrapped: Widgets.Label wraps by default and loses the remainder in a one-line rect.
+                    UI.DialogLayout.LabelTrunc(new Rect(0f, i * lineH, viewRect.width, lineH), line);
                 }
+                GUI.color = prev;
             }
             finally
             {
@@ -85,8 +90,10 @@ namespace KMHPatch.Dialogs
             Rect footerRect = new Rect(0f, inRect.height - footerH, inRect.width, footerH);
 
             float btnH = 30f;
-            float btnW = 130f;
             float btnY = footerRect.y + (footerH - btnH) / 2f;
+
+            // Buttons share the row and shrink; at fixed widths a narrow window makes them overlap and mis-click.
+            float btnW = Mathf.Clamp((footerRect.width - padding * 2f) / 3f, 60f, 130f);
 
             if (Widgets.ButtonText(new Rect(0f, btnY, btnW, btnH), "Refresh"))
             {
@@ -132,7 +139,6 @@ namespace KMHPatch.Dialogs
 
                 _statusLine = $"<color=grey>{_lines.Count} line(s), tail of {Path.GetFileName(path)}</color>";
 
-                // Show newest entries first after reload.
                 _scroll = new Vector2(0f, float.MaxValue);
             }
             catch (System.Exception ex)

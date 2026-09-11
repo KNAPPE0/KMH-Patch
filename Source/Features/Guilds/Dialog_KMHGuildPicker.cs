@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Guilds.Dto;
 using KMHPatch.UI;
@@ -10,9 +10,10 @@ namespace KMHPatch.Features.Guilds
     // Join picker: every guild (from the leaderboard snapshot) - open ones join in one click, invite-only tagged.
     public class Dialog_KMHGuildPicker : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(480f, 560f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(480f, 560f);
 
         private string  _search = "";
+        private readonly UI.KmhFilteredView<GuildLeaderboardEntry> _view = new UI.KmhFilteredView<GuildLeaderboardEntry>();
         private Vector2 _scroll;
 
         public Dialog_KMHGuildPicker()
@@ -30,22 +31,29 @@ namespace KMHPatch.Features.Guilds
             float y = DialogLayout.DrawTitle(rect, "Join a guild");
 
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                "<color=grey>Open guilds join instantly. Invite-only guilds need an invite from their officers.</color>");
+                // Never promises "instantly": an owner can require proximity to the hall, and that rule is not on the snapshot.
+                "<color=grey>Open guilds take you without an invite; invite-only guilds need one from their officers. " +
+                "Some servers also require you to be near the guild's hall.</color>");
             y += 24f;
 
             _search = Widgets.TextField(new Rect(0f, y, rect.width, 28f), _search ?? "");
             y += 34f;
 
-            List<GuildLeaderboardEntry> all = GuildLeaderboardCache.Snapshot?.Guilds ?? new List<GuildLeaderboardEntry>();
-            List<GuildLeaderboardEntry> shown = new List<GuildLeaderboardEntry>();
+            List<GuildLeaderboardEntry> all = GuildLeaderboardCache.Snapshot?.Guilds;
             string q = (_search ?? "").Trim();
-            foreach (GuildLeaderboardEntry g in all)
-                if (q.Length == 0 || g.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
-                    shown.Add(g);
-            // Open (joinable) guilds first, then by size.
-            shown.Sort((a, b) => a.OpenJoin != b.OpenJoin ? (a.OpenJoin ? -1 : 1) : b.MemberCount.CompareTo(a.MemberCount));
+            List<GuildLeaderboardEntry> shown = _view.Get(all, q, () =>
+            {
+                List<GuildLeaderboardEntry> outList = new List<GuildLeaderboardEntry>();
+                if (all != null)
+                    foreach (GuildLeaderboardEntry g in all)
+                        if (q.Length == 0 || g.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                            outList.Add(g);
+                // Open (joinable) guilds first, then by size.
+                outList.Sort((a, b) => a.OpenJoin != b.OpenJoin ? (a.OpenJoin ? -1 : 1) : b.MemberCount.CompareTo(a.MemberCount));
+                return outList;
+            });
 
-            Rect view = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect view = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             float rowH = 34f;
             Rect inner = new Rect(0f, 0f, view.width - 16f, Math.Max(shown.Count * rowH, view.height));
             Widgets.BeginScrollView(view, ref _scroll, inner);

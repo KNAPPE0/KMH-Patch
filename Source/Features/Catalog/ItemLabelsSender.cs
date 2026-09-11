@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 using KMHPatch.Features.Catalog.Dto;
 using KMHPatch.SubProtocol;
@@ -7,32 +7,22 @@ using Verse;
 
 namespace KMHPatch.Features.Catalog
 {
-    // Sends the local item catalog once per session so the server can cache friendly names for Discord commands.
     internal static class ItemLabelsSender
     {
-        // Entries per chunk - keeps each message well under the ~64KB router frame. Large modpacks send several
-        // chunks; the server accumulates them (Apply is additive), so nothing is lost off the tail.
+        // Keeps each message well under the router frame; the server's Apply is additive, so nothing is lost off the tail.
         private const int ChunkSize = 800;
 
-        // Skip re-sending an identical catalog to the same server within this window. The modpack (so the catalog)
-        // can't change without a game restart and the server keeps what we already sent, so a client that reconnects
-        // repeatedly no longer re-streams thousands of labels each time (the main handshake log/packet noise). A
-        // server restart inside the window briefly shows def-names until the next push - a name-cache convenience that
-        // self-heals. Static, so it survives reconnects within a game launch and resets on restart.
-        private static readonly System.TimeSpan RepushWindow = System.TimeSpan.FromMinutes(10);
-        private static string           _lastPushEndpoint = "";
-        private static System.DateTime  _lastPushUtc      = System.DateTime.MinValue;
+        // Shared with every other catalog pusher, so one of them cannot quietly lose the re-push throttle.
+        internal const string GuardKind = "item-labels";
 
         public static bool PushOnce()
         {
             if (!KmhDispatcher.IsKmhServer) return false;
 
-            string endpoint = CurrentEndpoint();
-            if (!string.IsNullOrEmpty(endpoint)
-                && string.Equals(endpoint, _lastPushEndpoint, System.StringComparison.OrdinalIgnoreCase)
-                && System.DateTime.UtcNow - _lastPushUtc < RepushWindow)
+            string endpoint = CatalogPushGuard.CurrentEndpoint();
+            if (CatalogPushGuard.AlreadySent(GuardKind, endpoint, out int agoSeconds))
             {
-                KmhLog.Debug($"ItemLabels: catalog already sent to {endpoint} {(int)(System.DateTime.UtcNow - _lastPushUtc).TotalSeconds}s ago - skipping re-push.");
+                KmhLog.Debug($"ItemLabels: catalog already sent to {endpoint} {agoSeconds}s ago - skipping re-push.");
                 return true;   // report success so the session's push guard latches and won't retry over chat
             }
 
@@ -43,31 +33,30 @@ namespace KMHPatch.Features.Catalog
                 return false;
             }
 
-            int labelChunks = SendChunked(KmhProtocol.Kind.ItemLabels, labels, forValues: false, fungible);
-            if (labelChunks <= 0) return false;
-            KmhLog.Debug($"ItemLabels: pushed {labels.Count} labels in {labelChunks} chunk(s) (of {discovered} discovered).");
+            if (!SendChunkedComplete(KmhProtocol.Kind.ItemLabels, labels, forValues: false, fungible)) return false;
+            KmhLog.Debug($"ItemLabels: pushed {labels.Count} labels (of {discovered} discovered).");
 
-            if (values.Count > 0)
-            {
-                int vChunks = SendChunked(KmhProtocol.Kind.ItemValues, ToStr(values), forValues: true);
-                KmhLog.Debug($"ItemLabels: pushed {values.Count} base market values in {vChunks} chunk(s).");
-            }
-            PushConditionDefs();
+            // Values decide site pricing on the server, so a half-sent set is worse than none - it must not latch.
+            if (values.Count > 0 && !SendChunkedComplete(KmhProtocol.Kind.ItemValues, ToStr(values), forValues: true))
+                return false;
+            if (!PushConditionDefs()) return false;
 
-            _lastPushEndpoint = endpoint;   // remember only after a real push, so a failed send retries next time
-            _lastPushUtc      = System.DateTime.UtcNow;
+            CatalogPushGuard.MarkSent(GuardKind, endpoint);   // only after a COMPLETE push, so a partial one retries
             return true;
         }
 
-        // "ip:port" of the connected server, or "" if unavailable (then the throttle is skipped and we always push).
-        private static string CurrentEndpoint()
+        // True only when EVERY chunk went: "at least one chunk" latched a half-Unknown catalog as complete.
+        private static bool SendChunkedComplete(string kind, Dictionary<string, string> map, bool forValues,
+                                                HashSet<string> fungibleSet = null)
         {
-            try { return $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}"; }
-            catch { return ""; }
+            int total = (map.Count + ChunkSize - 1) / ChunkSize;
+            int sent = SendChunked(kind, map, forValues, fungibleSet);
+            if (sent == total) return true;
+            KmhLog.Warn($"ItemLabels: only {sent} of {total} '{kind}' chunk(s) reached the server - the catalog is "
+                      + "incomplete and will be sent again rather than treated as pushed.");
+            return false;
         }
 
-        // Split a dict into chunks and send each as one ItemLabelsPush with chunk_index/chunk_total metadata. When
-        // fungibleSet is given (labels push only), each chunk also carries the fungible defNames it contains.
         private static int SendChunked(string kind, Dictionary<string, string> map, bool forValues, HashSet<string> fungibleSet = null)
         {
             List<KeyValuePair<string, string>> all = new List<KeyValuePair<string, string>>(map);
@@ -96,7 +85,7 @@ namespace KMHPatch.Features.Catalog
         }
 
         // GameConditionDefs (incl. modded) so the server's discovered-weather pool knows what this game can show.
-        private static void PushConditionDefs()
+        private static bool PushConditionDefs()
         {
             try
             {
@@ -106,17 +95,15 @@ namespace KMHPatch.Features.Catalog
                     if (def == null || string.IsNullOrEmpty(def.defName)) continue;
                     conditions[def.defName] = string.IsNullOrEmpty(def.label) ? def.defName : def.LabelCap;
                 }
-                if (conditions.Count > 0)
-                {
-                    int n = SendChunked(KmhProtocol.Kind.ConditionDefs, conditions, forValues: false);
-                    KmhLog.Debug($"ItemLabels: pushed {conditions.Count} game condition defs in {n} chunk(s).");
-                }
+                if (conditions.Count == 0) return true;
+                if (!SendChunkedComplete(KmhProtocol.Kind.ConditionDefs, conditions, forValues: false)) return false;
+                KmhLog.Debug($"ItemLabels: pushed {conditions.Count} game condition defs.");
+                return true;
             }
-            catch (System.Exception ex) { KmhLog.Warn($"ItemLabels: condition-def push threw: {ex.Message}"); }
+            catch (System.Exception ex) { KmhLog.Warn($"ItemLabels: condition-def push threw: {ex.Message}"); return false; }
         }
 
-        // Gather tradeable ThingDefs using the shared item filter; labels already handle lookup + fallback. NO cap -
-        // chunking handles size, so the full modpack catalog reaches the server.
+        // Deliberately uncapped: chunking handles size, so the full modpack catalog reaches the server.
         private static Dictionary<string, string> BuildCatalog(out int discovered, out Dictionary<string, long> values, out HashSet<string> fungible)
         {
             discovered = 0;

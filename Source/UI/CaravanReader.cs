@@ -1,29 +1,18 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
 
 namespace KMHPatch.UI
 {
-    // Read-only helper for getting "what items are in the caravan the player has currently selected" - used by
-    // Treasury Deposit and (eventually) Marketplace Post to populate their item pickers
-    //
-    // Vanilla-API only. We don't depend on any RWT helper so
-    // this stays clean-room
+    // Vanilla API only, depending on no RWT helper, so this stays clean-room.
     internal static class CaravanReader
     {
-        // The caravan whose context is "active" right now. RWT-style code typically reads this from
-        // SessionHandler.ChosenCaravan; vanilla has Find.WorldSelector.SelectedCaravans. We prefer the vanilla
-        // selection so the helper works even when RWT session state hasn't tracked the latest selection yet
-        //
-        // Returns null when no caravan is selected. Callers should surface a notification rather than silently
-        // no-op
+        // Vanilla's selector rather than RWT session state, which can lag the player's latest selection.
         public static Caravan GetSelectedCaravan()
         {
             try
             {
-                // RimWorld 1.6: WorldSelector exposes SelectedObjects (mixed WorldObject types). Filter down to the
-                // first selected Caravan if any
                 List<WorldObject> sel = Find.WorldSelector?.SelectedObjects;
                 if (sel != null)
                 {
@@ -37,8 +26,6 @@ namespace KMHPatch.UI
             return null;
         }
 
-        // Defname -> stack-summed count across every container in the caravan (pawn inventories + carriers).
-        // Filters down to "real" items by skipping pawns themselves and anything without a stackable def
         public static Dictionary<string, int> ReadInventory(Caravan caravan)
         {
             Dictionary<string, int> result = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
@@ -58,8 +45,7 @@ namespace KMHPatch.UI
             }
             catch
             {
-                // Defensive - RimWorld's inventory iterators throw rarely on weird containers; we'd rather show an
-                // empty picker than crash the dialog open
+                // An empty picker beats a dialog that throws on open from an odd container.
             }
             return result;
         }

@@ -1,13 +1,9 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace KMHPatch.SubProtocol
 {
-    // Wire envelope shared by every KMH message.
-    //
-    // Stored as JObject (not a typed Data of T) on receive so the dispatcher can route on Kind without each handler
-    // needing its own envelope subclass. Handlers cast Data to their typed payload via ToObject<T>() once they know
-    // what Kind they got
+    // Data stays a JObject on receive, so the dispatcher can route on Kind without an envelope subclass per handler.
     public class KmhEnvelope
     {
         [JsonProperty("kind")]
@@ -16,24 +12,51 @@ namespace KMHPatch.SubProtocol
         [JsonProperty("v")]
         public int Version { get; set; }
 
+        // Names the logical action, not this delivery of it, so a re-send after an ambiguous write is refused rather than acted on twice.
+        [JsonProperty("op", NullValueHandling = NullValueHandling.Ignore)]
+        public string OpId { get; set; }
+
+        private JObject _data;
+        private object  _raw;
+        private bool    _outbound;
+
         [JsonProperty("data")]
-        public JObject Data { get; set; }
+        public JObject Data
+        {
+            // Materialized only if something reads it, so a send does not allocate the payload as both a JObject and a string.
+            get { if (_data == null && _outbound) _data = _raw == null ? new JObject() : JObject.FromObject(_raw); return _data; }
+            set { _data = value; _outbound = false; }
+        }
 
         public KmhEnvelope() { }
 
-        public KmhEnvelope(string kind, object data, int version = -1)
+        public KmhEnvelope(string kind, object data, int version = -1, string opId = null)
         {
             Kind    = kind;
             Version = version < 0 ? KmhProtocol.CurrentVersion : version;
-            // Always normalize to JObject so consumers can do uniform lookups regardless of what type the caller
-            // passed in
-            Data    = data == null ? new JObject() : JObject.FromObject(data);
+            OpId    = string.IsNullOrEmpty(opId) ? null : opId;
+            _raw    = data;
+            _outbound = true;
         }
 
-        public string Serialize() => JsonConvert.SerializeObject(this);
+        // Non-null sentinel so a null payload serializes as "data":{}, never "data":null - the wire contract both sides parse.
+        private static readonly object EmptyData = new object();
 
-        // Typed accessors so handler code can read fields without taking a direct dependency on
-        // Newtonsoft.Json.Linq.JObject - keeps the Newtonsoft import contained to this file
+        // Both paths must produce identical bytes, which KmhSelfTest guards.
+        public string Serialize()
+            => _outbound
+                ? JsonConvert.SerializeObject(new Wire { Kind = Kind, Version = Version, OpId = OpId, Data = _raw ?? EmptyData })
+                : JsonConvert.SerializeObject(this);
+
+        private sealed class Wire
+        {
+            [JsonProperty("kind")] public string Kind { get; set; }
+            [JsonProperty("v")]    public int    Version { get; set; }
+            [JsonProperty("op", NullValueHandling = NullValueHandling.Ignore)] public string OpId { get; set; }
+            [JsonProperty("data")] public object Data { get; set; }
+        }
+
+        // Typed accessors keep the Newtonsoft dependency contained to this file.
         public int GetInt(string key, int defaultValue = 0)
         {
             if (Data == null || Data[key] == null) return defaultValue;
@@ -52,7 +75,45 @@ namespace KMHPatch.SubProtocol
             try { return Data.Value<bool>(key); } catch { return defaultValue; }
         }
 
-        // Escape hatch for typed payloads - handler that knows the schema gets the convenience of a typed object
+        // Empty when absent or malformed: a bad route must read as "no route" rather than throw on the network thread.
+        public int[] GetIntArray(string key)
+        {
+            if (Data == null || !(Data[key] is JArray arr)) return new int[0];
+            try
+            {
+                var outArr = new int[arr.Count];
+                for (int i = 0; i < arr.Count; i++) outArr[i] = arr[i].Value<int>();
+                return outArr;
+            }
+            catch { return new int[0]; }
+        }
+
+        // Reads a JSON array of longs (empty when absent or malformed), on the same terms as GetIntArray.
+        public long[] GetLongArray(string key)
+        {
+            if (Data == null || !(Data[key] is JArray arr)) return new long[0];
+            try
+            {
+                var outArr = new long[arr.Count];
+                for (int i = 0; i < arr.Count; i++) outArr[i] = arr[i].Value<long>();
+                return outArr;
+            }
+            catch { return new long[0]; }
+        }
+
+        // Reads a JSON array of strings (empty when absent or malformed), on the same terms as GetIntArray.
+        public string[] GetStringArray(string key)
+        {
+            if (Data == null || !(Data[key] is JArray arr)) return new string[0];
+            try
+            {
+                var outArr = new string[arr.Count];
+                for (int i = 0; i < arr.Count; i++) outArr[i] = arr[i].Value<string>() ?? "";
+                return outArr;
+            }
+            catch { return new string[0]; }
+        }
+
         public T DataAs<T>() where T : class
         {
             if (Data == null) return null;
@@ -68,8 +129,7 @@ namespace KMHPatch.SubProtocol
             }
             catch
             {
-                // Caller logs - we don't want one malformed message to spam the log every receive. The intercept
-                // path turns null into a no-op
+                // The caller logs, so one malformed message cannot spam the log on every receive.
                 return null;
             }
         }

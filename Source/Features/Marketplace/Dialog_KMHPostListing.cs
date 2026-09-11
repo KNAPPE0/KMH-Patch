@@ -9,10 +9,9 @@ namespace KMHPatch.Features.Marketplace
     // Post composer: item, qty, unit price, visibility, expiry. Lists from your treasury, not the caravan.
     public class Dialog_KMHPostListing : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(580f, 440f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(580f, 440f);
 
-        // Listings escrow from your TREASURY server-side, so you list vault items, not caravan. These two are only
-        // the vault as it looked at open - use Live* for anything shown or used as a quantity bound.
+        // The vault as it looked at open only, so anything shown or bounding a quantity reads Live* instead.
         private readonly Dictionary<string, int> _treasuryItems;
         private readonly List<KMHPatch.Items.KmhThingPayload> _payloads;
         private bool _subscribed;
@@ -37,8 +36,6 @@ namespace KMHPatch.Features.Marketplace
             draggable               = true;
         }
 
-        // Entry point - opens the composer when the treasury has items to list, surfaces a rejection otherwise.
-        // Returns whether the composer opened
         public static bool Open()
         {
             Treasury.Dto.TreasurySnapshot snap = Treasury.TreasuryCache.Snapshot;
@@ -64,7 +61,6 @@ namespace KMHPatch.Features.Marketplace
 
             const float labelW = 180f;
 
-            // Item picker row
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Item");
             string itemDisplay = string.IsNullOrEmpty(_itemDefName)
                 ? "<color=grey>(pick from treasury)</color>"
@@ -101,7 +97,6 @@ namespace KMHPatch.Features.Marketplace
             y = DrawTextRow(rect, y, "Unit price (silver, e.g. 0.55)", ref _unitPriceSilver);
             y = DrawTextRow(rect, y, "Expires in (hours, 0=never)", ref _expiresHours);
 
-            // Visibility toggle row.
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
             string visLabel = _visibility == MarketplaceHandler.VisibilityGuildOnly
                 ? "Guild + allies only"
@@ -166,13 +161,24 @@ namespace KMHPatch.Features.Marketplace
                 Notifications.KmhNotifications.Rejected("Quantity: enter a positive whole number");
                 return;
             }
+            // Re-read: the vault can change between the draw and Post.
+            _itemAvailable = CurrentAvailable();
+            if (_itemAvailable <= 0)
+            {
+                Notifications.KmhNotifications.Rejected($"{ItemKeys.LabelForKey(_itemDefName)} is no longer in your treasury");
+                return;
+            }
+            if (qty > _itemAvailable)
+            {
+                Notifications.KmhNotifications.Rejected($"You only have {_itemAvailable} of that to list");
+                return;
+            }
             if (!TryParseMilli(_unitPriceSilver, out int priceMilli))
             {
                 Notifications.KmhNotifications.Rejected("Unit price: enter a positive amount (e.g. 0.55 or 12)");
                 return;
             }
-            // Expiry: empty + "0" + omitted all mean "never expires". Reject negative explicitly to avoid silent
-            // zero-out
+            // Blank, "0" and omitted all mean never; a negative is rejected rather than silently zeroed.
             string expRaw = (_expiresHours ?? "").Trim();
             int expHours = 0;
             if (expRaw.Length > 0)
@@ -204,20 +210,22 @@ namespace KMHPatch.Features.Marketplace
         // A deposit, sale or compaction can land while the composer sits open - re-read what's about to be listed.
         private void OnTreasuryUpdated()
         {
-            if (!string.IsNullOrEmpty(_fingerprint))
-            {
-                List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
-                if (live == null) return;   // no snapshot cached: keep what we have, never read null as "empty"
-                foreach (KMHPatch.Items.KmhThingPayload p in live)
-                    if (p != null && p.Fingerprint == _fingerprint) { _itemAvailable = p.StackCount; return; }
-                _itemAvailable = 0;         // that exact stack is gone (withdrawn, sold, or merged by compaction)
-                return;
-            }
-            if (!string.IsNullOrEmpty(_itemDefName)) _itemAvailable = LiveCount(_itemDefName);
+            if (!string.IsNullOrEmpty(_itemDefName)) _itemAvailable = CurrentAvailable();
         }
 
-        // A cached snapshot is authoritative (absent = 0); the opening copy is a fallback only when none exists, so
-        // a null snapshot is never mistaken for an empty vault.
+        // The one answer to "how many right now", so the drawn number and the validated number can never differ.
+        private int CurrentAvailable()
+        {
+            if (string.IsNullOrEmpty(_fingerprint)) return LiveCount(_itemDefName);
+
+            List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
+            if (live == null) return _itemAvailable;   // no snapshot cached: keep what we have, never read null as "empty"
+            foreach (KMHPatch.Items.KmhThingPayload p in live)
+                if (p != null && p.Fingerprint == _fingerprint) return p.StackCount;
+            return 0;                                  // that exact stack is gone (withdrawn, sold, or merged by compaction)
+        }
+
+        // The opening copy is a fallback only when no snapshot exists, so null is never mistaken for an empty vault.
         private int LiveCount(string defName)
         {
             Dictionary<string, int> live = Treasury.TreasuryCache.Snapshot?.Items;
@@ -225,19 +233,14 @@ namespace KMHPatch.Features.Marketplace
             return _treasuryItems.TryGetValue(defName, out int copy) ? copy : 0;
         }
 
-        // Parse a unit price like "0.55" or "12" into milli-silver (1000 = 1 silver). Accepts comma decimals too.
-        // decimal, not double: 0.001/0.55 are exact in decimal, so no binary round-trip drift on the milli value.
+        // decimal, not double: 0.55 is exact in decimal, so the typed price cannot drift on the way to the wire.
         private static bool TryParseMilli(string s, out int milli)
         {
             milli = 0;
             string t = (s ?? "").Trim().Replace(',', '.');
             if (!decimal.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal silver))
                 return false;
-            decimal m = silver * 1000m;
-            if (m != decimal.Truncate(m)) return false;              // finer than milli-silver (e.g. 0.0005)
-            if (m <= 0m || m > int.MaxValue) return false;           // zero, negative, or overflow
-            milli = (int)m;
-            return true;
+            return Extensibility.KmhSilver.TryToMilli(silver, out milli);
         }
     }
 }

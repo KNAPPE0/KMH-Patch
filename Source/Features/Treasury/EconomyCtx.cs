@@ -6,10 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.Treasury
 {
-    // Builds the client game-state context the server uses to enforce EconomyMode / treasury access modes. The
-    // server can't see the game, so we report: is there a colony map, a selected caravan, an active raid, or a hostile
-    // map event. Guild-hall / treasury-site proximity are future systems (always false for now). All best-effort +
-    // guarded - if anything throws, the field is simply omitted/false and the server falls back to permissive.
+    // Game state the standalone server can't see; every probe fails open rather than locking the player out.
     internal static class EconomyCtx
     {
         // Adds the ctx_* fields to an envelope's data dict.
@@ -22,10 +19,12 @@ namespace KMHPatch.Features.Treasury
             data["ctx_in_raid"]            = InRaid();
             data["ctx_hostile_event"]      = HostileEvent();
             data["ctx_near_guild_hall"]    = NearGuildHall();
-            data["ctx_near_treasury_site"] = false;   // future (Treasury Sites not implemented)
+            data["ctx_caravan_near_hall"]  = CaravanNearGuildHall();
+            // No site grants treasury access yet, but TreasurySiteRequired must see the field, not infer from absence.
+            data["ctx_near_treasury_site"] = false;
         }
 
-        // Convenience: start a data dict from action fields and stamp context onto it.
+        // Starts a data dict from the action fields and stamps context onto it.
         public static Dictionary<string, object> With(Dictionary<string, object> fields)
         {
             Dictionary<string, object> d = fields ?? new Dictionary<string, object>();
@@ -38,8 +37,7 @@ namespace KMHPatch.Features.Treasury
             try { return Find.AnyPlayerHomeMap != null; } catch { return false; }
         }
 
-        // The world tile to use as a "here" location (selected caravan, else the home colony). -1 if none. Used to
-        // place a Guild Hall at the player's current spot.
+        // "Here" for hall placement: selected caravan, else the home colony, else -1.
         public static int CurrentTile()
         {
             try
@@ -52,9 +50,7 @@ namespace KMHPatch.Features.Treasury
             catch { return -1; }
         }
 
-        // Is the player near their guild's hall? TRUE when the guild has no hall (nothing to be near -> not restricted,
-        // so pre-P8 guilds keep working). Otherwise: is a colony or the selected caravan within the hall's radius?
-        // Client-computed because the standalone server can't do world-tile math; the server owns the hall + radius.
+        // TRUE when the guild has no hall - nothing to be near isn't a restriction, so pre-P8 guilds keep working.
         private static bool NearGuildHall()
         {
             try
@@ -77,6 +73,21 @@ namespace KMHPatch.Features.Treasury
             catch { return true; }   // fail open (don't lock the player out on an API hiccup)
         }
 
+        // Caravan only - NearGuildHall also counts a colony, which satisfied this with the caravan a world away.
+        private static bool CaravanNearGuildHall()
+        {
+            try
+            {
+                Features.Guilds.Dto.GuildHallDto hall = Features.Guilds.GuildCache.Guild?.Hall;
+                if (hall == null || !hall.HasHall || hall.Tile < 0) return true;   // no hall -> unrestricted
+                RimWorld.Planet.WorldGrid grid = Find.WorldGrid;
+                if (grid == null) return true;
+                RimWorld.Planet.Caravan car = CaravanReader.GetSelectedCaravan();
+                return car != null && Within(grid, car.Tile.tileId, hall.Tile, System.Math.Max(0, hall.RadiusTiles));
+            }
+            catch { return true; }
+        }
+
         private static bool Within(RimWorld.Planet.WorldGrid grid, int a, int b, int radius)
         {
             if (a < 0 || b < 0) return false;
@@ -97,8 +108,7 @@ namespace KMHPatch.Features.Treasury
             return false;
         }
 
-        // GameConditionDef has no "isBad" flag, so match adverse conditions by name (toxic/volcanic/heat/cold/etc.).
-        // Benign events (aurora, eclipse) are intentionally NOT treated as hostile.
+        // GameConditionDef has no "isBad" flag, so match by name; benign events (aurora, eclipse) stay off this list.
         private static readonly string[] AdverseConditionMarkers =
         {
             "toxic", "volcanic", "flashstorm", "heatwave", "coldsnap", "noxious", "deadlife", "smokecloud",

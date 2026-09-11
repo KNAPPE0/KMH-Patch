@@ -5,8 +5,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Notice drawn in place of a locked mod's settings, listing the mods the player CAN still edit. Self-guarded
-    // (it draws in RimWorld's own window)
+    // Notice drawn in place of a locked mod's settings; self-guarded because it draws inside RimWorld's own window.
     internal static class EnforcementLockUI
     {
         private static Vector2 _scroll;
@@ -54,8 +53,6 @@ namespace KMHPatch.Features.Enforcement
 
             if (n <= 0) return;
 
-            // Scrollable list of safe mod identifiers, resolving a friendly name when the id matches a loaded mod's
-            // packageId
             Rect box = new Rect(inRect.x, listTop, inRect.width, Mathf.Max(40f, inRect.yMax - listTop));
             Widgets.DrawMenuSection(box);
             Rect inner = box.ContractedBy(6f);
@@ -77,8 +74,6 @@ namespace KMHPatch.Features.Enforcement
             Widgets.EndScrollView();
         }
 
-        // If the safe id matches a loaded mod's packageId, show the display name with the id in grey; otherwise
-        // show it as the owner typed it
         private static string FriendlyMod(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return id;

@@ -7,13 +7,11 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Shows the what's-new changelog on EVERY launch (change notes included) while its mod option is on - turn the
-    // "Show KMH What's New on launch" checkbox off to stop it. Re-openable any time from the KMH tab. The welcome
-    // popup chains after it (also gated by its own ShowWelcomeOnLaunch checkbox).
+    // The welcome popup chains after this one so the two never stack.
     [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
     internal static class Patch_MainMenuDrawer_WhatsNew
     {
-        private static bool shown;   // per-launch guard so this only fires once per game session
+        private static bool shown;
 
         [HarmonyPostfix]
         private static void Postfix()

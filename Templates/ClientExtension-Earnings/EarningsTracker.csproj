@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    KMH Client Extension - Earnings Tracker  (FLAGSHIP EXAMPLE)
+    ==========================================================
+
+    A CLIENT-side KMH extension. Unlike a server extension, a client extension is just a RimWorld mod that references
+    KMH.Sdk.Client and implements IKmhClientExtension - KMH-Patch discovers it among the loaded mods at startup and
+    hands it a host.
+
+    This one tracks KMH payouts for the session and reacts to world events, doing everything through the host so it
+    needs NO RimWorld/Verse references to compile - the host wraps logging, toasts, caches, and events.
+
+    Demonstrates:
+      - IKmhClientExtension lifecycle (Register / Shutdown)
+      - host.Events: GrantReceived, WorldEventFired, NotificationReceived, KmhServerConnected
+      - host.Log (prefixed logging) + host.Toast (player-facing messages)
+      - reading a cache (host.Treasury)
+
+    Ship it as a normal RimWorld mod: add an About/About.xml and drop the built EarningsTracker.dll in the mod's
+    Assemblies folder. It loads automatically when KMH-Patch is active - no separate install.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- KMH-Patch already ships the SDK; don't copy it into this extension's output. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="KMH.Sdk.Client">
+      <!-- Owners/modders: point this at the KMH.Sdk.Client.dll shipped in KMH-Patch's 1.6/Assemblies folder. -->
+      <HintPath>..\..\1.6\Assemblies\KMH.Sdk.Client.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

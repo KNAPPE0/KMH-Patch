@@ -1,16 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
   <!-- World-map marker for the player's guild hall. Reconciled from the guild
-       snapshot by WorldComponent_KMHSiteMarkers; transient, never persisted.
-       Uses a vanilla escape-ship icon so the mod ships no extra art. -->
+       snapshot by WorldComponent_KMHSiteMarkers; transient, never persisted. -->
   <WorldObjectDef>
     <defName>KMHGuildHall</defName>
     <label>guild hall</label>
     <description>This guild's designated Guild Hall location.</description>
     <worldObjectClass>KMHPatch.Features.Guilds.KMHGuildHallWorldObject</worldObjectClass>
-    <texture>World/WorldObjects/Sites/GenericSite</texture>
-    <expandingIconTexture>World/WorldObjects/Sites/GenericSite</expandingIconTexture>
+    <!-- KMH's own art: a hall under a banner. It reads as a SEAT rather than another production site, which the
+         shared vanilla site texture never did. Two images, per the vanilla convention - the previous def pointed
+         both slots at one quad texture, which is what made the marker read wrong when zoomed out. -->
+    <texture>KMHPatch/World/WorldObjects/GuildHall</texture>
+    <expandingIconTexture>KMHPatch/World/WorldObjects/Expanding/GuildHall</expandingIconTexture>
     <expandingIcon>true</expandingIcon>
     <expandingIconPriority>12</expandingIconPriority>
     <selectable>true</selectable>

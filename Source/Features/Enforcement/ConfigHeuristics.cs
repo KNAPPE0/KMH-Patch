@@ -8,8 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Hint only: scans a mod's Config/Mod_*.xml field names for per-player patterns
-    // (window/colour/audio/telemetry). Suggests, never enforces
+    // Hint only: scans Config/Mod_*.xml field names for per-player patterns; suggests, never enforces.
     internal static class ConfigHeuristics
     {
         public enum Verdict { NoConfig, Empty, Gameplay, Mixed, Personal }
@@ -84,8 +83,7 @@ namespace KMHPatch.Features.Enforcement
             foreach (XElement el in settings.Elements()) yield return el.Name.LocalName;
         }
 
-        // Public so the config merge (preserve-personal mode) classifies fields with the exact same rules as the
-        // dialog hint
+        // Public so the preserve-personal merge classifies fields by the exact same rules as the dialog hint.
         public static bool IsPersonalField(string field)
         {
             if (string.IsNullOrEmpty(field)) return false;

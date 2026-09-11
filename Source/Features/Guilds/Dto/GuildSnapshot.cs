@@ -1,12 +1,13 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Guilds.Dto
 {
-    // Per-caller wire mirror of the server's guild composite (snake_case). InGuild=false -> Guild is null and the
-    // dialog renders the "not in a guild" state.
+    // InGuild=false means Guild is null and the dialog renders the "not in a guild" state.
     public class GuildSnapshotEnvelope
     {
+        // Server-stamped under its read lock; older revisions are dropped because transports reorder.
+        [JsonProperty("revision")] public long Revision { get; set; } = 0;
         [JsonProperty("in_guild")]
         public bool InGuild { get; set; } = false;
 
@@ -84,8 +85,7 @@ namespace KMHPatch.Features.Guilds.Dto
         // Optional physical Guild Hall. null = no hall.
         [JsonProperty("hall")]            public GuildHallDto Hall { get; set; }
 
-        // Relationship values (snake_case strings, same convention as Quest state/kind - readable mid-debug,
-        // survives enum renames)
+        // Strings rather than an enum, so a rename cannot silently change the wire value.
         public const string RelationNone            = "none";
         public const string RelationAlliedRequested = "allied_requested";
         public const string RelationAllied          = "allied";

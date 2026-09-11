@@ -12,13 +12,12 @@ namespace KMHPatch.Features.Treasury
     public class Dialog_KMHTreasury : Window_KMHBase
     {
 
-        public override Vector2 InitialSize => new Vector2(980f, 580f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(980f, 580f);
 
         private Vector2 _itemScroll;
         private Vector2 _txScroll;
 
-        // Materialized vault rows (plain stacks + full-state payload stacks), cached per snapshot so a big modded
-        // vault isn't copied every frame.
+        // Cached per snapshot so a big modded vault isn't rebuilt every frame.
         private List<VaultRow> _itemsView;
         private object _itemsSource;
         private object _payloadSource;
@@ -58,19 +57,22 @@ namespace KMHPatch.Features.Treasury
 
             float y = DialogLayout.DrawTitle(rect, headerTitle);
 
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
 
             if (!TreasuryCache.HasSnapshot)
             {
-                DialogLayout.LabelTrunc(new Rect(0f, 40f, rect.width, 20f),
-                    "<color=grey>Loading treasury…</color>");
+                // A request that never came back used to sit on "Loading…" while the badge claimed the screen was live.
+                DialogLayout.LabelTrunc(new Rect(0f, 40f, rect.width, 20f), WaitedTooLong
+                    ? "<color=#ffcf59>No response from the server yet.</color> <color=grey>Your treasury may be too large for one message, or the connection dropped. Try Refresh.</color>"
+                    : "<color=grey>Loading treasury…</color>");
+                if (Widgets.ButtonText(new Rect(0f, 66f, 120f, 24f), "Refresh"))
+                    TreasuryHandler.RequestSnapshot();
                 if (DialogLayout.DrawCloseButton(rect)) Close();
                 return;
             }
 
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            // Top row: silver + lifetime stats.
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 24f),
                 $"<b>Silver:</b> {s.SilverBalance}    " +
                 $"<color=grey>(in: {s.LifetimeSilverIn} | out: {s.LifetimeSilverOut})</color>");
@@ -90,7 +92,6 @@ namespace KMHPatch.Features.Treasury
                 y += 22f;
             }
 
-            // Permission banner. Empty/Read-only when neither deposit nor withdraw is allowed.
             string perm = "";
             if (s.CanDeposit)  perm += "Deposit ";
             if (s.CanWithdraw) perm += "Withdraw ";
@@ -102,8 +103,8 @@ namespace KMHPatch.Features.Treasury
             GUI.color = oldCol;
             y += 24f;
 
-            // 50/50 split.
-            float paneH  = rect.height - y - 80f;
+            // Floored: the window is resizeable and BeginScrollView throws on a negative rect.
+            float paneH  = Mathf.Max(DialogLayout.MinBodyHeight + 22f, rect.height - y - 80f);
             float leftW  = rect.width * 0.5f - 4f;
             float rightX = leftW + 8f;
             float rightW = rect.width - rightX;
@@ -118,19 +119,18 @@ namespace KMHPatch.Features.Treasury
             Widgets.DrawMenuSection(txBox);
             DrawTransactionsList(txBox, s);
 
-            // Button row. Both Deposit and Withdraw float-menu helpers are fully implemented (silver / item flows
-            // below); buttons are gated on the per-caller CanDeposit / CanWithdraw permission flags the server
-            // stamps on the snapshot
             const float btnH = 32f;
-            const float btnW = 140f;
             float btnY = rect.height - 40f;
             float bx   = 0f;
+
+            // Shrink together: at a flat 140px the Refresh/Close pair overlapped Deposit/Withdraw under ~600px wide.
+            float btnW = Mathf.Clamp((rect.width - 24f) / 4f, 74f, 140f);
 
             if (s.CanDeposit)
             {
                 if (IconButton.Draw(new Rect(bx, btnY, btnW, btnH), KMHTextures.Deposit, "Deposit ▾"))
                 {
-                    OpenDepositMenu(s);
+                    OpenDepositMenu();
                 }
                 bx += btnW + 8f;
             }
@@ -143,11 +143,9 @@ namespace KMHPatch.Features.Treasury
                 bx += btnW + 8f;
             }
 
-            // Refresh on the right, close on the far right.
             if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f - 8f, btnY, btnW, btnH), "Refresh"))
             {
                 TreasuryHandler.RequestSnapshot();
-                MarkRefreshed();
             }
             if (Widgets.ButtonText(new Rect(rect.width - btnW, btnY, btnW, btnH), "Close")) Close();
         }
@@ -217,10 +215,10 @@ namespace KMHPatch.Features.Treasury
         private void DrawTransactionsList(Rect box, TreasurySnapshot s)
         {
             Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
-            const float rowH = 42f;
+            // Two text lines. At 42 with a 22px pitch the note overlapped the line above it and ran past the row.
+            float rowH = DialogLayout.TextRowsH(2, 6f);
 
-            // Recent transactions arrive oldest-first; we reverse for display so newest is on top, like an activity
-            // feed.
+            // Transactions arrive oldest-first; drawn in reverse so newest is on top.
             List<TreasuryTransaction> txs = s.RecentTransactions ?? new List<TreasuryTransaction>();
             int count = txs.Count;
 
@@ -237,29 +235,30 @@ namespace KMHPatch.Features.Treasury
                 if (idx % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
 
-                // Top line: colored kind chip + actor on left, amount/item on right.
+                const float amountW = 196f;
                 Color chipCol = ColorForKind(tx.Kind);
                 string chipText = FriendlyKind(tx.Kind);
 
                 Color oldCol = GUI.color;
                 GUI.color = chipCol;
-                DialogLayout.LabelTrunc(new Rect(6f, ly + 2f, 130f, 20f), $"<b>{chipText}</b>");
+                DialogLayout.LabelTrunc(new Rect(6f, ly + 2f, 130f, DialogLayout.TextRowH), $"<b>{chipText}</b>");
                 GUI.color = oldCol;
-                DialogLayout.LabelTrunc(new Rect(140f, ly + 2f, viewRect.width - 280f, 20f),
+                // Derived from amountW - a fixed actor width overlapped the amount column at every window size.
+                float actorW = Mathf.Max(0f, viewRect.width - amountW - 8f - 140f);
+                DialogLayout.LabelTrunc(new Rect(140f, ly + 2f, actorW, DialogLayout.TextRowH),
                     string.IsNullOrEmpty(tx.Username) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(tx.Username));
 
                 string amountText = string.IsNullOrEmpty(tx.ItemDefName)
                     ? SilverFmt.Format(tx.Amount)
                     : DescribeTxItem(tx);
                 Text.Anchor = TextAnchor.UpperRight;
-                DialogLayout.LabelTrunc(new Rect(viewRect.width - 200f, ly + 2f, 196f, 20f), amountText);
+                DialogLayout.LabelTrunc(new Rect(viewRect.width - amountW - 4f, ly + 2f, amountW, DialogLayout.TextRowH), amountText);
                 Text.Anchor = TextAnchor.UpperLeft;
 
-                // Bottom line: muted note (wraps if long).
                 if (!string.IsNullOrEmpty(tx.Note))
                 {
                     GUI.color = DialogLayout.MutedColor;
-                    DialogLayout.LabelTrunc(new Rect(6f, ly + 22f, viewRect.width - 12f, 18f), tx.Note);
+                    DialogLayout.LabelTrunc(new Rect(6f, ly + 2f + DialogLayout.TextRowH, viewRect.width - 12f, DialogLayout.TextRowH), tx.Note);
                     GUI.color = oldCol;
                 }
 
@@ -273,9 +272,7 @@ namespace KMHPatch.Features.Treasury
             Widgets.EndScrollView();
         }
 
-        // Deposit item picker. Sources from the selected caravan if there is one, otherwise straight from the
-        // colony's stockpiles - no caravan required. The picker re-reads live counts after each pick (ReadDepositSource)
-        // so it never shows stock the colony no longer holds.
+        // Re-reads live counts after each pick, so the picker never offers stock the colony no longer holds.
         private static void OpenDepositItemPicker(string title, string pickActionLabel, Action<string, int> onPick)
         {
             Dictionary<string, int> items = ReadDepositSource(out string sourceLabel);
@@ -307,13 +304,10 @@ namespace KMHPatch.Features.Treasury
             return ColonyGoods.ReadStoredInventory(map);
         }
 
-        // Float menus: silver opens Dialog_KMHAmountInput, items opens Dialog_KMHItemPicker (caravan source for
-        // deposit, treasury source
-        // for withdraw).
-        private void OpenDepositMenu(TreasurySnapshot s)
+        // Takes no snapshot on purpose: what you can deposit is colony/caravan stock, read live below.
+        private void OpenDepositMenu()
         {
-            // Source is the selected caravan, or the colony's stockpiles when none is selected. Read the available
-            // silver once so the "all" shortcut shows the real number and the amount dialog can cap to it.
+            // Read once so the "all" shortcut and the amount dialog's cap agree on the same number.
             RimWorld.Planet.Caravan caravan = CaravanReader.GetSelectedCaravan();
             int availSilver = caravan != null
                 ? ColonyGoods.CountSilver(caravan)
@@ -321,7 +315,7 @@ namespace KMHPatch.Features.Treasury
 
             List<FloatMenuOption> opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Deposit silver…", () =>
+                new FloatMenuOption("Deposit silver", () =>
                 {
                     // Cap the input at the available silver so a player can't even type more than they have
                     Find.WindowStack.Add(new Dialog_KMHAmountInput(
@@ -338,7 +332,7 @@ namespace KMHPatch.Features.Treasury
                 opts.Add(new FloatMenuOption($"Deposit all silver ({availSilver})",
                     () => TreasuryHandler.TryDepositSilver(availSilver)));
 
-            opts.Add(new FloatMenuOption("Deposit items…", () =>
+            opts.Add(new FloatMenuOption("Deposit items", () =>
             {
                 OpenDepositItemPicker(
                     title:           "Deposit items",
@@ -353,13 +347,13 @@ namespace KMHPatch.Features.Treasury
         {
             List<FloatMenuOption> opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Withdraw silver…", () =>
+                new FloatMenuOption("Withdraw silver", () =>
                 {
                     Find.WindowStack.Add(new Dialog_KMHAmountInput(
                         title: "Withdraw silver",
                         confirmLabel: "Withdraw",
                         unitLabel: "silver",
-                        maxHint: s.SilverBalance,                      // we DO know vault balance
+                        maxHint: s.SilverBalance,
                         onConfirm: amount => TreasuryHandler.TryWithdrawSilver(amount)));
                 })
             };
@@ -369,16 +363,14 @@ namespace KMHPatch.Features.Treasury
                 opts.Add(new FloatMenuOption($"Withdraw all silver ({s.SilverBalance})",
                     () => TreasuryHandler.TryWithdrawSilver(s.SilverBalance)));
 
-            // One entry for ALL vault items - plain stacks and full-state stacks (weapons/apparel with quality/hp)
-            // open together in the shared picker, each row with an Info card to double-check before withdrawing.
-            // Keeping them out of this float menu stops a big vault from overflowing the screen.
+            // One entry for the whole vault: listing items individually here overflows the screen on a big vault.
             bool hasPayloads = false;
             if (s.ItemPayloads != null)
                 foreach (KMHPatch.Items.KmhThingPayload p in s.ItemPayloads)
                     if (p != null && p.StackCount > 0) { hasPayloads = true; break; }
 
             if ((s.Items != null && s.Items.Count > 0) || hasPayloads)
-                opts.Add(new FloatMenuOption("Withdraw items…", () =>
+                opts.Add(new FloatMenuOption("Withdraw items", () =>
                 {
                     TreasurySnapshot live = TreasuryCache.Snapshot ?? s;
                     UI.KmhItemPickerService.Open(
@@ -395,8 +387,7 @@ namespace KMHPatch.Features.Treasury
             Find.WindowStack.Add(new FloatMenu(opts));
         }
 
-        // The ledger's item field is either a bare defName or, for payload moves, a server description that already
-        // leads with its own count ("75x Wood plank") - prefixing that would render "x75 75x Wood plank".
+        // Payload moves arrive already counted ("75x Wood plank"); prefixing those would render "×75 75x Wood plank".
         private static string DescribeTxItem(TreasuryTransaction tx)
         {
             string item = tx.ItemDefName ?? "";
@@ -410,8 +401,6 @@ namespace KMHPatch.Features.Treasury
             return i > 0 && i + 1 < s.Length && (s[i] == 'x' || s[i] == 'X') && s[i + 1] == ' ';
         }
 
-        // Maps transaction kind string to a color matching the action's tone. (Deposit = inflow green; Withdraw =
-        // outflow amber; Marketplace tax = red; etc.)
         private static Color ColorForKind(string kind)
         {
             switch (kind)
@@ -442,8 +431,6 @@ namespace KMHPatch.Features.Treasury
             }
         }
 
-        // OwnerKey for personal vaults is "_personal:<username>" - strip the prefix for the title so it just shows
-        // the username
         private static string DisplayOwner(string ownerKey)
         {
             if (string.IsNullOrEmpty(ownerKey)) return "(unknown)";

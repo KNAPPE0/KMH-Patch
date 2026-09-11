@@ -4,9 +4,7 @@ using System.Xml.Linq;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Preserve-personal merge: server config wins, but keep the player's value
-    // for any field the heuristic calls personal. Falls back to server text on a
-    // parse error, so a bad config can never produce broken XML.
+    // Server config wins except personal fields; any parse error falls back to server text so a bad config can never emit broken XML.
     internal static class ConfigMerge
     {
         public static string MergePreservingPersonal(string serverText, string playerText)

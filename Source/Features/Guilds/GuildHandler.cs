@@ -5,11 +5,9 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Guild sub-protocol: thin wire wrappers for the mutations the Guild Hall dialog calls (member mgmt, perks, MOTD,
-    // alliance/hostility) plus the cross-guild leaderboard request.
     internal static class GuildHandler
     {
-        // Perk keys - must stay in lockstep with what the server's GuildBuyPerk handler accepts
+        // In lockstep with what the server's GuildBuyPerk handler accepts.
         public const string PerkSiteMaxWorkers      = "site_max_workers";
         public const string PerkMarketplaceTaxCut   = "marketplace_tax_cut";
         public const string PerkWorkerXpBonus       = "worker_xp_bonus";
@@ -60,8 +58,7 @@ namespace KMHPatch.Features.Guilds
             return SendMemberAction(KmhProtocol.Kind.GuildKick, username, $"Kicking {username}");
         }
 
-        // Invite / open-join / join. The server replies with a kmh.notice toast (success, or the specific reason it
-        // failed), so these don't flash an optimistic message - they only report a local send failure
+        // The server replies with its own notice, so this flashes nothing optimistic and reports only a send failure.
         public static bool TryInvite(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
@@ -75,8 +72,7 @@ namespace KMHPatch.Features.Guilds
             return sent;
         }
 
-        // P8: set/move the guild's hall to the player's current tile (selected caravan, else home colony). Admin-only
-        // server-side. Remove clears it.
+        // The selected caravan's tile, else the home colony's.
         public static bool TrySetHall()
         {
             int tile = Treasury.EconomyCtx.CurrentTile();
@@ -86,8 +82,7 @@ namespace KMHPatch.Features.Guilds
             return sent;
         }
 
-        // Set/move the hall to a tile the admin picked on the world map (server validates admin + tile). Same wire as
-        // TrySetHall, just an explicit tile instead of the caller's current one.
+        // The same wire as TrySetHall, with an explicit tile instead of the caller's current one.
         public static bool TrySetHallAt(int tile)
         {
             if (tile < 0) { KmhNotifications.Rejected("Pick a valid world tile for the Guild Hall"); return false; }
@@ -139,8 +134,7 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Enter a guild name");
                 return false;
             }
-            // Include the current tile as the optional hall location - the server uses it only when the create-needs-a-
-            // hall rule is enabled, and ignores it otherwise.
+            // The server reads the tile only when the create-needs-a-hall rule is on, and ignores it otherwise.
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildCreate, new { name = name, hall_tile = Treasury.EconomyCtx.CurrentTile() });
             if (sent) KmhNotifications.Positive($"Creating guild {name}…");
             else      KmhNotifications.NotConnected();
@@ -154,9 +148,9 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Unknown perk");
                 return false;
             }
-            // No optimistic success toast - the server sends the authoritative "Purchased…/Could not buy…" notice
-            // (a buy can fail on rank, funds, or a maxed perk), so showing success on send would be a lie.
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildBuyPerk, new { perk_key = perkKey });
+            // A buy can fail on rank, funds or a maxed perk, so reporting success on send would be a lie.
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildBuyPerk, new { perk_key = perkKey },
+                SubProtocol.KmhOpId.For($"guild.buy_perk|{perkKey}"));
             if (!sent) KmhNotifications.NotConnected();
             return sent;
         }
@@ -169,41 +163,32 @@ namespace KMHPatch.Features.Guilds
             return sent;
         }
 
-        // Silver personal-vault -> guild-vault (feeds perks). Server withdraws from the caller's vault (no minting).
-        // The donation books as PENDING server-side and only credits the guild when this save confirms; the req_id
-        // doubles as the pending txn id, recorded in the deposit ledger so the next save finalizes it.
-        private static System.DateTime _lastDonateSendUtc = System.DateTime.MinValue;
+        // The op id doubles as the pending txn id, so it is minted here rather than left to the transport.
         public static bool TryDonate(int amount)
         {
             if (amount <= 0) { KmhNotifications.Rejected("Enter a positive amount"); return false; }
-            if ((System.DateTime.UtcNow - _lastDonateSendUtc).TotalSeconds < 2)
+            string key = $"guild.donate|{amount}";
+            if (SubProtocol.KmhOpId.IsInFlight(key))
             { KmhNotifications.Neutral("Donation already sent - waiting for the server."); return false; }
-            string reqId = System.Guid.NewGuid().ToString("N");
+            string opId = SubProtocol.KmhOpId.For(key);
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildDonate,
                 Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
-                    { { "amount", amount }, { "req_id", reqId } }));
-            if (sent)
-            {
-                _lastDonateSendUtc = System.DateTime.UtcNow;
-                Treasury.GameComponent_KMHDepositLedger.Instance?.RecordDeposit(reqId);
-            }
-            else KmhNotifications.NotConnected();
+                    { { "amount", amount }, { "req_id", opId } }), opId);
+            if (sent) Treasury.GameComponent_KMHDepositLedger.Instance?.RecordDeposit(opId);
+            else { SubProtocol.KmhOpId.Settled(key); KmhNotifications.NotConnected(); }
             return sent;
         }
 
-        // Guild vault -> personal vault. Server enforces rank caps/cooldown + dedups req_id; client debounces so a
-        // double-click can't even send twice.
-        private static System.DateTime _lastWithdrawSendUtc = System.DateTime.MinValue;
         public static bool TryWithdrawFromGuild(int amount)
         {
             if (amount <= 0) { KmhNotifications.Rejected("Enter a positive amount"); return false; }
-            if ((System.DateTime.UtcNow - _lastWithdrawSendUtc).TotalSeconds < 2)
+            string key = $"guild.withdraw|{amount}";
+            if (SubProtocol.KmhOpId.IsInFlight(key))
             { KmhNotifications.Neutral("Withdraw already sent - waiting for the server."); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildWithdraw,
                 Treasury.EconomyCtx.With(new System.Collections.Generic.Dictionary<string, object>
-                    { { "amount", amount }, { "req_id", System.Guid.NewGuid().ToString("N") } }));
-            if (sent) _lastWithdrawSendUtc = System.DateTime.UtcNow;
-            else KmhNotifications.NotConnected();
+                    { { "amount", amount } }), SubProtocol.KmhOpId.For(key));
+            if (!sent) { SubProtocol.KmhOpId.Settled(key); KmhNotifications.NotConnected(); }
             return sent;
         }
 
@@ -225,8 +210,7 @@ namespace KMHPatch.Features.Guilds
             return sent;
         }
 
-        // Five alliance/hostility mutations all share the same wire shape ({ other_guild }) so they collapse to one
-        // helper
+        // All five share the { other_guild } wire shape, so they collapse to one helper.
         public static bool TryProposeAlliance(string otherGuild)
             => SendAllianceAction(KmhProtocol.Kind.GuildProposeAlliance, otherGuild, $"Alliance proposed to {otherGuild}");
         public static bool TryAcceptAlliance(string otherGuild)
@@ -245,9 +229,7 @@ namespace KMHPatch.Features.Guilds
                 KmhNotifications.Rejected("Settings payload is empty");
                 return false;
             }
-            // Server is the authoritative validator. We just send the typed DTO directly - Newtonsoft serializes
-            // its JsonProperty names into the envelope's data field, so the wire shape matches the settings
-            // sub-object of kmh.guild.snapshot byte-for-byte
+            // Sent as the typed DTO, so the wire shape matches the snapshot's settings sub-object byte for byte.
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.GuildSaveSettings, settings);
             if (sent) KmhNotifications.Positive("Settings save sent");
             else      KmhNotifications.NotConnected();

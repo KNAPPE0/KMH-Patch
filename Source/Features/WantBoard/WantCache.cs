@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using KMHPatch.Features.WantBoard.Dto;
 
 namespace KMHPatch.Features.WantBoard
@@ -14,6 +14,9 @@ namespace KMHPatch.Features.WantBoard
 
         internal static void Apply(WantSnapshot snapshot)
         {
+            // Two transports can deliver out of order; Clear() on disconnect is what lets a new server's lower revision still apply.
+            if (snapshot == null) return;
+            if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Want");

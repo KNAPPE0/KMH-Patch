@@ -3,9 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Treasury.Dto
 {
-    // JSON wire mirror of the treasury. Server resolves which treasury (guild or personal) from the caller's
-    // authenticated identity - the client just asks for "the treasury that applies to me" and renders whatever
-    // comes back.
+    // JSON wire mirror; the server picks guild vs personal from the caller's authenticated identity.
     public class TreasurySnapshot
     {
         // Guild name, or "_personal:<username>". Used in the dialog title.
@@ -20,13 +18,11 @@ namespace KMHPatch.Features.Treasury.Dto
         [JsonProperty("items")]                public Dictionary<string, int> Items
             { get; set; } = new Dictionary<string, int>();
 
-        // State-preserving complex items. ScribeXml is absent in snapshots (metadata only for display); the full
-        // payload rides the grant on withdraw.
+        // ScribeXml is absent in snapshots (display metadata only); the full payload rides the withdraw grant.
         [JsonProperty("item_payloads")]        public List<KMHPatch.Items.KmhThingPayload> ItemPayloads
             { get; set; } = new List<KMHPatch.Items.KmhThingPayload>();
 
-        // Most recent first (server sends in chronological order - newest at end of list - the dialog reverses for
-        // display)
+        // Server sends oldest-first; the dialog reverses for display.
         [JsonProperty("recent_transactions")]  public List<TreasuryTransaction> RecentTransactions
             { get; set; } = new List<TreasuryTransaction>();
 
@@ -37,17 +33,27 @@ namespace KMHPatch.Features.Treasury.Dto
         // Server-only dedup ring (stripped before send); mirrored here for wire-contract parity, never populated.
         [JsonProperty("recent_committed_txns")] public List<string> RecentCommittedTxns { get; set; }
 
-        // Permissions - server computes per-caller. Lets the UI gate Deposit/ Withdraw buttons in future
-        // mutation-capable ports (v1 is read-only so these are informational)
+        // Server-only undo record for save rollback; mirrored for parity, never populated.
+        [JsonProperty("committed_deposits")] public List<PendingDeposit> CommittedDeposits { get; set; }
+
+        // Server-only save-generation watermark; mirrored for parity, never populated.
+        [JsonProperty("last_save_generation")] public long LastSaveGeneration { get; set; }
+
+        // Server-only payloads out of the vault with no transaction row yet; mirrored for parity, never populated.
+        [JsonProperty("pending_takes")] public List<PendingTake> PendingTakes { get; set; }
+
+        // Computed per-caller by the server; the dialog gates its Deposit/Withdraw buttons on these.
         [JsonProperty("can_deposit")]          public bool CanDeposit  { get; set; } = false;
         [JsonProperty("can_withdraw")]         public bool CanWithdraw { get; set; } = false;
+
+        // Tracked per OwnerKey: personal and guild snapshots share a kind, so one counter would make each drop the other.
+        [JsonProperty("revision")]             public long Revision    { get; set; } = 0;
     }
 
     // One entry in the treasury activity log.
     public class TreasuryTransaction
     {
-        // Wire values stay snake_case strings (not int enum) so a log entry remains human-readable mid-debug and
-        // resilient against enum renames on either side
+        // snake_case strings, not an int enum, so log rows stay readable and survive enum renames on either side.
         public const string KindDeposit            = "deposit";
         public const string KindWithdraw           = "withdraw";
         public const string KindSiteRewardSilver   = "site_reward_silver";
@@ -75,17 +81,37 @@ namespace KMHPatch.Features.Treasury.Dto
         // Guild donation pending: donor already debited, guild credited only on save-confirm.
         public const string KindGuildDonate = "guild_donate";
 
+        public const string KindItem        = "item";
+        public const string KindPayload     = "payload";
+        public const string KindSilver      = "silver";
+        // The server only ever stores these two - a reverted or timed-out deposit is removed, not marked.
+        public const string StateCommitted  = "committed";
+        public const string StatePending    = "pending";
+
         [JsonProperty("txn_id")]          public string TxnId          { get; set; } = "";
         [JsonProperty("username")]        public string Username       { get; set; } = "";
         [JsonProperty("created_utc")]     public long   CreatedUtcTicks{ get; set; } = 0;
-        [JsonProperty("state")]           public string State          { get; set; } = "pending";
-        [JsonProperty("kind")]            public string Kind           { get; set; } = "silver";
+        [JsonProperty("committed_utc")]   public long   CommittedUtcTicks { get; set; } = 0;   // server-side; parity only
+        [JsonProperty("state")]           public string State          { get; set; } = StatePending;
+        [JsonProperty("kind")]            public string Kind           { get; set; } = KindSilver;
         [JsonProperty("silver")]          public int    Silver         { get; set; } = 0;
         [JsonProperty("item_def_name")]   public string ItemDefName     { get; set; } = "";
         [JsonProperty("qty")]             public int    Qty            { get; set; } = 0;
         [JsonProperty("payloads")]        public List<KMHPatch.Items.KmhThingPayload> Payloads { get; set; } = new List<KMHPatch.Items.KmhThingPayload>();
         [JsonProperty("note")]            public string Note           { get; set; } = "";
+        [JsonProperty("save_gen_at_open")] public long  SaveGenAtOpen  { get; set; } = 0;   // server-side only; present for DTO parity
         [JsonProperty("fee")]             public int    Fee            { get; set; } = 0;   // server-side only; present for DTO parity
         [JsonProperty("guild_name")]      public string GuildName      { get; set; } = "";  // KindGuildDonate target
+    }
+
+    // Server-side only; present for DTO parity. The vault owns these until a transaction row names them.
+    public class PendingTake
+    {
+        [JsonProperty("marker")]        public string TakeMarker   { get; set; } = "";
+        [JsonProperty("refund_marker")] public string RefundMarker { get; set; } = "";
+        [JsonProperty("username")]      public string Username     { get; set; } = "";
+        [JsonProperty("taken_utc")]     public long   TakenUtcTicks{ get; set; } = 0;
+        [JsonProperty("note")]          public string Note         { get; set; } = "";
+        [JsonProperty("payloads")]      public List<KMHPatch.Items.KmhThingPayload> Payloads { get; set; } = new List<KMHPatch.Items.KmhThingPayload>();
     }
 }

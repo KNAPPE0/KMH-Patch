@@ -8,14 +8,7 @@ using Verse;
 
 namespace KMHPatch.Extensibility
 {
-    // Client-side extension discovery. Unlike the server side (which scans a kmh-extensions/ folder), client
-    // extensions ride on top of RimWorld's existing mod loader - they ARE RimWorld mods that happen to reference
-    // KMH.Sdk.Client
-    //
-    // At KMHPatch's Mod ctor time, every loaded mod's assembly is already in the AppDomain. We enumerate them, find
-    // types that implement IKmhClientExtension, instantiate, call Register(host)
-    //
-    // Skips KMHPatch's own assembly + the SDK assembly so we don't confuse our own scaffolding for extensions
+    // Client extensions are ordinary RimWorld mods, so they are already in the AppDomain by the Mod ctor.
     internal static class ExtensionLoader
     {
         private static readonly List<LoadedExtension> _loaded = new List<LoadedExtension>();
@@ -34,8 +27,7 @@ namespace KMHPatch.Extensibility
                     if (asm == self || asm == sdk)                       continue;
                     if (asm.IsDynamic || asm.GlobalAssemblyCache)        continue;
 
-                    // Cheap guard: skip assemblies that don't reference our SDK. Saves on GetTypes() time for the
-                    // ~150 assemblies a typical RimWorld load has
+                    // Skips GetTypes() on the ~150 assemblies a typical load carries.
                     bool refsSdk = false;
                     try
                     {

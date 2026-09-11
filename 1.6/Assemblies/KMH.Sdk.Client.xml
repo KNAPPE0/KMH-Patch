@@ -4,6 +4,15 @@
         <name>KMH.Sdk.Client</name>
     </assembly>
     <members>
+        <member name="T:KMH.Sdk.Client.Apis.ITreasuryCache">
+            <summary>Read-only cache views for extensions; mutations go through the wire and fresh server snapshots.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IMarketplaceCache.TryPost(System.String,System.Int32,System.Int32,System.String,System.Int32)">
+            <summary>Post a listing priced in whole silver.</summary>
+        </member>
+        <member name="M:KMH.Sdk.Client.Apis.IMarketplaceCache.TryPost(System.String,System.Int32,System.Decimal,System.String,System.Int32)">
+            <summary>Post a listing priced in silver, to at most three decimal places; a finer price is refused.</summary>
+        </member>
         <member name="T:KMH.Sdk.Client.Apis.IKmhEnvelope">
             <summary>SDK-safe wrapper around a KMH protocol envelope received from the server.</summary>
         </member>
@@ -69,6 +78,57 @@
         </member>
         <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.WorldCacheUpdated">
             <summary>World cache refreshed (events + global quests).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.WantCacheUpdated">
+            <summary>Want Board cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.SiteCacheUpdated">
+            <summary>Sites cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.RoadNetworkCacheUpdated">
+            <summary>Road network cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.ReputationCacheUpdated">
+            <summary>Reputation cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.SeasonArchiveCacheUpdated">
+            <summary>Season archive cache refreshed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.ChatCacheUpdated">
+            <summary>KMH chat cache refreshed (new messages in any channel the player can see).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.ChatModerationCacheUpdated">
+            <summary>The local player's chat block list changed.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.MailCacheUpdated">
+            <summary>Player mail cache refreshed (inbox, unread count, or outgoing escrow changed).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.GrantReceived">
+            <summary>The local player received a treasury withdrawal or reward (silver/items landed in the colony).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.NotificationReceived">
+            <summary>An offline notice arrived for the local player (auction won, listing sold, want filled, ...).</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.WorldEventFired">
+            <summary>A server-wide world event (tax holiday, market boom, ...) started.</summary>
+        </member>
+        <member name="E:KMH.Sdk.Client.Apis.IKmhClientEvents.WorldEventEnded">
+            <summary>A world event ended (expired or cancelled).</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Events.KmhServerConnectedEvent">
+            <summary>Payloads for IKmhClientEvents; cache-updated events are tag-only, so read the matching cache.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Events.KmhGrantReceivedEvent">
+            <summary>Silver or items materialised for the local player, whether granted immediately or held and delivered later.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Events.KmhNotificationReceivedEvent">
+            <summary>One offline notice for the local player, fired as the "while you were away" letter is shown.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Events.KmhWorldEventFiredEvent">
+            <summary>A world event started; not fired on reconnect for events already running.</summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Events.KmhWorldEventEndedEvent">
+            <summary>A world event ended by expiry or cancellation; pairs with KmhWorldEventFiredEvent by Id.</summary>
         </member>
         <member name="T:KMH.Sdk.Client.IKmhClientExtension">
              <summary>
@@ -180,9 +240,20 @@
         <member name="M:KMH.Sdk.Client.IKmhClientHost.RegisterHandler(System.String,System.Action{KMH.Sdk.Client.Apis.IKmhEnvelope})">
             <summary>
             Register a handler for a wire kind pushed by the server.
-            Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>)
-            so they don't collide with KMH's own <c>kmh.*</c>.
+            Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>).
+            A kind under <c>kmh.*</c>, or one already claimed by KMH or
+            another extension, is refused and the handler is not
+            registered - the reason is logged.
             </summary>
+        </member>
+        <member name="T:KMH.Sdk.Client.Records.TreasurySnapshotRecord">
+            <summary>Records returned by client-side cache readers; shapes are kept aligned with the server SDK by hand.</summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.Records.MarketplaceListingRecord.UnitPriceSilver">
+            <summary>Rounded to whole silver - a listing under 0.5 reads as 0. Use <see cref="P:KMH.Sdk.Client.Records.MarketplaceListingRecord.UnitPrice"/> for the exact price.</summary>
+        </member>
+        <member name="P:KMH.Sdk.Client.Records.MarketplaceListingRecord.UnitPrice">
+            <summary>Exact unit price in silver.</summary>
         </member>
     </members>
 </doc>

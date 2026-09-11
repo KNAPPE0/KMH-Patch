@@ -1,12 +1,9 @@
-using System;
+﻿using System;
 using KMHPatch.Features.Guilds.Dto;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Client cache for the caller's current guild snapshot.
-    //
-    // InGuild differentiates "no snapshot yet" (loading) from "snapshot arrived, caller isn't in a guild" (which is
-    // the rendered empty state)
+    // InGuild separates "no snapshot yet" from "snapshot arrived and the caller is in no guild".
     public static class GuildCache
     {
         public static GuildSnapshotEnvelope Envelope       { get; private set; }
@@ -14,8 +11,6 @@ namespace KMHPatch.Features.Guilds
 
         public static bool HasSnapshot => Envelope != null;
 
-        // Convenience accessors so consumers don't have to dig through the envelope when they just want the guild
-        // data
         public static bool          InGuild => Envelope?.InGuild ?? false;
         public static GuildSnapshot Guild   => Envelope?.Guild;
 
@@ -23,6 +18,9 @@ namespace KMHPatch.Features.Guilds
 
         internal static void Apply(GuildSnapshotEnvelope envelope)
         {
+            // Transports reorder; Clear() on disconnect is what lets a new server's lower revision still apply.
+            if (envelope == null) return;
+            if (Envelope != null && envelope.Revision < Envelope.Revision) return;
             Envelope       = envelope;
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Guild");

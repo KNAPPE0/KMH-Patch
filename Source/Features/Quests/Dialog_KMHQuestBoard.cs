@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.Quests.Dto;
@@ -9,19 +9,14 @@ using Verse;
 
 namespace KMHPatch.Features.Quests
 {
-    // Quest board browse. Per-row buttons (Claim / Submit / Approve / Cancel) shown by quest state + the viewer's
-    // relationship to it (poster vs claimer vs third party); toolbar has the Post composer + Refresh
-    //
-    // Default sort: open first (by PostedUtcTicks desc), then everything else, also desc. Matches "newest activity
-    // on top" UX
+    // Quest board; per-row buttons follow quest state and whether the viewer is poster, claimer or third party.
     public class Dialog_KMHQuestBoard : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(900f, 620f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(900f, 620f);
 
         private Vector2  _scroll;
 
-        // Toolbar state. Open-only defaults true so the board starts focused on actionable
-        // quests
+        // Open-only defaults true so the board starts on actionable quests.
         private string _filter        = "";
         private bool   _onlyMine      = false;
         private bool   _onlyOpen      = true;
@@ -62,7 +57,7 @@ namespace KMHPatch.Features.Quests
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Quest Board");
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!QuestCache.HasSnapshot)
@@ -84,48 +79,44 @@ namespace KMHPatch.Features.Quests
             GUI.color = oldCol;
             y += 24f;
 
-            // Two-row toolbar - 4 checkboxes + filter + 2 right-pinned buttons don't fit one row at 900 px wide.
-            //
-            // Row 1: filter (left) + Refresh / Post Quest (right).
-            const float toolbarBtnW = 110f;
-            _filter = DialogLayout.SearchField(new Rect(0f, y, 320f, 28f), _filter, "Filter by title, item, poster…");
-            if (IconButton.Draw(new Rect(rect.width - toolbarBtnW, y, toolbarBtnW - 4f, 28f), KMHTextures.Post, "Post Quest…"))
+            // Filter width is clamped, not fixed: against right-anchored buttons it overlaps below about 540px.
+            float toolbarBtnW = Mathf.Max(IconButton.WidthFor("Refresh", false), IconButton.WidthFor("Post Quest", true));
+            float filterW = Mathf.Clamp(rect.width - toolbarBtnW * 2f - 12f, 120f, 320f);
+            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter, "Filter by title, item, poster");
+            if (IconButton.Draw(new Rect(rect.width - toolbarBtnW, y, toolbarBtnW - 4f, 28f), KMHTextures.Post, "Post Quest"))
             {
                 Find.WindowStack.Add(new Dialog_KMHPostQuest());
             }
             if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 2f, y, toolbarBtnW - 4f, 28f), "Refresh"))
             {
                 QuestHandler.RequestSnapshot();
-                MarkRefreshed();
             }
             y += 32f;
 
-            // Row 2: scope toggles via DrawTightCheckbox so the ☐ marker sits flush against each label
             float cbx = 0f;
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "My quests",     ref _onlyMine);
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Open only",     ref _onlyOpen);
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Guild only",    ref _onlyGuild);
             cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Personal only", ref _onlyPersonal);
-            y += 30f;
+            y += DialogLayout.ToolbarRowH;
 
             // Server-driven global quests, shown as a banner above the player-posted list (only when active).
             y = DrawGlobalQuests(rect, y);
 
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawQuestList(listBox, s);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
 
-        // Banner of active server-driven global quests above the player-posted list. Returns the y to continue at.
-        // Drawn only when at least one is active; capped at a few rows so the player list keeps the space
         private float DrawGlobalQuests(Rect rect, float y)
         {
             List<Features.World.Dto.ServerQuestDto> gqs = Features.World.WorldCache.ActiveServerQuests();
             if (gqs.Count == 0) return y;
 
-            const float rowH = 38f;
+            // Asked, never copied: a local 38f duplicate of this clipped every banner row once the row became measured.
+            float rowH   = Features.World.GlobalQuestRow.Height;
             int   shown  = Mathf.Min(gqs.Count, 3);
             float panelH = 24f + shown * (rowH + 2f) + 4f;
             Rect  panel  = new Rect(0f, y, rect.width, panelH);
@@ -133,84 +124,30 @@ namespace KMHPatch.Features.Quests
 
             float px = panel.x + 8f, pw = panel.width - 16f, py = panel.y + 4f;
             Color old = GUI.color;
-            GUI.color = new Color(0.886f, 0.757f, 0.420f); // gold
-            DialogLayout.LabelTrunc(new Rect(px, py, pw, 18f),
+            GUI.color = new Color(0.886f, 0.757f, 0.420f);
+            DialogLayout.LabelTrunc(new Rect(px, py, Mathf.Max(0f, pw - 90f), DialogLayout.TextRowH),
                 "<b>Global Quests</b>" + (gqs.Count > shown ? $"  <color=grey>(+{gqs.Count - shown} more)</color>" : ""));
             GUI.color = old;
+
+            // Explicit route to the full list - this banner is capped at a few rows.
+            if (Widgets.ButtonText(new Rect(px + pw - 86f, py - 2f, 86f, 20f), "All in World"))
+                Find.WindowStack.Add(new Features.World.Dialog_KMHWorld());
             py += 22f;
 
             string me  = KmhSession.Me;
             long   now = DateTime.UtcNow.Ticks;
             for (int i = 0; i < shown; i++)
             {
-                DrawGlobalQuestRow(new Rect(px, py, pw, rowH), gqs[i], me, now);
+                Features.World.GlobalQuestRow.Draw(new Rect(px, py, pw, rowH), gqs[i], me, now);
                 py += rowH + 2f;
             }
             return y + panelH + 6f;
         }
 
-        private static void DrawGlobalQuestRow(Rect row, Features.World.Dto.ServerQuestDto q, string me, long now)
-        {
-            bool   comp    = string.Equals(q.Kind, Features.World.Dto.ServerQuestDto.KindCompetitive, StringComparison.OrdinalIgnoreCase);
-            bool   deliver = string.Equals(q.Objective, Features.World.Dto.ServerQuestDto.ObjDeliver, StringComparison.OrdinalIgnoreCase);
-            string kindTag = comp ? "<color=#F5C242>RACE</color>" : "<color=#7CD37C>CO-OP</color>";
-            string objVerb = string.Equals(q.Objective, Features.World.Dto.ServerQuestDto.ObjBuild, StringComparison.OrdinalIgnoreCase) ? "Build"
-                           : deliver ? "Deliver" : "Hunt";
-            string reward  = q.RewardPool > 0 ? $"<color=yellow>{SilverFmt.Format(q.RewardPool)}</color>" : "<color=grey>glory</color>";
-            string time    = q.EndsUtcTicks > 0 ? $"  <color=grey>•</color>  {FormatTimeRemaining(q.EndsUtcTicks, now)}" : "";
-
-            // Line 1: kind + title + reward + time remaining
-            DialogLayout.LabelTrunc(new Rect(row.x, row.y, row.width, 18f),
-                $"[{kindTag}] <b>{q.Title}</b>  <color=grey>•</color> {reward}{time}");
-
-            // Line 2: progress bar with goal label, this player's contribution, and a Deliver button on deliver quests
-            int mine = 0;
-            if (!string.IsNullOrEmpty(me) && q.Contributors != null) q.Contributors.TryGetValue(me, out mine);
-            float pct = q.GoalQty > 0 ? Mathf.Clamp01((float)q.ProgressQty / q.GoalQty) : 0f;
-
-            float rightW = deliver ? 168f : 110f;
-            Rect bar = new Rect(row.x, row.y + 20f, row.width - rightW, 14f);
-            Widgets.DrawBoxSolid(bar, new Color(0.16f, 0.16f, 0.16f));
-            Widgets.DrawBoxSolid(new Rect(bar.x, bar.y, bar.width * pct, bar.height),
-                comp ? new Color(0.96f, 0.76f, 0.26f) : new Color(0.34f, 0.55f, 0.45f));
-
-            GameFont    pf = Text.Font;   Text.Font   = GameFont.Tiny;
-            TextAnchor  pa = Text.Anchor; Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(bar, $"{q.ProgressQty}/{q.GoalQty} {objVerb} {q.TargetDefName}");
-            Text.Anchor = pa; Text.Font = pf;
-
-            Color old = GUI.color;
-            GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(bar.xMax + 8f, row.y + 18f, deliver ? 58f : 102f, 18f),
-                mine > 0 ? $"you: <color=white>{mine}</color>" : "<color=grey>you: 0</color>");
-            GUI.color = old;
-
-            if (deliver)
-            {
-                Rect btn = new Rect(row.xMax - 66f, row.y + 16f, 66f, 20f);
-                if (Widgets.ButtonText(btn, "Deliver…"))
-                {
-                    long   id     = q.Id;
-                    string target = q.TargetDefName;
-                    var    car    = CaravanReader.GetSelectedCaravan();
-                    var    def    = ColonyGoods.Def(target);
-                    // Cap to what the source actually holds: the selected caravan, else the colony's stockpiles.
-                    int    have   = def == null ? 0
-                                  : (car != null ? ColonyGoods.Count(car, def)
-                                                 : ColonyGoods.CountOnMap(ColonyGoods.DepositMap(), def));
-                    Find.WindowStack.Add(new Dialog_KMHAmountInput(
-                        title:        $"Deliver to {q.Title}",
-                        confirmLabel: "Deliver",
-                        unitLabel:    def != null ? def.label : target,
-                        maxHint:      have,
-                        onConfirm:    n => Features.World.WorldHandler.TryDeliver(id, target, n)));
-                }
-            }
-        }
-
         private void DrawQuestList(Rect box, QuestSnapshot s)
         {
-            const float rowH = 64f;
+            // Three measured text lines. At 64 with an 18px pitch each line overlapped the one below it.
+            float rowH = DialogLayout.TextRowsH(3, 10f);
 
             string mine        = KmhSession.Me;
             string filterLower = (_filter ?? "").Trim().ToLower();
@@ -260,7 +197,6 @@ namespace KMHPatch.Features.Quests
                     filtered.Add(q);
                 }
 
-                // Sort: open quests first (newest-first within), then everything else (also newest-first).
                 filtered.Sort((a, b) =>
                 {
                     bool aOpen = a.State == QuestEntry.StateOpen;
@@ -297,7 +233,6 @@ namespace KMHPatch.Features.Quests
             const float reservedRight = 110f;
             float textW = inner.width - reservedRight;
 
-            // Line 1: title + state + kind + poster + ownership badge
             string stateTag = StateTag(q.State);
             string kindTag  = KindTag(q.Kind);
 
@@ -313,10 +248,9 @@ namespace KMHPatch.Features.Quests
 
             string poster = LinkedAccountsCache.Format(q.PosterUsername);   // Format() already renders empty as "(unknown)"
 
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, DialogLayout.TextRowH),
                 $"<b>#{q.Id}  {q.Title}</b>  {stateTag}{visTag}  <color=grey>{kindTag} • by</color> {poster}{ReputationCache.Badge(q.PosterUsername)} <color=grey>•</color> {ownership}");
 
-            // Line 2: detail (per-kind summary OR description-trimmed)
             string detail;
             switch (q.Kind)
             {
@@ -352,10 +286,9 @@ namespace KMHPatch.Features.Quests
             }
             Color oldCol = GUI.color;
             GUI.color = new Color(0.85f, 0.85f, 0.85f);
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 18f, textW, 18f), detail);
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, textW, DialogLayout.TextRowH), detail);
             GUI.color = oldCol;
 
-            // Line 3: bounty + claimed-by + expiry
             string bounty = q.BountySilver > 0 ? $"<color=yellow>{SilverFmt.Format(q.BountySilver)}</color>" : "<color=grey>no silver</color>";
             int extraItems = q.BountyItems?.Count ?? 0;
             if (extraItems > 0) bounty += $" + {extraItems} item type(s)";
@@ -364,20 +297,15 @@ namespace KMHPatch.Features.Quests
                 ? $"  •  claimed by {LinkedAccountsCache.Format(q.ClaimedByUsername)}"
                 : "";
             string time = q.State == QuestEntry.StateOpen
-                ? $"  •  expires in {FormatTimeRemaining(q.ExpiresUtcTicks, nowTicks)}"
+                ? $"  •  expires in {DialogLayout.TimeRemainingShort(q.ExpiresUtcTicks, nowTicks)}"
                 : "";
 
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 36f, textW, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, textW, DialogLayout.TextRowH),
                 $"Bounty: {bounty}{claimedBy}{time}");
             GUI.color = oldCol;
 
-            // Per-row action buttons. Visibility depends on caller's role: Open + not poster -> Claim Open + is
-            // poster -> Cancel Claimed/Submitted + is claimer (any kind) -> Submit (DeliverItem auto-completes
-            // server-side via the treasury check; Bounty enters Submitted state) Submitted + is poster + Bounty
-            // kind -> Approve (poster signs off; server pays the bounty + marks Completed)
-            // Authoritative state lands in the next kmh.quest.snapshot push;
-            // the buttons just fire mutation envelopes.
+            // These only fire mutation envelopes; authoritative state lands in the next snapshot push.
             float btnW = 100f;
             float btnsX = inner.xMax - btnW;
             Rect topBtn    = new Rect(btnsX, inner.y + 4f, btnW, 24f);
@@ -401,7 +329,6 @@ namespace KMHPatch.Features.Quests
                                    || q.State == QuestEntry.StateSubmitted
                                    || q.State == QuestEntry.StatePendingReview))
             {
-                // Top: kind-specific completion action (only while Claimed).
                 if (q.State == QuestEntry.StateClaimed)
                 {
                     switch (q.Kind)
@@ -425,7 +352,7 @@ namespace KMHPatch.Features.Quests
                             break;
                     }
                 }
-                // Bottom: abandon (drop the claim; costs reputation server-side).
+                // Abandoning costs reputation, server-side.
                 if (IconButton.Draw(bottomBtn, KMHTextures.Cancel, "Abandon")) QuestHandler.TryAbandon(q.Id);
             }
             else if (isPoster && q.State == QuestEntry.StateSubmitted && q.Kind == QuestEntry.KindBounty)
@@ -434,15 +361,14 @@ namespace KMHPatch.Features.Quests
             }
             else if (isPoster && q.State == QuestEntry.StatePendingReview)
             {
-                // Custom proof awaiting review: approve pays out, reject returns it to the board (claimer takes a
-                // reputation hit)
+                // Rejecting returns the quest to the board and costs the claimer reputation.
                 if (IconButton.Draw(topBtn, KMHTextures.Approve, "Review"))
                 {
                     long id = q.Id;
                     Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                     {
                         new FloatMenuOption("Approve & pay bounty", () => QuestHandler.TryReview(id, true, "")),
-                        new FloatMenuOption("Reject (with note)…", () =>
+                        new FloatMenuOption("Reject (with note)", () =>
                             Find.WindowStack.Add(new Dialog_KMHMultilineTextInput(
                                 title:        "Reason for rejection",
                                 confirmLabel: "Reject",
@@ -482,21 +408,6 @@ namespace KMHPatch.Features.Quests
                 case QuestEntry.KindCustom: return "Custom";
                 default:                    return "Deliver";
             }
-        }
-
-        private static string FormatTimeRemaining(long expiresUtcTicks, long nowTicks)
-        {
-            if (expiresUtcTicks <= 0) return "never";
-            if (nowTicks >= expiresUtcTicks) return "<color=#ff8080>expired</color>";
-            try
-            {
-                TimeSpan span = TimeSpan.FromTicks(expiresUtcTicks - nowTicks);
-                if (span.TotalDays    >= 1) return $"{(int)span.TotalDays}d";
-                if (span.TotalHours   >= 1) return $"{(int)span.TotalHours}h";
-                if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m";
-                return $"{(int)span.TotalSeconds}s";
-            }
-            catch { return "?"; }
         }
     }
 }

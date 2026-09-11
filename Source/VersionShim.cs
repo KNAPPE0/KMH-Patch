@@ -1,7 +1,4 @@
-// The ONLY place RWT's renames live (csproj RwtFlavor Old/New/RT):
-//   Old (26.5.24.1)  Shared/TCPNetwork,  GameClient assembly, GameClient.* namespaces
-//   New (26.6.9.1)   RTShared/RTNetwork, RTClient assembly,   GameClient.* namespaces
-//   RT  (26.7.25.1)  RTShared/RTNetwork, RTClient assembly,   RTClient.* namespaces, RTShared moved into .Misc
+﻿// The ONLY place RWT's renames live, so feature code never names a generation itself.
 #if RWT_RT
 global using RTNetwork.Components;
 global using RTNetwork.Packets;
@@ -49,11 +46,11 @@ global using MainThreadHandler = GameClient.Misc.MainThreadHandler;
 #endif
 
 using System;
+using System.Reflection;
 using HarmonyLib;
 
 namespace KMHPatch
 {
-    // Wire-level names that differ between generations.
     internal static class RwtCompat
     {
 #if RWT_NEW || RWT_RT
@@ -83,6 +80,58 @@ namespace KMHPatch
                 catch { _chatHeader = ChatHeaderFallback; }
                 return _chatHeader.Value;
             }
+        }
+
+        // The next two are reflected, not called: RWT reshaped both across 26.7.25.1 -> 26.8.31.1, and a direct call binds at JIT time, throwing before any try block is entered.
+
+        private static bool       _versionResolved;
+        private static PropertyInfo _versionProp;
+        private static FieldInfo    _versionField;
+
+        public static string ExecutableVersion
+        {
+            get
+            {
+                if (!_versionResolved)
+                {
+                    _versionResolved = true;
+                    try
+                    {
+                        _versionProp  = AccessTools.Property(typeof(CommonValues), "ExecutableVersion");
+                        _versionField = AccessTools.Field(typeof(CommonValues), "ExecutableVersion");
+                    }
+                    catch { }
+                }
+                try
+                {
+                    if (_versionProp  != null) return _versionProp.GetValue(null)  as string ?? "";
+                    if (_versionField != null) return _versionField.GetValue(null) as string ?? "";
+                }
+                catch { }
+                return "";
+            }
+        }
+
+        private static bool       _disconnectResolved;
+        private static MethodInfo _disconnect;
+
+        // False means RWT offered no way back to the menu, so the caller has to say so rather than look like it worked.
+        public static bool DisconnectToMainMenu()
+        {
+            if (!_disconnectResolved)
+            {
+                _disconnectResolved = true;
+                try
+                {
+                    Type t = typeof(DisconnectionManager);
+                    // HandleDisconnect asks "Connection lost. Save game?" - wrong for a deliberate leave, so it is only the fallback.
+                    _disconnect = AccessTools.Method(t, "DisconnectToMenu") ?? AccessTools.Method(t, "HandleDisconnect");
+                }
+                catch { }
+            }
+            if (_disconnect == null) return false;
+            try { _disconnect.Invoke(null, null); return true; }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"RWT disconnect failed: {ex.Message}"); return false; }
         }
 
         // Resolve an RWT type across versions: known full names first, else any matching simple name under nsRoot (RWT moves dialogs between namespaces)

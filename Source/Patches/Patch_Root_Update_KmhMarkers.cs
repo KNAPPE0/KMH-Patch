@@ -1,19 +1,25 @@
+using System;
 using HarmonyLib;
+using KMHPatch.Diagnostics;
 using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Drives KMH world-marker reconciliation every frame the world exists - including the fresh-start landing-site
-    // selection page and the paused world view, where WorldComponentTick doesn't run. Realtime-throttled inside
-    // TryReconcile, so this is cheap. Root.Update is core RimWorld and always present.
+    // The one callback that still runs on the landing-site page and the paused world, where WorldComponentTick does not.
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     internal static class Patch_Root_Update_KmhMarkers
     {
-        [HarmonyPostfix]
-        private static void Postfix()
+        private static readonly string[] Names = { "join hydration", "site markers", "roads" };
+
+        // Both reconciles check for a world themselves, so there is nothing to gate here.
+        private static readonly Action[] Steps =
         {
-            if (Find.World != null)
-                Features.Sites.WorldComponent_KMHSiteMarkers.TryReconcile(0.5f);
-        }
+            SubProtocol.KmhHandshakeHandler.RetryPendingHydration,
+            () => Features.Sites.WorldComponent_KMHSiteMarkers.TryReconcile(0.5f),
+            () => Features.Roadworks.WorldComponent_KMHRoads.TryReconcile(0.5f),
+        };
+
+        [HarmonyPostfix]
+        private static void Postfix() => KmhFrameSteps.Run(Names, Steps);
     }
 }

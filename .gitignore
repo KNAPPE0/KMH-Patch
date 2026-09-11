@@ -20,6 +20,10 @@ Releases/
 # Example extension build output - users build it themselves.
 Templates/ClientExtension/1.6/Assemblies/
 
+# Scratch data folders the offline client self-test creates from its working directory.
+KMH-Data/
+KMH-Data-Backups/
+
 # IDE
 .idea/
 .vscode/

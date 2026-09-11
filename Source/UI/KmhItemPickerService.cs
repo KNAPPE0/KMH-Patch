@@ -3,14 +3,12 @@ using System.Collections.Generic;
 
 namespace KMHPatch.UI
 {
-    // Single source of pickable items + shared-picker opener; sources are safety-filtered so blocked defs never appear.
     internal static class KmhItemPickerService
     {
         // All safe, pickable item defs (already safety-filtered by ItemDefBrowser). -1 count = unlimited.
         public static Dictionary<string, int> AllPickableItems() => ItemDefBrowser.AllPickableItems();
 
-        // Defensive re-filter of a caller-supplied source (e.g. live caravan/treasury counts) so nothing unsafe slips
-        // into a picker even if the caller's source was built elsewhere.
+        // Re-filtered even though callers filter too, so a source built elsewhere cannot smuggle a blocked def in.
         public static Dictionary<string, int> SafeSource(Dictionary<string, int> source)
         {
             Dictionary<string, int> outp = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -20,8 +18,7 @@ namespace KMHPatch.UI
             return outp;
         }
 
-        // Open the shared two-step picker for a safety-filtered source. Payload stacks (full-state vault items) ride
-        // along unfiltered - they're already-owned stock and the server re-verifies every withdraw.
+        // Payload stacks ride unfiltered: already-owned stock, and the server re-verifies every withdraw.
         public static void Open(string title, string pickActionLabel, Dictionary<string, int> source,
                                 Action<string, int> onPick, Func<Dictionary<string, int>> refreshSource = null,
                                 IList<Items.KmhThingPayload> payloads = null,

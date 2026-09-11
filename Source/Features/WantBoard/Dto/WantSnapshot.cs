@@ -1,10 +1,12 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace KMHPatch.Features.WantBoard.Dto
 {
     public class WantSnapshot
     {
+        // Monotonic, server-stamped; an older snapshot is dropped because two transports can deliver out of order.
+        [JsonProperty("revision")] public long Revision { get; set; } = 0;
         [JsonProperty("wants")] public List<WantDto> Wants { get; set; } = new List<WantDto>();
     }
 

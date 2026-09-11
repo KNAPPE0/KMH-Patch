@@ -3,8 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Enforcement.Dto
 {
-    // Mirror of the server's snapshot payload. is_admin is server-authoritative, so the admin bypass can't be
-    // forged client-side
+    // Mirrors the server payload; is_admin is server-authoritative so the admin bypass can't be forged client-side.
     public class EnforcementSnapshotDto
     {
         [JsonProperty("enabled")]      public bool         Enabled     { get; set; }

@@ -1,15 +1,15 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using KMHPatch.UI;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // Post composer for a want-to-buy: pick the item from the full catalog, set quantity, per-unit price, duration,
-    // visibility. The full ask (price * qty) is escrowed from your treasury server-side, so you can only post wants you can pay for.
+    // The full ask (price * qty) is escrowed from your treasury server-side, so you can only post wants you can pay for.
     public class Dialog_KMHPostWant : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(580f, 500f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(580f, 560f);
 
         private readonly Dictionary<string, int> _catalog;
 
@@ -22,6 +22,11 @@ namespace KMHPatch.Features.WantBoard
         private bool   _allowComplex = false; // accept full-state gear (weapons/apparel), else clean simple items only
         private bool   _allowDamaged = false;
         private bool   _allowTainted = false;
+
+        // Unset posts exactly what earlier versions did, and each requirement is only offered for an item that can carry it.
+        private int    _minQuality = 0;    // 0 = any, else 1..7 (Awful..Legendary)
+        private string _stuffDef   = "";   // "" = any material
+        private string _stuffLabel = "";
 
         private Dialog_KMHPostWant(Dictionary<string, int> catalog)
         {
@@ -57,10 +62,14 @@ namespace KMHPatch.Features.WantBoard
                         _itemDef   = key;
                         _itemLabel = ItemLabels.ResolveLabel(key);
                         if (qty > 0) _qty = qty.ToString();
+                        // A requirement is only meaningful for the item it was chosen for.
+                        _minQuality = 0; _stuffDef = ""; _stuffLabel = "";
                     },
                     closeOnPick:     true);
             }
             y += 30f;
+
+            y = DrawRequirements(rect, y, labelW);
 
             y = Row(rect, y, "Quantity",              ref _qty);
             y = Row(rect, y, "Price per unit (silver)", ref _unitPrice);
@@ -112,6 +121,69 @@ namespace KMHPatch.Features.WantBoard
             return y + 30f;
         }
 
+        private float DrawRequirements(Rect rect, float y, float labelW)
+        {
+            ThingDef td = SelectedDef();
+            if (td == null) return y;
+
+            if (td.HasComp(typeof(CompQuality)))
+            {
+                DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Minimum quality");
+                string label = _minQuality > 0 ? $"{ItemKeys.QualityName(_minQuality)} or better" : "Any";
+                if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), label))
+                {
+                    List<FloatMenuOption> opts = new List<FloatMenuOption> { new FloatMenuOption("Any", () => _minQuality = 0) };
+                    for (int q = 1; q <= 7; q++)
+                    {
+                        int pick = q;
+                        opts.Add(new FloatMenuOption($"{ItemKeys.QualityName(q)} or better", () => _minQuality = pick));
+                    }
+                    Find.WindowStack.Add(new FloatMenu(opts));
+                }
+                y += 30f;
+            }
+            else _minQuality = 0;
+
+            if (td.MadeFromStuff)
+            {
+                DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Required material");
+                if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f),
+                        string.IsNullOrEmpty(_stuffDef) ? "Any" : _stuffLabel))
+                    Find.WindowStack.Add(new FloatMenu(StuffOptions(td)));
+                y += 30f;
+            }
+            else { _stuffDef = ""; _stuffLabel = ""; }
+
+            return y;
+        }
+
+        // Only materials RimWorld itself allows for this def, so a want can never require an impossible material.
+        private List<FloatMenuOption> StuffOptions(ThingDef td)
+        {
+            List<FloatMenuOption> opts = new List<FloatMenuOption>
+            { new FloatMenuOption("Any", () => { _stuffDef = ""; _stuffLabel = ""; }) };
+
+            List<ThingDef> stuffs = new List<ThingDef>();
+            try { foreach (ThingDef s in GenStuff.AllowedStuffsFor(td)) if (s != null) stuffs.Add(s); }
+            catch { return opts; }
+
+            stuffs.Sort((a, b) => string.Compare(a.LabelCap.ToString(), b.LabelCap.ToString(), System.StringComparison.OrdinalIgnoreCase));
+            foreach (ThingDef s in stuffs)
+            {
+                ThingDef pick = s;
+                opts.Add(new FloatMenuOption(pick.LabelCap.ToString(),
+                    () => { _stuffDef = pick.defName; _stuffLabel = pick.LabelCap.ToString(); }));
+            }
+            return opts;
+        }
+
+        private ThingDef SelectedDef()
+        {
+            if (string.IsNullOrEmpty(_itemDef)) return null;
+            ItemKeys.Split(_itemDef, out string defName, out _, out _);
+            try { return DefDatabase<ThingDef>.GetNamedSilentFail(defName); } catch { return null; }
+        }
+
         private void Submit()
         {
             if (string.IsNullOrEmpty(_itemDef)) { Reject("Pick an item first"); return; }
@@ -120,7 +192,8 @@ namespace KMHPatch.Features.WantBoard
             if (!int.TryParse(T(_hours), out int hours) || hours <= 0) { Reject("Duration: positive whole number of hours"); return; }
 
             if (WantHandler.TryPost(_itemDef, qty, price, hours, _visibility,
-                    minQuality: 0, requiredStuff: "", allowComplex: _allowComplex, allowTainted: _allowTainted, allowDamaged: _allowDamaged))
+                    minQuality: _minQuality, requiredStuff: _stuffDef,
+                    allowComplex: _allowComplex, allowTainted: _allowTainted, allowDamaged: _allowDamaged))
                 Close();
         }
 

@@ -9,15 +9,25 @@ enabled everywhere.
 
 ## RWT version
 
-Recommended **RWT 26.6.9.1** — KMH v1.2.1 is built and tested around it. It also
-runs on **RWT 26.5.24.1** (the older RWT generation); the mod auto-detects which
-one you're on and loads the matching build, nothing to configure.
+KMH v1.3.0 is verified against the nine most recent RWT releases:
+
+| RWT release | Status |
+| --- | --- |
+| 26.8.31.1, 26.8.16.1 (1), 26.8.16.1, 26.8.9.1, 26.7.25.1 | supported |
+| 26.6.23.1, 26.6.9.1, 26.6.8.1 | supported |
+| 26.5.24.1 | supported — oldest |
+| 26.4.18.1 and older | **not supported** |
+
+The mod ships all three client builds and auto-detects which RWT generation
+you're on, so there is nothing to configure. Below 26.5.24.1 RWT moved a core
+network type, which makes those releases a different generation rather than a
+variation — KMH refuses to start there and says so, leaving RWT itself running
+normally.
 
 **On RWT 26.6.23.1 and newer, RWT chat is not a reliable KMH carrier — the KMH
 API transport (now on by default) is the recommended/required path there.** Make
-sure the server runs KMH v1.2.0+ with its API transport enabled (also the
-default). To stay on the fully tested pairing instead, downgrade in-game:
-`Mod Options → RimWorld Together → Change Version → 26.6.9.1`.
+sure the server runs KMH v1.3.0 with its API transport enabled (also the
+default).
 
 Update the **KMH Patch** and the **KMH Server Addon** together so both sides
 match.
@@ -47,14 +57,40 @@ quests, listings, guild, and Discord link:
   daily limits, an MOTD, and alliance/rivalry diplomacy that gates guild-only
   visibility.
 - **Sites** - build production sites on the world map, staff them with workers
-  who earn XP, and route the output to treasury, marketplace, or colony.
+  who earn XP, and route the output to treasury, marketplace, or colony. Each
+  site has an archetype (Farmland, Quarry, Woodland, Ranch, Roadworks or Custom)
+  that decides which colonist skill its work uses and pays a specialization
+  bonus when it matches what you produce. Spend its slots on production, housing
+  or storage - storage holds output for collection instead of delivering every
+  cycle. A damaged site produces less but never nothing, and repairs are priced
+  on the damage actually undone.
+- **Roadworks** - a site archetype that lays real, permanent roads across the
+  world: Trail, then Road, then Highway. You pay per new segment, so crossing
+  someone else's road is free, and cancelling returns the silver for everything
+  still unbuilt.
+- **The Frontier** - the world opens its own objectives. Restore a derelict ruin
+  alongside everyone else, and the location goes to whoever contributed most,
+  earliest - yours or your guild's, your choice at claim time. A captured place
+  arrives as bare infrastructure: pick what it produces once, for free, and it
+  becomes a normal site. Your outposts and the claims you've won both show in
+  Standings, and losing a place never erases the record of winning it.
 - **Server Standings** - a progression hub with player, guild,
   member-contribution, colony, colonist, trade, contract, battle, site, and
   reputation boards, a season archive, and full player/colonist profiles.
-- **Offline mail** - outcomes that land while you're away (auction won or sold,
-  want filled, quest approved) arrive as letters the next time you log in.
+- **Communications** - one window for live chat and mail. Server-wide, guild, and
+  private channels keep recent history across a reconnect, and the KMH tab shows
+  an unread count and glows when something is waiting. Mail reaches players
+  whether they're online or not - pick the recipient from the roster, attach
+  silver, items, or gear, and reply straight from the message. Attachments are
+  held safely until accepted, come back on their own if never opened, and you can
+  recall one any time. Block anyone you'd rather not hear from, and set how loud
+  each channel is (silent, popup, or popup with sound) or mute the lot.
+- **Offline notifications** - outcomes that land while you're away (auction won
+  or sold, want filled, quest approved) arrive as letters the next time you log
+  in.
 - **Discord link** - tie your account to Discord with one command; on servers
-  running the bridge you can trade from Discord too.
+  running the bridge you can trade from Discord too, and KMH chat can be mirrored
+  to a Discord channel with messages tagged by where they came from.
 - **Config sync** - on servers that enforce mod configs, your settings sync to
   the server profile with your originals backed up, a panel showing what's
   locked, and one-click restore.

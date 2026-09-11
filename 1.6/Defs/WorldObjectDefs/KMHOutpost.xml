@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- World-map marker for a KMH Frontier outpost. Same worldObjectClass as KMHSite - only the base art differs, so
+       this def needs no code of its own and the transient-save patch already covers it. The reconciler picks this def
+       for any site carrying an outpost_state and swaps the marker if a tile changes kind.
+       KMH's own art in both slots, so nothing here depends on a DLC or on vanilla art staying put. -->
+  <WorldObjectDef>
+    <defName>KMHOutpost</defName>
+    <label>frontier outpost</label>
+    <description>A KMH Frontier outpost.</description>
+    <worldObjectClass>KMHPatch.Features.Sites.KMHSiteWorldObject</worldObjectClass>
+    <texture>KMHPatch/World/WorldObjects/Outpost</texture>
+    <expandingIconTexture>KMHPatch/World/WorldObjects/Expanding/Outpost</expandingIconTexture>
+    <expandingIcon>true</expandingIcon>
+    <expandingIconPriority>14</expandingIconPriority>
+    <selectable>true</selectable>
+    <canHaveFaction>false</canHaveFaction>
+    <useDynamicDrawer>true</useDynamicDrawer>
+  </WorldObjectDef>
+
+</Defs>

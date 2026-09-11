@@ -1,3 +1,4 @@
+using System;
 using RimWorld;
 using Verse;
 
@@ -24,9 +25,19 @@ namespace KMHPatch.UI
             if (parts.Length > 2 && int.TryParse(parts[2], out int q) && q >= 0 && q <= 7) qualityIndex = q;
         }
 
-        // true when an actual quality satisfies a requirement (0 = no requirement; otherwise required-or-better)
+        // Quality 0 means no requirement, not "Awful".
         public static bool Meets(int actualIndex, int requiredIndex)
             => requiredIndex <= 0 || actualIndex >= requiredIndex;
+
+        // Withdrawals and their self-test both route through this, so the rule cannot drift between them.
+        public static bool Matches(string key, string targetDefName, string requiredStuff, int requiredQualityIndex)
+        {
+            Split(key, out string def, out string stuff, out int q);
+            if (!string.Equals(def, targetDefName, StringComparison.OrdinalIgnoreCase)) return false;
+            if (!Meets(q, requiredQualityIndex)) return false;
+            return string.IsNullOrEmpty(requiredStuff)
+                || string.Equals(stuff ?? "", requiredStuff, StringComparison.OrdinalIgnoreCase);
+        }
 
         public static string QualityName(int idx) => idx switch
         {
@@ -35,7 +46,7 @@ namespace KMHPatch.UI
             _ => "",
         };
 
-        // 1..7 from a Thing's CompQuality, 0 when the item has no quality
+        // 0 when the item has no quality at all, which callers must not read as "Awful".
         public static int QualityIndexOf(Thing t)
         {
             CompQuality cq = t?.TryGetComp<CompQuality>();
@@ -48,7 +59,6 @@ namespace KMHPatch.UI
             t.TryGetComp<CompQuality>()?.SetQuality((QualityCategory)(qualityIndex - 1), ArtGenerationContext.Outsider);
         }
 
-        // "Excellent plasteel longsword" from a composed key; plain defs fall through to the normal label
         public static string LabelForKey(string key)
         {
             Split(key, out string def, out string stuff, out int q);

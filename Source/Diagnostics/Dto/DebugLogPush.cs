@@ -3,9 +3,13 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Diagnostics.Dto
 {
-    // Wire DTO for kmh.debug.log - a batch of preformatted KMH log lines. Mirror of the addon DTO.
+    // Mirror of the addon DTO; a field changed here has to change there too.
     public class DebugLogPush
     {
         [JsonProperty("lines")] public List<string> Lines { get; set; } = new List<string>();
+
+        // Without it, matching a server-side diagnostic to the local log means guessing from timestamps.
+        [JsonProperty("session_id")] public string SessionId { get; set; } = "";
+        [JsonProperty("seq")]        public long   Sequence  { get; set; } = 0;
     }
 }

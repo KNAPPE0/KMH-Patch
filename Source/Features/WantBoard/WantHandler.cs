@@ -5,8 +5,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // Receives kmh.want.snapshot into WantCache + the post/fulfill/cancel sends. Fulfilling delivers items from your
-    // KMH treasury server-side, so there's nothing to remove client-side - just send the quantity.
+    // Fulfilling delivers items from your KMH treasury server-side, so there's nothing to remove client-side - just send the quantity.
     internal static class WantHandler
     {
         public static void Register() => KmhDispatcher.RegisterHandler(KmhProtocol.Kind.WantSnapshot, OnSnapshot);
@@ -28,7 +27,7 @@ namespace KMHPatch.Features.WantBoard
                 allow_complex     = allowComplex,
                 allow_tainted     = allowTainted,
                 allow_damaged     = allowDamaged,
-            });
+            }, KmhOpId.For($"want.post|{itemDefName}|{qty}|{unitPriceSilver}"));
             if (sent) KmhNotifications.Neutral("Posting want…");
             else      KmhNotifications.NotConnected();
             return sent;
@@ -36,7 +35,8 @@ namespace KMHPatch.Features.WantBoard
 
         public static bool TryFulfill(long wantId, int qty)
         {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantFulfill, new { want_id = wantId, qty });
+            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantFulfill, new { want_id = wantId, qty },
+                KmhOpId.For($"want.fulfill|{wantId}|{qty}"));
             if (sent) KmhNotifications.Neutral($"Delivering {qty}…");
             else      KmhNotifications.NotConnected();
             return sent;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Items;
 using UnityEngine;
@@ -6,12 +6,10 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Reusable two-step item picker (pick row -> amount prompt -> onPick callback). Source is a caller-supplied
-    // defName->count dict, optionally joined by full-state payload stacks (weapons/apparel with quality/hp) that
-    // withdraw by exact state via onPickPayload. Go through KmhItemPickerService so the source is safety-filtered.
+    // Open through KmhItemPickerService, or the source reaches here unfiltered by the safety layer.
     public class Dialog_KMHItemPicker : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(640f, 600f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(640f, 600f);
 
         private readonly string                        _title;
         private readonly string                        _pickActionLabel;   // e.g. "Deposit" / "Withdraw" / "List"
@@ -27,16 +25,35 @@ namespace KMHPatch.UI
         private Vector2 _scroll;
         private string  _filter = "";
 
-        // Category dropdown, remembered across pickers this session so a player doesn't re-pick it every time.
+        // Category dropdown, remembered across pickers for the run so a player does not re-pick it every time.
         private static string _lastCategory = "All";
         private string _category = _lastCategory;
 
-        // Cached filtered+sorted view, rebuilt when the filter/category changes or the source is refreshed after a pick.
         private List<Row> _visible;
         private string _visibleFilter;
         private string _visibleCategory;
 
-        // One list row: either a plain def entry (Key/Count) or a full-state payload stack.
+        // Throttled because refreshSource rescans colony stock and returns a fresh object on every call.
+        private const float SourcePollSeconds = 0.4f;
+        private float _nextSourcePoll;
+
+        private void PickedRefresh()
+        {
+            if (_closeOnPick) { Close(); return; }
+            _nextSourcePoll = 0f;
+            _visible = null;
+        }
+
+        // Compared by contents, since a rebuilt dictionary is a new object on every poll.
+        private static bool SameCounts(Dictionary<string, int> a, Dictionary<string, int> b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null || a.Count != b.Count) return false;
+            foreach (KeyValuePair<string, int> kv in a)
+                if (!b.TryGetValue(kv.Key, out int v) || v != kv.Value) return false;
+            return true;
+        }
+
         private struct Row
         {
             public string Key;
@@ -72,16 +89,26 @@ namespace KMHPatch.UI
             resizeable              = true;
         }
 
+        internal const float ToolbarGap    = 6f;
+        internal const float MinSearchW    = 130f;
+        internal const float MinCategoryW  = 90f;
+
+        // The category yields width first, so the search field never drops below readable.
+        internal static float CategoryW(float rectWidth, float measured)
+            => Mathf.Min(measured, Mathf.Max(MinCategoryW, rectWidth - MinSearchW - ToolbarGap));
+
+        internal static float SearchW(float rectWidth, float categoryW)
+            => Mathf.Max(40f, rectWidth - categoryW - ToolbarGap);
+
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, _title);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            // Filter row - simple text contains-match against the resolved human label so players can type 'wood'
-            // even when the defName is 'WoodLog'
-            float catW = 210f;
-            _filter = DialogLayout.SearchField(new Rect(0f, y, rect.width - catW - 6f, 28f), _filter, "Filter by name…");
-            if (Widgets.ButtonText(new Rect(rect.width - catW, y, catW, 28f), $"Category: {_category}"))
+            // Matched against the resolved label, so "wood" finds defName "WoodLog".
+            float catW = CategoryW(rect.width, DialogLayout.DropdownWidth(KmhItemCategories.Dropdown));
+            _filter = DialogLayout.SearchField(new Rect(0f, y, SearchW(rect.width, catW), 28f), _filter, "Filter by name");
+            if (DialogLayout.DrawDropdownButton(new Rect(rect.width - catW, y, catW, 28f), _category))
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>();
                 foreach (string cat in KmhItemCategories.Dropdown)
@@ -93,8 +120,7 @@ namespace KMHPatch.UI
             }
             y += 34f;
 
-            // Item list
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawList(listBox);
 
@@ -107,25 +133,28 @@ namespace KMHPatch.UI
             const float rowH = 30f;
             const float btnW = 90f;
 
-            // Re-read live counts each frame so the list tracks the latest snapshot. A withdraw's fresh snapshot can
-            // land a round-trip AFTER the pick, so a one-shot refresh would leave stale counts on screen; rebuild the
-            // view whenever the source or payload list reference changes.
-            if (_refreshSource != null)
+            // A withdraw's snapshot can land a round-trip AFTER the pick, so one refresh would leave stale counts.
+            if (Time.realtimeSinceStartup >= _nextSourcePoll)
             {
-                var s = _refreshSource();
-                if (s != null && !ReferenceEquals(s, _source)) { _source = s; _visible = null; }
-            }
-            if (_refreshPayloads != null)
-            {
-                var p = _refreshPayloads();
-                if (p != null && !ReferenceEquals(p, _payloads)) { _payloads = p; _visible = null; }
+                _nextSourcePoll = Time.realtimeSinceStartup + SourcePollSeconds;
+
+                if (_refreshSource != null)
+                {
+                    var s = _refreshSource();
+                    if (s != null && !ReferenceEquals(s, _source) && !SameCounts(s, _source)) { _source = s; _visible = null; }
+                    else if (s != null) _source = s;
+                }
+                if (_refreshPayloads != null)
+                {
+                    var p = _refreshPayloads();
+                    if (p != null && !ReferenceEquals(p, _payloads) && (p.Count != (_payloads?.Count ?? -1))) { _payloads = p; _visible = null; }
+                    else if (p != null) _payloads = p;
+                }
             }
 
             string filterLower = (_filter ?? "").Trim().ToLower();
 
-            // Build the filtered + alphabetically-ordered view ONCE per filter change (not every frame). Filter
-            // against the resolved label so 'plasteel knife' matches defName 'Knife' (Stuff=Plasteel). Source value:
-            // >0 = real count (shown 'x N'); 0 = excluded; <0 = unlimited (no count, no max in the qty prompt).
+            // Source value: >0 is a real count, 0 excludes the row, and negative means unlimited.
             if (_visible == null || _visibleFilter != filterLower || _visibleCategory != _category)
             {
                 _visible = Build(filterLower);
@@ -138,7 +167,7 @@ namespace KMHPatch.UI
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
             Widgets.BeginScrollView(inner, ref _scroll, viewRect);
-            // Draw only the rows actually in view - a modded catalog can be thousands of items.
+            // In-view rows only: a modded catalog can be thousands of items.
             DialogLayout.VisibleRange(_scroll, inner.height, rowH, visible.Count, out int first, out int last);
             for (int i = first; i < last; i++)
             {
@@ -152,43 +181,39 @@ namespace KMHPatch.UI
 
                 if (r.Payload != null)
                 {
-                    // Full-state stack: rich label + state suffix, info card with the exact def+stuff to double-check.
                     KmhThingPayload pl = r.Payload;
                     KmhItemRow.DrawPayload(row, pl, btnW + KmhItemInfo.Size + 14f);
                     KmhItemInfo.ButtonForDef(viewRect.width - btnW - KmhItemInfo.Size - 10f, ly + 3f, pl.DefName, pl.StuffDefName);
-                    if (Widgets.ButtonText(btn, $"{_pickActionLabel}…"))
+                    if (Widgets.ButtonText(btn, $"{_pickActionLabel}"))
                     {
                         Find.WindowStack.Add(new Dialog_KMHAmountInput(
                             title:        $"{_pickActionLabel} {KmhItemRow.PayloadLabel(pl)}",
                             confirmLabel: _pickActionLabel,
                             unitLabel:    "items",
                             maxHint:      pl.StackCount,
-                            onConfirm:    qty => { _onPickPayload?.Invoke(pl, qty); if (_closeOnPick) Close(); }));
+                            onConfirm:    qty => { _onPickPayload?.Invoke(pl, qty); PickedRefresh(); }));
                     }
                     continue;
                 }
 
-                // Shared row: icon + label + count, greyed with a reason tooltip when the safety layer blocks the def.
                 Items.KmhItemDecision decision = KmhItemRow.Draw(row, r.Key, r.Count, btnW + KmhItemInfo.Size + 14f);
                 string label = ItemLabels.ResolveLabel(r.Key);
 
-                // RimWorld's real info card, so the item can be inspected before picking it.
                 KmhItemInfo.ButtonForKey(viewRect.width - btnW - KmhItemInfo.Size - 10f, ly + 3f, r.Key);
 
                 string capturedDefName = r.Key;
                 int    capturedMax     = r.Count > 0 ? r.Count : 0;
                 if (!decision.Allowed)
                 {
-                    // Blocked def: no action button - the greyed row + tooltip already explains why.
                 }
-                else if (Widgets.ButtonText(btn, $"{_pickActionLabel}…"))
+                else if (Widgets.ButtonText(btn, $"{_pickActionLabel}"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHAmountInput(
                         title:        $"{_pickActionLabel} {label}",
                         confirmLabel: _pickActionLabel,
                         unitLabel:    "units",
                         maxHint:      capturedMax,
-                        onConfirm:    qty => { _onPick?.Invoke(capturedDefName, qty); if (_closeOnPick) Close(); }));
+                        onConfirm:    qty => { _onPick?.Invoke(capturedDefName, qty); PickedRefresh(); }));
                 }
             }
 

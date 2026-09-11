@@ -1,23 +1,19 @@
-using KMHPatch.Features.Guilds.Dto;
+﻿using KMHPatch.Features.Guilds.Dto;
 using KMHPatch.UI;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Guild settings composer. Form with the six numeric inputs + one toggle that GuildSettingsDto carries. Save
-    // fires GuildHandler.TrySaveSettings(dto) - server validates ranges + rebroadcasts the snapshot.
-    //
-    // Per-rank caps: -1 = unlimited, 0 = disabled, any positive = literal silver cap.
+    // Per-rank caps: -1 unlimited, 0 disabled, positive a literal silver cap.
     public class Dialog_KMHGuildSettings : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(520f, 540f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(520f, 540f);
 
         // Working copy - we mutate this freely; only on Save do we send.
         private GuildSettingsDto _draft;
 
-        // Mirror of each numeric field as a string so partial typing ("12-" or empty) doesn't crash the parse.
-        // Re-parsed on Save
+        // Held as strings so partial typing like "12-" or an empty box cannot crash the parse.
         private string _siteTax    = "";
         private string _marketTax  = "";
         private string _memberCap  = "";
@@ -54,7 +50,6 @@ namespace KMHPatch.Features.Guilds
             GUI.color = oldCol;
             y += 22f;
 
-            // Tax rates
             Text.Font = GameFont.Medium;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "Tax rates");
             Text.Font = GameFont.Small;
@@ -64,7 +59,6 @@ namespace KMHPatch.Features.Guilds
 
             y += 8f;
 
-            // Withdraw caps
             Text.Font = GameFont.Medium;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "Daily withdraw caps (silver)");
             Text.Font = GameFont.Small;
@@ -76,7 +70,6 @@ namespace KMHPatch.Features.Guilds
 
             y += 8f;
 
-            // Misc toggle - default-listings-guild-only
             bool defaultGuildOnly = _draft.DefaultListingsGuildOnly;
             Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 24f),
                 "Default new listings to guild-only",
@@ -84,7 +77,6 @@ namespace KMHPatch.Features.Guilds
             _draft.DefaultListingsGuildOnly = defaultGuildOnly;
             y += 28f;
 
-            // Save / Cancel row
             const float btnW = 120f;
             const float btnH = 32f;
             float btnY = rect.height - btnH - 4f;
@@ -112,8 +104,7 @@ namespace KMHPatch.Features.Guilds
             return y + 30f;
         }
 
-        // Parse each string-backed field into the draft DTO; reject the whole save if any field fails so the player
-        // sees a single error rather than partial application
+        // The whole save is rejected if any field fails, so nothing is ever partially applied.
         private bool TryCommitDraft()
         {
             if (!TryParseInt(_siteTax,   out int siteTax,   nonNegative: true,  fieldName: "Site reward tax")) return false;

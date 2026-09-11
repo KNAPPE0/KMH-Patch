@@ -6,8 +6,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Explicit post-save confirms - the fast path when these fire. Not the only detection: ExposeData arms a post-write
-    // confirm for ANY scribe save and a self-heal loop covers save paths that bypass both (RWT/modded).
+    // The fast path only: ExposeData and a self-heal loop still cover save paths that bypass this one.
     [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame))]
     internal static class Patch_GameDataSaveLoader_KmhDepositConfirm
     {

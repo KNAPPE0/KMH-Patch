@@ -3,8 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Guilds.Dto
 {
-    // Wire DTO mirror of the server addon's GuildLeaderboardSnapshot (same JSON names/fields): member count
-    // + current treasury silver.
+    // Mirrors the addon's GuildLeaderboardSnapshot, same JSON names and fields.
     public class GuildLeaderboardSnapshot
     {
         [JsonProperty("guilds")]

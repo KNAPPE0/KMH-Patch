@@ -24,7 +24,6 @@ namespace KMHPatch.UI
                 {
                     if (td == null || string.IsNullOrEmpty(td.defName)) continue;
                     if (td.destroyOnDrop)                               continue;
-                    // Skip non-tradeable / debug-only items.
                     if (td.tradeability == Tradeability.None)           continue;
                     // Shared safety gate: keeps minified wrappers, corpses, pawns and non-items out of every picker.
                     if (!Items.KmhItemSafety.IsSafeDef(td, out _))      continue;

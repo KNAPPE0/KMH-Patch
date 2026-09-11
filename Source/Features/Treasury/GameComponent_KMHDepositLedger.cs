@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 using KMHPatch.Features.Treasury.Dto;
@@ -7,8 +7,7 @@ using Verse;
 
 namespace KMHPatch.Features.Treasury
 {
-    // Item-loss guard: server holds a deposit PENDING until we confirm its goods-removal is durably saved (_durable via
-    // ExposeData, rolls back with the goods). Layered hooks + self-heal so no save path (RWT/autosave/modded) leaves it stuck.
+    // Item-loss guard: a deposit stays PENDING server-side until its goods-removal is durably saved here.
     public class GameComponent_KMHDepositLedger : GameComponent
     {
         private const int    MaxLedger        = 256;
@@ -17,15 +16,16 @@ namespace KMHPatch.Features.Treasury
         private List<string> _durable = new List<string>();
         private readonly HashSet<string> _sessionAdded = new HashSet<string>();
 
+        // Trims the wire, not the history: three hooks observe one save and each used to resend all 256 entries.
+        private readonly List<string> _newlyDurable = new List<string>();
+        private long _confirmedEpoch = -1;
+
         private bool     _saveArmed;              // ExposeData(Saving) ran; confirm on the next update (post-write)
         private bool     _reconciledThisSession;
         private DateTime _lastHeartbeatUtc = DateTime.MinValue;
         private int      _lastSeenPending  = -1;
 
-        // Monotonic save generation: bumped once per save and scribed, so it rides with the goods-removal it commits.
-        // Reported on confirm/reconcile so the server can spot a rolled-back (save-scummed) client and reverse deposits
-        // finalized past the generation the client now holds - closes the treasury-deposit + save-recovery dupe.
-        // (Client half only; server enforcement lands in a later release - old servers just ignore the field.)
+        // Scribed with the goods-removal it commits, so the server can spot a save-scum and reverse later deposits.
         private long     _epoch;
 
         public GameComponent_KMHDepositLedger(Game game) { }
@@ -35,25 +35,21 @@ namespace KMHPatch.Features.Treasury
         public override void ExposeData()
         {
             base.ExposeData();
-            // Fold this session's deposits into the durable set as the save is written, so the txn ids and the matching
-            // goods removal persist (and roll back) together. Runs for EVERY save path (all serialize through Scribe).
+            // Folded during the write so txn ids and their goods-removal persist - and roll back - together.
             if (Scribe.mode == LoadSaveMode.Saving && _sessionAdded.Count > 0)
             {
-                int added = 0;
+                _newlyDurable.Clear();
                 foreach (string t in _sessionAdded)
-                    if (!_durable.Contains(t)) { _durable.Add(t); added++; }
+                    if (!_durable.Contains(t)) { _durable.Add(t); _newlyDurable.Add(t); }
                 while (_durable.Count > MaxLedger) _durable.RemoveAt(0);
-                KmhLog.Debug($"[KMH Treasury] Save detected (scribe write): folded {added} pending deposit txn(s) into durable ({_durable.Count} total).");
+                KmhLog.Debug($"[KMH Treasury] Save detected (scribe write): folded {_newlyDurable.Count} pending deposit txn(s) into durable ({_durable.Count} total).");
             }
-            // Bump the generation on every save, BEFORE scribing it, so the value written equals this save's
-            // generation and any older save loads a strictly lower one. Atomic with the durable fold above, so the
-            // epoch never disagrees with the goods-removal it rode in with.
+            // Bump BEFORE scribing, so the written value is this save's generation and older saves load a lower one.
             if (Scribe.mode == LoadSaveMode.Saving) _epoch++;
             Scribe_Collections.Look(ref _durable, "kmhDepositLedger", LookMode.Value);
             Scribe_Values.Look(ref _epoch, "kmhDepositEpoch", 0L);
             if (_durable == null) _durable = new List<string>();
-            // Confirm AFTER the write succeeds (next update / post-save hook), never mid-serialization - a save that
-            // never finishes must never confirm.
+            // Armed, not confirmed: a save that never finishes must not confirm, so that waits for the post-write hook.
             if (Scribe.mode == LoadSaveMode.Saving) { _sessionAdded.Clear(); _saveArmed = true; }
         }
 
@@ -67,9 +63,31 @@ namespace KMHPatch.Features.Treasury
         // Called by every save hook we can catch (SaveGame postfix, Autosaver postfix, the post-write _saveArmed flush).
         public void NotifySaved(string source)
         {
-            KmhLog.Debug($"[KMH Treasury] Save detected (source={source}); {_durable.Count} durable deposit txn(s) to confirm.");
-            if (KmhDispatcher.IsKmhServer) SendConfirm(_durable, source);
-            else KmhLog.Debug("[KMH Treasury] Confirm deferred - not connected to a KMH server (self-heal on reconnect).");
+            // One logical confirmation per save generation, whichever hook notices first.
+            if (_epoch == _confirmedEpoch)
+            {
+                KmhLog.Debug($"[KMH Treasury] Save detected (source={source}); generation {_epoch} already confirmed - not resending.");
+                return;
+            }
+            if (!KmhDispatcher.IsKmhServer)
+            {
+                KmhLog.Debug("[KMH Treasury] Confirm deferred - not connected to a KMH server (self-heal on reconnect).");
+                return;   // epoch stays unconfirmed, so a reconnect still sends it
+            }
+
+            // Safe to send only the delta: SelfHeal catches stragglers and a reconnect resends the full history.
+            List<string> toSend = _newlyDurable.Count > 0 ? new List<string>(_newlyDurable) : null;
+            if (toSend == null)
+            {
+                _confirmedEpoch = _epoch;
+                KmhLog.Debug($"[KMH Treasury] Save detected (source={source}); nothing newly durable this generation.");
+                return;
+            }
+
+            KmhLog.Debug($"[KMH Treasury] Save detected (source={source}); confirming {toSend.Count} newly durable txn(s) of {_durable.Count} held.");
+            SendConfirm(toSend, source);
+            _confirmedEpoch = _epoch;
+            _newlyDurable.Clear();
         }
 
         // A fresh treasury snapshot still showing pending we've saved -> re-confirm right away, don't wait for the tick.
@@ -91,8 +109,7 @@ namespace KMHPatch.Features.Treasury
             }
         }
 
-        // Re-confirm any durably-saved deposit the server still shows pending. Self-terminating (server commits ->
-        // next snapshot shows 0 pending -> no-op) and rollback-safe (never confirms a txn not in the durable set).
+        // Rollback-safe by construction: it only ever re-confirms txns already in the durable set.
         private void SelfHeal(string source)
         {
             List<PendingDeposit> pending = TreasuryCache.HasSnapshot ? TreasuryCache.Snapshot?.PendingDeposits : null;
@@ -110,8 +127,7 @@ namespace KMHPatch.Features.Treasury
             {
                 if (p == null || string.IsNullOrEmpty(p.TxnId)) continue;
                 if (_durable.Contains(p.TxnId)) { confirmable.Add(p.TxnId); continue; }
-                // Adopt guild donations we didn't start from this UI (e.g. a chat command) - unlike deposits there's
-                // no local goods-removal to guard, so the next save may finalize them.
+                // Donations started elsewhere (chat) have no local goods-removal to guard, so adopt them.
                 if (p.Kind == PendingDeposit.KindGuildDonate && !_sessionAdded.Contains(p.TxnId))
                     RecordDeposit(p.TxnId);
             }
@@ -129,8 +145,10 @@ namespace KMHPatch.Features.Treasury
         {
             try
             {
-                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable, epoch = _epoch });
-                KmhLog.Debug($"[KMH Treasury] Session reconcile of {_durable.Count} durable txn(s) at gen {_epoch}: {(ok ? "sent" : "FAILED to send")}.");
+                // Goods already gone but unsaved: sending them stops a racing reconnect reverting a real deposit.
+                var unsaved = new List<string>(_sessionAdded);
+                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable, pending = unsaved, epoch = _epoch });
+                KmhLog.Debug($"[KMH Treasury] Session reconcile of {_durable.Count} durable + {unsaved.Count} unsaved txn(s) at gen {_epoch}: {(ok ? "sent" : "FAILED to send")}.");
             }
             catch (Exception ex) { KmhLog.Warn($"Deposit reconcile send threw: {ex.Message}"); }
         }

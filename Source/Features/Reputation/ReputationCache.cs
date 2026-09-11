@@ -6,8 +6,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Reputation
 {
-    // Holds the latest reputation roster and registers its snapshot handler. The quest board reads tiers from here
-    // to badge poster/claimer names; the server pushes it on handshake and after quest activity, so no polling
+    // The latest reputation roster. Pushed on handshake and after quest activity, so nothing here polls.
     public static class ReputationCache
     {
         private static Dictionary<string, ReputationEntryDto> _byUser
@@ -17,6 +16,9 @@ namespace KMHPatch.Features.Reputation
 
         public static bool HasSnapshot { get; private set; }
 
+        // Bumped on every snapshot, so views can cache a sorted copy instead of rebuilding one per frame.
+        public static int Version { get; private set; }
+
         public static void Register()
         {
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.ReputationSnapshot, OnSnapshot);
@@ -24,7 +26,7 @@ namespace KMHPatch.Features.Reputation
 
         public static bool RequestSnapshot() => KmhDispatcher.Send(KmhProtocol.Kind.ReputationRequest, null);
 
-        public static void Clear() { _byUser = new Dictionary<string, ReputationEntryDto>(StringComparer.OrdinalIgnoreCase); HasSnapshot = false; }
+        public static void Clear() { _byUser = new Dictionary<string, ReputationEntryDto>(StringComparer.OrdinalIgnoreCase); HasSnapshot = false; Version++; }
 
         // Full roster sorted by score desc - drives the reputation board.
         public static List<ReputationEntryDto> Leaderboard()
@@ -41,8 +43,7 @@ namespace KMHPatch.Features.Reputation
             return _byUser.TryGetValue(username, out ReputationEntryDto e) ? e.Tier : "";
         }
 
-        // Coloured trust badge to append after a username. Only the trusted and the unreliable are called out;
-        // neutral / unknown players get nothing, so boards stay uncluttered.
+        // Only the trusted and the unreliable are called out; neutral players get nothing, so boards stay uncluttered.
         public static string Badge(string username)
         {
             switch (TierFor(username))
@@ -68,6 +69,7 @@ namespace KMHPatch.Features.Reputation
                 if (!string.IsNullOrEmpty(e?.Username)) next[e.Username] = e;
             _byUser = next;
             HasSnapshot = true;
+            Version++;
             KmhCacheEvents.Raise(Updated, "Reputation");
         }
     }

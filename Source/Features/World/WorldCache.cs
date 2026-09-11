@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using KMHPatch.Features.World.Dto;
 
 namespace KMHPatch.Features.World
@@ -12,12 +13,7 @@ namespace KMHPatch.Features.World
         public static bool HasSnapshot => Snapshot != null;
         public static bool HasEvents => ActiveEvents().Count > 0;
 
-        // Requires a future end time, matching what GameComponent_KMHWorldWeather has always demanded before applying a
-        // condition - the two must agree or the UI advertises weather the engine refuses to apply.
-        //
-        // EndsUtcTicks == 0 is NOT "runs forever": the server writes 0 for an instantaneous event (house stipend) and
-        // for a force-expired one ("kmh event end"), and its own sweep skips 0, so those linger in the snapshot for the
-        // life of the server. Showing them pins dead events on screen permanently.
+        // EndsUtcTicks == 0 means instantaneous or force-expired, not "runs forever" - disagree with the weather component and the UI advertises weather the engine refuses.
         public static System.Collections.Generic.List<WorldEventDto> ActiveEvents()
         {
             var list = new System.Collections.Generic.List<WorldEventDto>();
@@ -50,8 +46,17 @@ namespace KMHPatch.Features.World
 
         internal static void Apply(WorldSnapshot snapshot)
         {
+            // Two transports can deliver out of order; drop stale before the diff or it raises fired/ended backwards.
+            if (snapshot == null) return;
+            if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
+
+            // Seed silently on the session's first snapshot (a reconnect clears it too): no "fired" for events already running when the player joined.
+            List<WorldEventDto> oldActive = Snapshot == null ? null : ActiveEvents();
+
             Snapshot       = Sanitize(snapshot);
             LastUpdatedUtc = DateTime.UtcNow;
+
+            if (oldActive != null) RaiseWorldEventDiffs(oldActive, ActiveEvents());
             if (Diagnostics.KmhLog.DebugEnabled)
             {
                 int active = ActiveEvents().Count;   // active, not Events.Count: the raw list can still hold expired ones
@@ -60,10 +65,24 @@ namespace KMHPatch.Features.World
             KmhCacheEvents.Raise(Updated, "World");
         }
 
-        // Harden server-supplied world data before it can ever reach a rich-text Label. This is the root fix for the
-        // blank-tab regression: null lists/entries are dropped, numbers clamped non-negative, and display strings have
-        // their angle brackets neutralized + length capped so malformed/unbalanced markup (e.g. from an event title)
-        // can't throw mid-draw and blank the KMH tab.
+        // Compare the active-event set across a snapshot swap and raise fired/ended to extensions. Keyed by event Id.
+        private static void RaiseWorldEventDiffs(List<WorldEventDto> oldActive, List<WorldEventDto> newActive)
+        {
+            var oldIds = new HashSet<long>(); foreach (WorldEventDto e in oldActive) oldIds.Add(e.Id);
+            var newIds = new HashSet<long>(); foreach (WorldEventDto e in newActive) newIds.Add(e.Id);
+
+            foreach (WorldEventDto e in newActive)
+                if (!oldIds.Contains(e.Id))
+                    Extensibility.KmhClientEventBus.Instance.RaiseWorldEventFired(new KMH.Sdk.Client.Events.KmhWorldEventFiredEvent
+                        { Id = e.Id, Type = e.Type ?? "", Title = e.Title ?? "", Magnitude = e.Magnitude, EndsUtcTicks = e.EndsUtcTicks });
+
+            foreach (WorldEventDto e in oldActive)
+                if (!newIds.Contains(e.Id))
+                    Extensibility.KmhClientEventBus.Instance.RaiseWorldEventEnded(new KMH.Sdk.Client.Events.KmhWorldEventEndedEvent
+                        { Id = e.Id, Type = e.Type ?? "", Title = e.Title ?? "" });
+        }
+
+        // Harden server text before it reaches a rich-text Label: unbalanced markup throws mid-draw and blanks the KMH tab.
         private static WorldSnapshot Sanitize(WorldSnapshot s)
         {
             if (s == null) return null;

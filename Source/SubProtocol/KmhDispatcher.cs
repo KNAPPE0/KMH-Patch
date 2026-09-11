@@ -1,13 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 
 namespace KMHPatch.SubProtocol
 {
-    // Central router for KMH sub-protocol messages. Inbound: Patch_PM_Chat_KmhIntercept calls Receive() with the
-    // envelope; we dispatch by Kind. Outbound: Send(kind, data) serializes an envelope into a PKT_Chat tagged so the
-    // server router recognizes it. IsKmhServer flips true after the server's kmh.hello - until then we send nothing,
-    // or a patched client on a stock RWT server would broadcast KMH JSON as visible chat.
+    // Nothing sends before the server's kmh.hello, or a patched client on a stock RWT server broadcasts KMH JSON as visible chat.
     public static class KmhDispatcher
     {
         private static readonly Dictionary<string, Action<KmhEnvelope>> Handlers
@@ -16,25 +13,20 @@ namespace KMHPatch.SubProtocol
         public static bool IsKmhServer { get; internal set; } = false;
         public static int  ServerProtocolVersion { get; internal set; } = 0;
 
-        // Server's human-readable release (from kmh.hello). Empty = pre-1.1.0 server that doesn't advertise a build.
+        // Empty on a pre-1.1.0 server, which does not advertise a build.
         public static string ServerBuild { get; internal set; } = "";
 
-        // Server's friendly name (from kmh.hello), so a player can tell which of several servers they're on. Empty =
-        // pre-1.2.0 server that doesn't advertise one.
+        // Empty on a pre-1.2.0 server, which does not advertise a name.
         public static string ServerName { get; internal set; } = "";
 
-        // True once we've confirmed the server is at least this client's build, i.e. it speaks the v1.1.0 feature
-        // set (auctions / want board / world events). A pre-1.1.0 server leaves ServerBuild empty.
         public static bool ServerSupportsCurrentBuild
             => !string.IsNullOrEmpty(ServerBuild) && ServerBuild == KmhProtocol.BuildVersion;
 
-        // Cheapest possible "is the protocol alive?" signal. Updated by every successful Receive - feature UI /
-        // diagnostics surfaces can read it without subscribing to anything. Cleared by ResetSession on disconnect
         public static string   LastReceivedKind { get; private set; }
         public static DateTime LastReceivedAt   { get; private set; } = DateTime.MinValue;
         public static int      ReceivedCount    { get; private set; }
 
-        // Unknown inbound kinds already logged this session (log once, not once per packet).
+        // Unknown inbound kinds already logged - once each, not once per packet.
         private static readonly System.Collections.Generic.HashSet<string> _unknownKindsLogged
             = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
 
@@ -45,34 +37,38 @@ namespace KMHPatch.SubProtocol
                 KmhLog.Warn("RegisterHandler called with null/empty kind");
                 return;
             }
-            // Surface accidental clobbers - core handlers register once each at bootstrap, so a duplicate signals a
-            // bug or an extension reaching past the SDK guard
+            // Core handlers register once each at bootstrap, so a duplicate means a bug or an extension past the SDK guard.
             if (Handlers.ContainsKey(kind))
                 KmhLog.Warn($"Handler for kind '{kind}' is being overwritten - previous registration replaced");
             Handlers[kind] = handler;
         }
 
-        // True if a handler is already registered for this kind. Used by the SDK host to refuse extension
-        // registrations that would collide with a core kmh.* handler or with an earlier extension's kind
+        // The SDK host refuses an extension registration that would collide with a core kind or an earlier extension's.
         public static bool IsRegistered(string kind)
             => !string.IsNullOrEmpty(kind) && Handlers.ContainsKey(kind);
 
-        // Called from the chat-intercept Harmony patch when an inbound message is identified as KMH protocol. Never
-        // throws - handler errors are swallowed and logged so a bad message can't crash the chat pipeline
+        // Never throws: a handler error is logged and swallowed so a bad message cannot crash the chat pipeline.
         internal static void Receive(KmhEnvelope env)
         {
             if (env == null || string.IsNullOrEmpty(env.Kind)) return;
 
-            // Update diagnostics counters BEFORE dispatching - a handler exception shouldn't lose the fact that we
-            // received the envelope
+            // Reassembled here, so no feature handler has to know its envelope was split.
+            if (KmhFragments.IsFragment(env.Kind))
+            {
+                KmhEnvelope whole = KmhFragments.Accept(env);
+                if (whole == null) return;
+                Receive(whole);
+                return;
+            }
+
+            // Before dispatching, so a handler exception cannot lose the fact that the envelope arrived.
             LastReceivedKind = env.Kind;
             LastReceivedAt   = DateTime.UtcNow;
             ReceivedCount   += 1;
 
             if (!Handlers.TryGetValue(env.Kind, out Action<KmhEnvelope> handler))
             {
-                // Unknown kind - likely a feature the server is using that the patch hasn't ported yet. Not an
-                // error; log once per kind so a chatty unknown packet can't flood the log
+                // Not an error, usually a feature this patch has not ported yet, so log once per kind.
                 if (_unknownKindsLogged.Add(env.Kind))
                     KmhLog.Info($"No handler for kind '{env.Kind}' (server v{env.Version}) - further packets of this kind are ignored silently");
                 return;
@@ -88,9 +84,27 @@ namespace KMHPatch.SubProtocol
             }
         }
 
-        // Send a typed message to the server. Silently drops if we haven't yet verified the server speaks KMH - see
-        // IsKmhServer comment above
-        public static bool Send(string kind, object data)
+        // The server rejects a chat envelope past this, so the client has to split at the same ceiling.
+        internal const int MaxChatEnvelopeBytes = 64 * 1024;
+
+        // The handshake always rides chat - it is how the API is discovered; the rest is feature traffic an owner may forbid there.
+        internal static bool IsTransportControlKind(string kind)
+            => kind == KmhProtocol.Kind.Hello || kind == KmhProtocol.Kind.HelloAck
+            || kind == KmhProtocol.Kind.Ping  || kind == KmhProtocol.Kind.Pong;
+
+        internal static bool ChatMayCarry(string kind)
+            => IsTransportControlKind(kind) || KmhApiClient.ChatFallbackAllowed;
+
+        // Only NotConnected proves nothing was written; an ambiguous write is repeatable only under an op id the server dedups.
+        internal static bool MayRetryOnChat(KmhSendResult r) => r == KmhSendResult.NotConnected;
+
+        internal static bool MayRetryOnChat(KmhSendResult r, bool idempotent)
+            => MayRetryOnChat(r) || (idempotent && r == KmhSendResult.AmbiguousIoFailure);
+
+        public static bool Send(string kind, object data) => Send(kind, data, null);
+
+        // opId names the logical action: pass the same one when re-sending the same action, never a fresh one.
+        public static bool Send(string kind, object data, string opId)
         {
             if (!IsKmhServer)
             {
@@ -98,10 +112,24 @@ namespace KMHPatch.SubProtocol
                 return false;
             }
 
-            KmhEnvelope env = new KmhEnvelope(kind, data);
+            KmhEnvelope env = new KmhEnvelope(kind, data, opId: opId);
 
-            // prefer the API transport when connected; else chat
-            if (KmhApiClient.TrySend(env)) return true;
+            // The API transport when it is up, chat otherwise.
+            KmhSendResult api = KmhApiClient.Send(env);
+            if (api == KmhSendResult.Sent) return true;
+
+            // Without an op id, a chat retry turns one unlucky socket error into a second withdrawal, bid or purchase.
+            if (!MayRetryOnChat(api, !string.IsNullOrEmpty(opId)))
+            {
+                KmhLog.Warn($"Send '{kind}' could not be completed ({api}) - not retried over chat, because the server may already have it. Try again if nothing happens.");
+                return false;
+            }
+
+            if (!ChatMayCarry(kind))
+            {
+                KmhLog.Warn($"Send '{kind}' dropped - the KMH API link is down and this server does not allow KMH features over RWT chat.");
+                return false;
+            }
 
             if (Network.ServerEndpoint == null)
             {
@@ -109,20 +137,24 @@ namespace KMHPatch.SubProtocol
                 return false;
             }
 
-            PKT_Chat pkt = new PKT_Chat
-            {
-                Username  = KmhProtocol.ClientUsername,
-                Message   = env.Serialize(),
-                IsCommand = false,
-            };
-
-            // Send straight via the TCP layer; do NOT route through PM_Chat.SendMessage (it plays a UI sound and
-            // sets IsCommand based on '/' prefix - neither is correct for protocol traffic). Guard the enqueue so a
-            // connection dropped mid-send surfaces as a failed Send, not an exception bubbling up through whatever
-            // UI button triggered it
+            string wire = env.Serialize();
+            // Never through PM_Chat.SendMessage: it plays a UI sound and sets IsCommand from a '/' prefix.
             try
             {
-                Network.ServerEndpoint.EnqueuePacket(RwtCompat.ChatHeader, pkt);
+                // Same fragmentation the API path uses, so a large request is not limited to whichever transport is up.
+                if (wire.Length > MaxChatEnvelopeBytes)
+                {
+                    List<KmhEnvelope> parts = KmhFragments.Split(kind, wire, MaxChatEnvelopeBytes);
+                    if (parts == null) return false;
+                    foreach (KmhEnvelope part in parts)
+                        Network.ServerEndpoint.EnqueuePacket(RwtCompat.ChatHeader, new PKT_Chat
+                        { Username = KmhProtocol.ClientUsername, Message = part.Serialize(), IsCommand = false });
+                    KmhLog.Protocol($"Send '{kind}' went over chat as {parts.Count} fragment(s), {wire.Length} logical bytes.");
+                    return true;
+                }
+
+                Network.ServerEndpoint.EnqueuePacket(RwtCompat.ChatHeader, new PKT_Chat
+                { Username = KmhProtocol.ClientUsername, Message = wire, IsCommand = false });
                 return true;
             }
             catch (Exception ex)
@@ -132,24 +164,30 @@ namespace KMHPatch.SubProtocol
             }
         }
 
-        // Reset on disconnect so a fresh connection re-runs the handshake. Called from
-        // Patch_DisconnectionManager_KmhDisconnect (on RWT disconnects of any cause) and from
-        // Patch_PM_GlobalData_KmhConnected (at the start of every new session, to clear any leftover state)
+        // Bumped on every session end: a window or in-flight request from an older generation must not act on the next connection.
+        internal static int SessionGeneration { get; private set; }
+
         internal static void ResetSession()
         {
+            SessionGeneration++;
             if (IsKmhServer || ServerProtocolVersion > 0)
             {
                 KmhLog.Info($"Resetting KMH session state (was IsKmhServer={IsKmhServer}, v={ServerProtocolVersion})");
             }
             IsKmhServer = false;
             UI.KmhDashboardState.ResetForNewConnection();   // new connection: capabilities are unknown until the next hello
+            KmhCapabilities.Reset();                        // re-inferred from the next server's manifest (or its absence)
             ServerProtocolVersion = 0;
             ServerBuild = "";
             ServerName = "";
             KmhApiClient.Disconnect();   // drop the KMH API link too, if it was up
             KmhTransport.Status = KmhTransportStatus.Offline;
+            KmhTransport.DegradedReason = null;   // scoped to one server, like everything else reset here
+            KmhOpId.Clear();             // held ids mean nothing to the next server, and must not gate its first clicks
+            // Connect as well as disconnect, or a reconnect keeps the previous server's consent and its queued lines.
+            Diagnostics.KmhDebugUplink.ResetForNewServer();
+            Features.Delivery.GameComponent_KMHDeliveryReceipts.Instance?.ForgetAcksForNewSession();
 
-            // Clear diagnostics so a fresh session doesn't show stale state.
             LastReceivedKind = null;
             LastReceivedAt   = DateTime.MinValue;
             ReceivedCount    = 0;

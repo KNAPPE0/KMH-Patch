@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using HarmonyLib;
 using KMHPatch.Diagnostics;
@@ -8,12 +8,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Redirect RWT's stock DLG_Leaderboard to the KMH Server Standings hub on a KMH server. Gated on IsKmhServer so
-    // stock servers keep the stock dialog.
-    //
-    // Manually patched (NOT an attribute patch) so a removed/renamed DLG_Leaderboard or FL_Leaderboard in newer RWT
-    // builds can't trip ReflectionTypeLoadException during type scanning - we resolve the type by name and skip if
-    // absent. (RWT's "ram improvements" rework touched the leaderboard packet path, so this type is a real risk.)
+    // Patched manually, not by attribute: a removed or renamed leaderboard then skips cleanly instead of throwing during scanning.
     internal static class Patch_DLG_Leaderboard_KmhRedirect
     {
         public static void TryApply(Harmony harmony)
@@ -28,8 +23,7 @@ namespace KMHPatch.Patches
                     return;
                 }
 
-                // The "open with leaderboard data" constructor - the single-argument ctor - without naming RWT's data
-                // type (it may have been renamed by the leaderboard rework).
+                // Matched by arity, not by RWT's data type name, which the leaderboard rework may have changed.
                 ConstructorInfo target = null;
                 foreach (ConstructorInfo c in t.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
                     if (c.GetParameters().Length == 1) { target = c; break; }

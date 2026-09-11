@@ -64,8 +64,8 @@ namespace KMHPatch.Features.Enforcement
         {
             KmhLog.Info("Enforcement: player declined config enforcement - disconnecting.");
             Clear();
-            try { DisconnectionManager.DisconnectToMenu(); }
-            catch (Exception ex) { KmhLog.Warn($"Enforcement: disconnect failed: {ex.Message}"); }
+            if (!RwtCompat.DisconnectToMainMenu())
+                KmhLog.Warn("Enforcement: RWT offered no way back to the menu - the player is still connected.");
         }
 
         private static void ShowConsentDialog()

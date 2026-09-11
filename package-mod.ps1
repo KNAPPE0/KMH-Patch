@@ -82,6 +82,15 @@ function Assert-AssemblyVersions {
         }
     }
     Write-Host "[mod] Version check OK - all KMH assemblies are v$Expected."
+
+    # The tag the game shows so a player can tell a stale DLL from a fresh one. It is edited by hand, so print it
+    # here: a tag left on the previous build is invisible until someone reports the fix "not showing".
+    $protoPath = Join-Path $PSScriptRoot 'Source\SubProtocol\KmhProtocol.cs'
+    if (Test-Path -LiteralPath $protoPath) {
+        $tag = [regex]::Match([System.IO.File]::ReadAllText($protoPath), 'UiBuildTag\s*=\s*"([^"]*)"')
+        if ($tag.Success) { Write-Host "[mod] UI build tag: $($tag.Groups[1].Value) - the game shows this; bump it when you ship." -ForegroundColor Cyan }
+        else { Write-Host "[mod] warn: UiBuildTag not found - players cannot confirm which DLL is loaded." -ForegroundColor Yellow }
+    }
 }
 
 $project = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
@@ -171,9 +180,34 @@ Get-ChildItem $releases -File -ErrorAction SilentlyContinue |
     } |
     Remove-Item -Force
 
-# Mod zip. This zips the folder itself so it extracts as a normal RimWorld mod folder.
+# Mod zip. This zips the folder itself so it extracts as a normal RimWorld mod folder. Written entry-by-entry rather
+# than with Compress-Archive: PowerShell 5.1 writes '\' entry names, which are not valid ZIP paths and unpack as one
+# literal filename on Linux and macOS - the mod would not load there at all.
+Add-Type -AssemblyName System.IO.Compression             # ZipArchive / ZipArchiveMode
+Add-Type -AssemblyName System.IO.Compression.FileSystem  # ZipFile / ZipFileExtensions
 $modZip = Join-Path $releases "KMH-Patch-v$version.zip"
-Compress-Archive -Path $Stage -DestinationPath $modZip -Force
+if (Test-Path $modZip) { Remove-Item $modZip -Force }
+$stageParent = (Resolve-Path (Split-Path $Stage -Parent)).Path.TrimEnd('\') + '\'
+$modWriter = [System.IO.Compression.ZipFile]::Open($modZip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($item in Get-ChildItem $Stage -Recurse -File) {
+        $rel = $item.FullName.Substring($stageParent.Length).Replace('\', '/')
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($modWriter, $item.FullName, $rel)
+    }
+}
+finally { $modWriter.Dispose() }
+
+# RimWorld finds a mod by these paths, so verify the shipped archive rather than trusting the staged folder.
+$modCheck = [System.IO.Compression.ZipFile]::OpenRead($modZip)
+try {
+    foreach ($required in @("KMHPatch/About/About.xml", "KMHPatch/LoadFolders.xml", "KMHPatch/1.6/Assemblies/KMHPatch.dll")) {
+        if (-not ($modCheck.Entries | Where-Object { $_.FullName -eq $required })) {
+            throw "Mod zip is missing $required - the archive layout is wrong and RimWorld will not load the mod."
+        }
+    }
+    Write-Host "[mod] Zip layout OK - mod folder structure intact inside the archive."
+}
+finally { $modCheck.Dispose() }
 $modKb = [Math]::Round((Get-Item $modZip).Length / 1KB, 1)
 
 # Client SDK zip for extension authors.

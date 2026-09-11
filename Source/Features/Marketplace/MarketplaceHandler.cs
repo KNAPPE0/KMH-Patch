@@ -6,8 +6,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // Marketplace sub-protocol: request + mutation (post/buy/cancel) methods. Mutations send a minimal envelope; the
-    // server applies and broadcasts a fresh snapshot, so no per-call response handler is needed.
+    // The server answers a mutation with a fresh snapshot, so no per-call response handler is needed.
     internal static class MarketplaceHandler
     {
         public static void Register()
@@ -28,7 +27,8 @@ namespace KMHPatch.Features.Marketplace
                 return false;
             }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplaceBuy,
-                new { listing_id = listingId, qty = qty });
+                new { listing_id = listingId, qty = qty },
+                KmhOpId.For($"mkt.buy|{listingId}|{qty}"));
             if (sent) KmhNotifications.Positive($"Buying ×{qty} (request sent)");
             else      KmhNotifications.NotConnected();
             return sent;
@@ -47,8 +47,7 @@ namespace KMHPatch.Features.Marketplace
         public const string VisibilityPublic    = "public";
         public const string VisibilityGuildOnly = "guild_only";
 
-        // expiresInHours: 0 = never expires (server's default); > 0 = auto- cancel + refund after that many hours.
-        // Negative clamped to 0
+        // expiresInHours 0 never expires; above 0 auto-cancels and refunds after that many hours, and negatives clamp to 0.
         public static bool TryPost(string itemDefName, int qty, int unitPriceMilli,
                                    string visibility = VisibilityPublic,
                                    int    expiresInHours = 0)
@@ -80,7 +79,7 @@ namespace KMHPatch.Features.Marketplace
                 unit_price_silver = (int)System.Math.Round(unitPriceMilli / 1000.0),   // old-server fallback
                 visibility        = visibility ?? VisibilityPublic,
                 expires_hours     = expiresInHours < 0 ? 0 : expiresInHours,
-            });
+            }, KmhOpId.For($"mkt.post|{itemDefName}|{qty}|{unitPriceMilli}"));
             if (sent) KmhNotifications.Neutral($"Posting listing ×{qty}…");
             else      KmhNotifications.NotConnected();
             return sent;
@@ -101,7 +100,7 @@ namespace KMHPatch.Features.Marketplace
                 unit_price_silver = (int)System.Math.Round(unitPriceMilli / 1000.0),   // old-server fallback
                 visibility        = visibility ?? VisibilityPublic,
                 expires_hours     = expiresInHours < 0 ? 0 : expiresInHours,
-            });
+            }, KmhOpId.For($"mkt.post|{fingerprint}|{qty}|{unitPriceMilli}"));
             if (sent) KmhNotifications.Neutral($"Posting listing ×{qty} (full state)…");
             else      KmhNotifications.NotConnected();
             return sent;

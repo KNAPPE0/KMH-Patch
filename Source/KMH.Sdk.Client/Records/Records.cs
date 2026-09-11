@@ -2,9 +2,7 @@ using System.Collections.Generic;
 
 namespace KMH.Sdk.Client.Records
 {
-    // Immutable record types returned by client-side cache readers. These mirror the server-side SDK records but
-    // live in the patch assembly. Server <-> client cache shapes are kept aligned by hand - both come from the same
-    // wire DTOs
+    /// <summary>Records returned by client-side cache readers; shapes are kept aligned with the server SDK by hand.</summary>
 
     public sealed class TreasurySnapshotRecord
     {
@@ -39,7 +37,10 @@ namespace KMH.Sdk.Client.Records
         public string ItemDefName       { get; init; } = "";
         public int    RemainingQty      { get; init; }
         public int    OriginalQty       { get; init; }
+        /// <summary>Rounded to whole silver - a listing under 0.5 reads as 0. Use <see cref="UnitPrice"/> for the exact price.</summary>
         public int    UnitPriceSilver   { get; init; }
+        /// <summary>Exact unit price in silver.</summary>
+        public decimal UnitPrice        { get; init; }
         public long   ListedUtcTicks    { get; init; }
         public long   ExpiresUtcTicks   { get; init; }
         public string Visibility        { get; init; } = "public";
@@ -97,7 +98,11 @@ namespace KMH.Sdk.Client.Records
         public int    MarketplaceSales   { get; init; }
         public int    QuestsCompleted    { get; init; }
         public int    QuestsPosted       { get; init; }
+        // SitesBuilt and FrontierCaptures are cumulative history; SitesOwned and OutpostsHeld are current ownership.
         public int    SitesBuilt         { get; init; }
+        public int    SitesOwned         { get; init; }
+        public int    OutpostsHeld       { get; init; }
+        public int    FrontierCaptures   { get; init; }
         public long   WorkerXp           { get; init; }
         public long   EconomyScore       { get; init; }
     }
