@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- One build per RWT generation (dotnet build -p:RwtFlavor=Old|New|RT). The assembly
        name is the loader's payload key:
@@ -13,9 +13,9 @@
     <RootNamespace>KMHPatch</RootNamespace>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>1.2.2</Version>
-    <AssemblyVersion>1.2.2</AssemblyVersion>
-    <FileVersion>1.2.2</FileVersion>
+    <Version>1.3.0</Version>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <FileVersion>1.3.0.0</FileVersion>
 
     <OutputPath>..\1.6\KMHLib</OutputPath>
     <IntermediateOutputPath>obj\$(RwtFlavor)\$(Configuration)\</IntermediateOutputPath>
@@ -83,6 +83,9 @@
       <Private>False</Private>
     </Reference>
     <!-- Framework zip + xml for config enforcement; RimWorld's runtime ships these. -->
+    <!-- Chat video playback. Shipped with RimWorld and present in the Krafs ref package, so this adds no
+         dependency an install would not already have. -->
+    <Reference Include="UnityEngine.VideoModule"><Private>False</Private></Reference>
     <Reference Include="System.IO.Compression"><Private>False</Private></Reference>
     <Reference Include="System.IO.Compression.FileSystem"><Private>False</Private></Reference>
     <Reference Include="System.Xml.Linq"><Private>False</Private></Reference>

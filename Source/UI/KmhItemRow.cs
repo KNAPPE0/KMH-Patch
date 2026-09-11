@@ -4,14 +4,11 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Draws one item row the same way in every list: icon + label + optional count, greyed with a reason tooltip when
-    // the shared safety layer blocks the def. Dialogs call this instead of hand-rolling icon/label/greyout logic.
     internal static class KmhItemRow
     {
         public const float IconSize = 22f;
 
-        // Draws the icon+label into `row`, leaving `rightReserve` px on the right for the caller's button/count.
-        // Returns the item's decision so the caller can enable/disable its action button consistently.
+        // Returns the decision so the caller's action button greys out for the same reason the row does.
         public static KmhItemDecision Draw(Rect row, string defName, int count, float rightReserve)
         {
             KmhItemDecision d = KmhItemDisplayService.DecisionFor(defName);
@@ -31,8 +28,7 @@ namespace KMHPatch.UI
             return d;
         }
 
-        // One full-state (payload) stack row: icon + rich label + state + count. No safety greyout - these are
-        // already-owned vault stacks, and the server re-verifies every withdraw anyway.
+        // No safety greyout: these are already-owned vault stacks and the server re-verifies every withdraw.
         public static void DrawPayload(Rect row, KmhThingPayload p, float rightReserve)
         {
             KmhIconResolver.Draw(new Rect(row.x + 6f, row.y + 4f, IconSize, IconSize), p.DefName);
@@ -43,7 +39,6 @@ namespace KMHPatch.UI
         public static string PayloadLabel(KmhThingPayload p)
             => string.IsNullOrEmpty(p?.DisplayLabel) ? ItemLabels.ResolveLabel(p?.DefName ?? "") : p.DisplayLabel;
 
-        // Short "(plasteel, q5, 40/60hp, tainted, legacy)" state suffix for a full-state payload stack.
         public static string PayloadSuffix(KmhThingPayload p)
         {
             var bits = new System.Collections.Generic.List<string>();

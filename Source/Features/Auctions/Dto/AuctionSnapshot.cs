@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Auctions.Dto
@@ -6,6 +6,8 @@ namespace KMHPatch.Features.Auctions.Dto
     // Byte-identical to the addon's KMHServerAddon.Features.Auctions.Dto.
     public class AuctionSnapshot
     {
+        // Server-stamped under its read lock; older revisions are dropped because transports reorder.
+        [JsonProperty("revision")] public long Revision { get; set; } = 0;
         [JsonProperty("auctions")] public List<AuctionDto> Auctions { get; set; } = new List<AuctionDto>();
     }
 
@@ -28,8 +30,7 @@ namespace KMHPatch.Features.Auctions.Dto
         [JsonProperty("ends_utc_ticks")]      public long   EndsUtcTicks      { get; set; } = 0;
         [JsonProperty("visibility")]          public string Visibility        { get; set; } = "public";
 
-        // Full-state auction: fingerprint + display note (deep blob stays server-side).
-        // EscrowPayloads is server-only (stripped before send); mirrored here for wire-contract parity, never populated.
+        // Server-only and stripped before send; mirrored here for wire-contract parity and never populated.
         [JsonProperty("escrow_payloads")]     public List<KMHPatch.Items.KmhThingPayload> EscrowPayloads { get; set; }
         [JsonProperty("state_fingerprint")]   public string StateFingerprint  { get; set; } = "";
         [JsonProperty("state_note")]          public string StateNote         { get; set; } = "";

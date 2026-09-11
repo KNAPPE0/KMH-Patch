@@ -1,7 +1,6 @@
 namespace KMHPatch.Items
 {
-    // Stable, machine-readable reason an item was allowed or blocked by the shared safety layer. The human string is
-    // for tooltips; this code is what call sites branch on (and what a server hook / log can compare against).
+    // Call sites branch on this code, never on the human string, which is free to be reworded.
     internal enum KmhItemReasonCode
     {
         Ok = 0,

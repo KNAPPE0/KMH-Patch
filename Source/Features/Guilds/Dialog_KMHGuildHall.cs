@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Guilds.Dto;
 using KMHPatch.Features.LinkedAccounts;
@@ -13,7 +13,7 @@ namespace KMHPatch.Features.Guilds
     // Guild Hall dialog for members, perks, MOTD, settings, and diplomacy; guild rankings live in Server Standings.
     public class Dialog_KMHGuildHall : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(1000f, 680f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(1000f, 680f);
 
         // Owner has every Admin power; treat both as "admin" for UI gating.
         private static bool IsAdminRank(string rank)
@@ -65,7 +65,7 @@ namespace KMHPatch.Features.Guilds
             string headerName = GuildCache.Guild?.Name ?? "(no guild)";
             float y = DialogLayout.DrawTitle(rect, $"Guild Hall - {headerName}");
 
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
 
             if (!GuildCache.HasSnapshot)
             {
@@ -83,7 +83,7 @@ namespace KMHPatch.Features.Guilds
                     "<color=grey>You're not currently in a guild.</color>");
                 DialogLayout.LabelTrunc(new Rect(0f, y + 30f, rect.width, 22f),
                     "<color=grey>Create your own guild, accept an invite below, or join an open guild by name.</color>");
-                if (Widgets.ButtonText(new Rect(0f, y + 58f, 160f, 30f), "Create a guild…"))
+                if (Widgets.ButtonText(new Rect(0f, y + 58f, 160f, 30f), "Create a guild"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHTextInput(
                         title:        "Create a guild",
@@ -93,13 +93,12 @@ namespace KMHPatch.Features.Guilds
                         rejectEmpty:  true,
                         onConfirm:    n => GuildHandler.CreateGuild(n)));
                 }
-                if (Widgets.ButtonText(new Rect(168f, y + 58f, 160f, 30f), "Join a guild…"))
+                if (Widgets.ButtonText(new Rect(168f, y + 58f, 160f, 30f), "Join a guild"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHGuildPicker());
                 }
                 y += 96f;
 
-                // Standing invites for this player - accept joins immediately, decline removes the invite.
                 List<GuildInviteDto> invites = GuildCache.Envelope?.MyInvites;
                 DialogLayout.DrawSectionDivider(rect, ref y);
                 DialogLayout.LabelTrunc(new Rect(0f, y + 4f, rect.width, 24f), "<b>Guild invites for you</b>");
@@ -132,7 +131,6 @@ namespace KMHPatch.Features.Guilds
             GuildSnapshot g = GuildCache.Guild;
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            // MOTD banner - admins get a small Edit affordance on the right.
             string motd = string.IsNullOrWhiteSpace(g.Motd)
                 ? "<color=grey>(no message of the day)</color>"
                 : g.Motd;
@@ -141,7 +139,7 @@ namespace KMHPatch.Features.Guilds
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width - motdEditW - 4f, 22f), $"<b>MOTD:</b> {motd}");
             if (isAdmin)
             {
-                if (Widgets.ButtonText(new Rect(rect.width - motdEditW, y - 2f, motdEditW - 4f, 26f), "Edit MOTD…"))
+                if (Widgets.ButtonText(new Rect(rect.width - motdEditW, y - 2f, motdEditW - 4f, 26f), "Edit MOTD"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHTextInput(
                         title:        "Edit guild MOTD",
@@ -154,7 +152,6 @@ namespace KMHPatch.Features.Guilds
             }
             y += 26f;
 
-            // Diplomacy summary + admin action button on the right.
             string diplomacy = FormatDiplomacy(g.Relationships);
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
@@ -170,8 +167,7 @@ namespace KMHPatch.Features.Guilds
             }
             y += 24f;
 
-            // Guild Hall row: shows the hall status; the admin can set it at the current colony/caravan or clear it.
-            // Only relevant when a server enables Guild Hall rules, but the status is always informative.
+            // Shown even when the server enables no Guild Hall rules, since the status is still informative.
             {
                 bool hasHall = g.Hall != null && g.Hall.HasHall;
                 string hallText = hasHall
@@ -190,7 +186,7 @@ namespace KMHPatch.Features.Guilds
                     if (Widgets.ButtonText(new Rect(rect.width - hallBtnW, y - 2f, hallBtnW - 4f, 26f), hasHall ? "Move / Remove Hall ▾" : "Set Hall ▾"))
                         Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                         {
-                            new FloatMenuOption("Set via map (pick a world tile)…", BeginHallViaMap),
+                            new FloatMenuOption("Set via map (pick a world tile)", BeginHallViaMap),
                             new FloatMenuOption("Set at my current colony/caravan tile", () => GuildHandler.TrySetHall()),
                             new FloatMenuOption("Remove Guild Hall", () => { if (hasHall) GuildHandler.TryRemoveHall(); }),
                         }));
@@ -198,48 +194,47 @@ namespace KMHPatch.Features.Guilds
                 y += 26f;
             }
 
-            // Action row: invite (admin/mod), open-join toggle (admin), refresh. Server enforces rank; we hide
-            // affordances that would clearly no-op to keep the row clean
+            // The server enforces rank; hiding a no-op affordance only keeps the row clean.
             string myRankNow = MyRank(g);
             bool canInvite = IsAdminRank(myRankNow)
                           || string.Equals(myRankNow, GuildMemberDto.RankModerator, StringComparison.OrdinalIgnoreCase);
-            // Row 1 - guild management (invite + join-mode), Refresh anchored right. Each control advances the cursor so
-            // nothing overlaps; personal actions move to a second row below so buttons never clip at common UI scales.
             const float bh = 28f;
             float ax = 0f;
             if (canInvite)
             {
-                if (Widgets.ButtonText(new Rect(ax, y, 130f, bh), "Invite player…"))
+                if (Widgets.ButtonText(new Rect(ax, y, 130f, bh), "Invite player"))
                     Find.WindowStack.Add(new Dialog_KMHPlayerPicker(n => GuildHandler.TryInvite(n)));
                 ax += 138f;
             }
             if (isAdmin)
             {
-                // Explicit action button (NOT a checkbox): one deliberate click = one request, with a client debounce so
-                // repeated clicks while the snapshot is in flight can't flip-flop the server state.
+                // A button, not a checkbox: one deliberate click is one request, debounced while a snapshot is in flight.
                 string joinLabel = g.OpenJoin ? "Set Invite-only" : "Set Open to join";
                 if (Widgets.ButtonText(new Rect(ax, y, 150f, bh), joinLabel) && DebounceOk(ref _lastJoinToggleUtc))
                     GuildHandler.TrySetOpenJoin(!g.OpenJoin);
                 ax += 158f;
             }
-            DialogLayout.LabelTrunc(new Rect(ax, y + 5f, rect.width - ax - 110f, 20f),
+            // Right-anchored against a left cursor, so it reserves its own space or a narrow window overdraws the button.
+            float refreshW = Mathf.Clamp(rect.width - ax - 8f, 0f, 96f);
+            bool  showRefresh = refreshW >= 60f;
+            float statusW = Mathf.Max(0f, rect.width - ax - (showRefresh ? refreshW + 12f : 0f));
+
+            DialogLayout.LabelTrunc(new Rect(ax, y + 5f, statusW, 20f),
                 g.OpenJoin ? "<color=#7CD37C>Anyone can join</color>" : "<color=grey>Invite-only</color>");
-            if (Widgets.ButtonText(new Rect(rect.width - 100f, y, 96f, bh), "Refresh"))
+            if (showRefresh && Widgets.ButtonText(new Rect(rect.width - refreshW - 4f, y, refreshW, bh), "Refresh"))
             {
                 GuildHandler.RequestSnapshot();
-                MarkRefreshed();
             }
             y += 34f;
 
-            // Row 2 - personal member actions (server enforces rank caps / owner-leave rule).
             float bx = 0f;
             if (g.GuildTreasuryEnabled)
             {
-                if (Widgets.ButtonText(new Rect(bx, y, 120f, bh), "Donate silver…"))
+                if (Widgets.ButtonText(new Rect(bx, y, 120f, bh), "Donate silver"))
                     Find.WindowStack.Add(new Dialog_KMHAmountInput("Donate to guild vault", "Donate", "silver (from your personal Treasury)", 0,
                         qty => GuildHandler.TryDonate(qty)));
                 bx += 128f;
-                if (Widgets.ButtonText(new Rect(bx, y, 130f, bh), "Withdraw silver…"))
+                if (Widgets.ButtonText(new Rect(bx, y, 130f, bh), "Withdraw silver"))
                     Find.WindowStack.Add(new Dialog_KMHAmountInput("Withdraw from guild vault", "Withdraw", "silver (to your personal Treasury; daily cap by rank)", g.GuildSilver > int.MaxValue ? int.MaxValue : (int)g.GuildSilver,
                         qty => GuildHandler.TryWithdrawFromGuild(qty)));
                 bx += 138f;
@@ -250,12 +245,11 @@ namespace KMHPatch.Features.Guilds
                     () => GuildHandler.TryLeave()));
             y += 34f;
 
-            // Guild vault (silver-only) + this member's lifetime contribution - shown by donate/perks so it reads clearly.
             long myDonated = 0;
             GuildMemberDto meMem = g.Members?.Find(x => KmhSession.IsMe(x.Username));
             if (meMem != null) myDonated = meMem.SilverContributed;
             string vaultText = g.GuildTreasuryEnabled
-                ? $"<b>Guild vault:</b> <color=#E2C16B>{g.GuildSilver:N0} silver</color> <color=grey>(silver-only)</color>    <b>Your donated:</b> {myDonated:N0}"
+                ? $"<b>Guild vault:</b> <color={UI.KmhTheme.Hex(UI.KmhTheme.Accent)}>{g.GuildSilver:N0} silver</color> <color=grey>(silver-only)</color>    <b>Your donated:</b> {myDonated:N0}"
                 : "<b>Guild vault:</b> <color=grey>disabled by server</color>";
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f), vaultText);
             y += 24f;
@@ -276,9 +270,8 @@ namespace KMHPatch.Features.Guilds
                 y += 22f;
             }
 
-            // Two-column main body: Members (left, wider) | Perks (right, narrower).
-            float bottomReserve = 120f + DialogLayout.FooterReserve; // settings overview at the bottom
-            float paneH  = rect.height - y - bottomReserve;
+            // The extra 120f is the settings overview, which sits below both columns.
+            float paneH  = DialogLayout.BodyHeight(rect, y + 120f);
             float leftW  = rect.width * 0.58f - 4f;
             float rightX = leftW + 8f;
             float rightW = rect.width - rightX;
@@ -293,15 +286,13 @@ namespace KMHPatch.Features.Guilds
             Widgets.DrawMenuSection(perksBox);
             DrawPerksList(perksBox, g.Perks, g.GuildSilver);
 
-            // Settings overview band at the bottom.
             float settingsY = y + paneH + 6f;
             DrawSettingsOverview(new Rect(0f, settingsY, rect.width, 110f), g.Settings);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
 
-        // Caller's own rank within this guild - derived from snapshot so we can gate per-row mutation buttons.
-        // Returns null if caller isn't in the member list (shouldn't happen for valid snapshots)
+        // Null when the caller is not in the member list, which a valid snapshot should never produce.
         private static string MyRank(GuildSnapshot g)
         {
             string mine = KmhSession.Me;
@@ -321,7 +312,7 @@ namespace KMHPatch.Features.Guilds
             string myRank = MyRank(g);
             string mine   = KmhSession.Me;
 
-            // Sort: admins first, then moderators, officers, members. Within each rank, by silver contributed desc
+            // Cached against the snapshot's own list so a large roster is not re-sorted every frame.
             if (_orderedMembers == null || !ReferenceEquals(_orderedMembersSource, g.Members))
             {
                 List<GuildMemberDto> source = g.Members ?? new List<GuildMemberDto>();
@@ -350,8 +341,6 @@ namespace KMHPatch.Features.Guilds
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
                 Widgets.DrawHighlightIfMouseover(row);
 
-                // Rank chip + name on left, contributions middle, mutation buttons right (gated on caller's rank +
-                // target's rank)
                 const float actionW = 130f;
                 string rankChip = $"<color={RankColor(m.Rank)}>{FriendlyRank(m.Rank)}</color>";
                 DialogLayout.LabelTrunc(new Rect(6f, ly + 4f, 90f, rowH - 8f), rankChip);
@@ -377,7 +366,6 @@ namespace KMHPatch.Features.Guilds
             Widgets.EndScrollView();
         }
 
-        // "Set via map" workflow (mirrors how Sites pick a build tile): close the dialog, show the world, target a tile.
         private void BeginHallViaMap()
         {
             Close(false);
@@ -391,8 +379,7 @@ namespace KMHPatch.Features.Guilds
             return true;
         }
 
-        // Admin diplomacy menu: propose/declare by guild name, plus accept/break/clear actions for existing relationships.
-        // Other guilds selectable by NAME from the leaderboard snapshot - no manual typing. Relation state shown inline.
+        // Picked by name from the leaderboard snapshot, never typed, so a misspelling cannot reach the server.
         private static List<FloatMenuOption> OtherGuildOptions(GuildSnapshot g, string verb, Action<string> act)
         {
             List<FloatMenuOption> outp = new List<FloatMenuOption>();
@@ -416,9 +403,9 @@ namespace KMHPatch.Features.Guilds
             GuildHandler.RequestLeaderboard();   // refresh the guild list for next open; current cache serves this one
             List<FloatMenuOption> opts = new List<FloatMenuOption>();
 
-            opts.Add(new FloatMenuOption("Propose alliance with…",
+            opts.Add(new FloatMenuOption("Propose alliance with",
                 () => Find.WindowStack.Add(new FloatMenu(OtherGuildOptions(g, "Ally with", n => GuildHandler.TryProposeAlliance(n))))));
-            opts.Add(new FloatMenuOption("Declare hostile against…",
+            opts.Add(new FloatMenuOption("Declare hostile against",
                 () => Find.WindowStack.Add(new FloatMenu(OtherGuildOptions(g, "Declare hostile:", n => GuildHandler.TryDeclareHostile(n))))));
 
             if (g?.Relationships != null)
@@ -450,9 +437,7 @@ namespace KMHPatch.Features.Guilds
         // Member actions: admins/mods can manage others, never themselves, and only promote below their own rank.
         private static void DrawMemberActionButton(Rect rect, GuildMemberDto target, string myRank, string mine)
         {
-            // No caller rank known -> caller isn't in this guild's roster.
             if (string.IsNullOrEmpty(myRank)) return;
-            // Can't act on yourself.
             if (KmhSession.Same(target.Username, mine)) return;
 
             int myOrder     = RankOrder(myRank);
@@ -467,23 +452,19 @@ namespace KMHPatch.Features.Guilds
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>();
 
-                // Promote one rung, mirroring the server rule: the new rank must stay strictly BELOW the actor's.
-                // (Owner can raise a Mod to Admin here - the old gate hid Promote for Mods entirely, forcing the
-                // ownership-transfer workaround. Owner itself is only reachable via Transfer ownership.)
+                // Mirrors the server rule: the new rank must stay strictly below the actor's, and Owner only via transfer.
                 int promotedOrder = targetOrder - 1;
                 if (promotedOrder > myOrder)
                     opts.Add(new FloatMenuOption($"Promote to {FriendlyRank(RankFromOrder(promotedOrder))}",
                         () => GuildHandler.TryPromote(target.Username)));
-                // Demote one rung toward Member.
                 if (targetOrder < RankOrder(GuildMemberDto.RankMember))
                     opts.Add(new FloatMenuOption($"Demote to {FriendlyRank(RankFromOrder(targetOrder + 1))}",
                         () => GuildHandler.TryDemote(target.Username)));
-                // Kick available to anyone with rank-authority over the target.
                 opts.Add(new FloatMenuOption("Kick from guild",
                     () => GuildHandler.TryKick(target.Username)));
                 // Ownership transfer: Owner only, and the only way anyone becomes Owner (outgoing owner drops to Admin).
                 if (string.Equals(myRank, GuildMemberDto.RankOwner, StringComparison.OrdinalIgnoreCase))
-                    opts.Add(new FloatMenuOption($"Transfer ownership to {target.Username}…",
+                    opts.Add(new FloatMenuOption($"Transfer ownership to {target.Username}",
                         () => Find.WindowStack.Add(Verse.Dialog_MessageBox.CreateConfirmation(
                             $"Make {target.Username} the guild Owner? You become an Admin. This cannot be undone by you.",
                             () => GuildHandler.TryTransferOwner(target.Username)))));
@@ -498,11 +479,10 @@ namespace KMHPatch.Features.Guilds
         private void DrawPerksList(Rect box, GuildPerksDto p, long guildSilver)
         {
             Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
-            const float rowH = 66f; // three text lines: name+level / effect / cost+needed - nothing crammed or cut off
-            // Buy button only for Owner/Admin (server enforces; we hide to avoid dangling no-op affordance for Members)
+            // Measured, not a fixed pitch, which overlapped every line under a larger font.
+            float rowH = DialogLayout.TextRowsH(3, 8f);
             bool canBuy = IsAdminRank(MyRank(GuildCache.Guild));
 
-            // Four perks, each with current/max level, an effect summary, and the perk_key the GuildBuyPerk envelope expects
             (string label, int level, string effect, string key)[] perks = new[]
             {
                 ("Site Max Workers", p.SiteMaxWorkersBonusLevel,    $"+{p.SiteMaxWorkersBonusLevel * 2} workers/site",       GuildHandler.PerkSiteMaxWorkers),
@@ -522,15 +502,13 @@ namespace KMHPatch.Features.Guilds
                 Rect row = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(row);
 
-                // Reserve right edge for the Buy button (admins only); when capped, render a 'MAX' label instead
                 const float btnW = 80f;
                 float textW = viewRect.width - btnW - 16f;
 
-                DialogLayout.LabelTrunc(new Rect(6f, ly + 4f, textW, 22f),
+                DialogLayout.LabelTrunc(new Rect(6f, ly + 4f, textW, DialogLayout.TextRowH),
                     $"<b>{label}</b>  <color=grey>(Lv {level}/{GuildPerksDto.MaxLevel})</color>");
-                // Effect + next-level cost + affordability, so the admin sees the price against the guild vault up front.
-                // Line 2 = effect, line 3 = next cost + shortfall on its own line so nothing truncates in the narrow pane.
-                DialogLayout.LabelTrunc(new Rect(6f, ly + 24f, textW, 18f), $"<color=grey>{effect}</color>");
+                // Cost and shortfall get their own line, or they truncate in this narrow pane.
+                DialogLayout.LabelTrunc(new Rect(6f, ly + 4f + DialogLayout.TextRowH, textW, DialogLayout.TextRowH), $"<color=grey>{effect}</color>");
                 string costLine;
                 if (level >= GuildPerksDto.MaxLevel) costLine = "<color=grey>maxed</color>";
                 else
@@ -540,7 +518,7 @@ namespace KMHPatch.Features.Guilds
                         ? $"<color=grey>next: {SilverFmt.Format(nextCost)}</color> <color=#ff8080>need {SilverFmt.Format(nextCost - guildSilver)} more</color>"
                         : $"<color=grey>next: {SilverFmt.Format(nextCost)}</color> <color=#7CD37C>affordable</color>";
                 }
-                DialogLayout.LabelTrunc(new Rect(6f, ly + 44f, textW, 18f), costLine);
+                DialogLayout.LabelTrunc(new Rect(6f, ly + 4f + DialogLayout.TextRowH * 2f, textW, DialogLayout.TextRowH), costLine);
                 if (level < GuildPerksDto.MaxLevel)
                     TooltipHandler.TipRegion(new Rect(0f, ly, viewRect.width, rowH),
                         $"{label}\nCurrent: {effect} (Lv {level}/{GuildPerksDto.MaxLevel})\nNext level costs {SilverFmt.Format(NextPerkCost(level))} from the guild vault (balance {SilverFmt.Format(guildSilver)}).");
@@ -565,7 +543,6 @@ namespace KMHPatch.Features.Guilds
             Widgets.EndScrollView();
         }
 
-        // Admins get an Edit button on the Settings band header; everyone else just sees the read-only summary
         private static void DrawSettingsOverview(Rect r, GuildSettingsDto s)
         {
             Widgets.DrawMenuSection(r);
@@ -574,27 +551,27 @@ namespace KMHPatch.Features.Guilds
 
             bool isAdmin = IsAdminRank(MyRank(GuildCache.Guild));
             float editW = isAdmin ? 100f : 0f;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, inner.width - editW - 4f, 18f), "<b>Settings</b>");
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, inner.width - editW - 4f, DialogLayout.TextRowH), "<b>Settings</b>");
             if (isAdmin)
             {
-                if (Widgets.ButtonText(new Rect(inner.xMax - editW, inner.y - 2f, editW - 4f, 22f), "Edit…"))
+                if (Widgets.ButtonText(new Rect(inner.xMax - editW, inner.y - 2f, editW - 4f, 22f), "Edit"))
                 {
                     Find.WindowStack.Add(new Dialog_KMHGuildSettings(s));
                 }
             }
 
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 20f, inner.width, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, inner.width, DialogLayout.TextRowH),
                 $"Guild tax to vault - site rewards: {s.SiteRewardSilverTaxPercent}%  •  member sales: {s.MarketplaceSaleTaxPercent}%  •  " +
                 $"Default listings: {(s.DefaultListingsGuildOnly ? "guild-only" : "public")}");
 
-            // Server tax vs guild perk reduction vs effective, so a 0% guild tax can't be misread as "no server tax".
+            // Both shown so a 0% guild tax is not misread as no server tax; this is the configured rate, before events.
             int serverTax = Features.Marketplace.MarketplaceCache.Snapshot?.ServerTaxPercent ?? 0;
             int perkCut   = GuildCache.Guild?.Perks?.MarketplaceTaxReductionLevel ?? 0;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 40f, inner.width, 18f),
-                $"Server market tax: {serverTax}%  •  guild perk reduction: -{perkCut}%  •  effective: {Math.Max(0, serverTax - perkCut)}%");
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, inner.width, DialogLayout.TextRowH),
+                $"Server market tax: {serverTax}%  •  guild perk reduction: -{perkCut}%  •  effective: {Math.Max(0, serverTax - perkCut)}% (before world events)");
 
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 60f, inner.width, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 3f, inner.width, DialogLayout.TextRowH),
                 $"Daily withdraw caps - " +
                 $"Member: {CapStr(s.MemberDailyWithdrawCap)}  •  " +
                 $"Officer: {CapStr(s.OfficerDailyWithdrawCap)}  •  " +
@@ -611,7 +588,6 @@ namespace KMHPatch.Features.Guilds
             return SilverFmt.Format(cap);
         }
 
-        // Friendly summary of declared diplomacy. Empty dict → muted "no declared diplomacy" line
         private static string FormatDiplomacy(Dictionary<string, string> rels)
         {
             if (rels == null || rels.Count == 0)
@@ -681,10 +657,10 @@ namespace KMHPatch.Features.Guilds
         {
             switch (rank)
             {
-                case GuildMemberDto.RankAdmin:     return "#ff8888"; // red-ish
-                case GuildMemberDto.RankModerator: return "#ffce4d"; // amber
-                case GuildMemberDto.RankOfficer:   return "#79b8ff"; // blue
-                case GuildMemberDto.RankMember:    return "#cccccc"; // muted
+                case GuildMemberDto.RankAdmin:     return "#ff8888";
+                case GuildMemberDto.RankModerator: return "#ffce4d";
+                case GuildMemberDto.RankOfficer:   return "#79b8ff";
+                case GuildMemberDto.RankMember:    return "#cccccc";
                 default:                           return "#aaaaaa";
             }
         }

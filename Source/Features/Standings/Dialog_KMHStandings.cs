@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using KMHPatch.Features.Chat;
 using KMHPatch.Features.Guilds;
 using KMHPatch.Features.LinkedAccounts;
 using KMHPatch.Features.PlayerStats;
@@ -14,13 +15,12 @@ using Verse;
 
 namespace KMHPatch.Features.Standings
 {
-    // "Server Standings" hub: a left section list + a right ranked board. Every board is a view over the snapshots
-    // KMH already pushes (player stats, guild leaderboard, reputation); not-yet-tracked columns render as "—".
+    // A left section list + a right ranked board, every board a view over snapshots KMH already pushes.
     public class Dialog_KMHStandings : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(1280f, 680f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(1280f, 680f);
 
-        private enum Section { Player, Guild, Members, Colony, Colonist, Trade, Contract, Battle, Site, Reputation, Season }
+        private enum Section { Player, Guild, Members, Colony, Colonist, Trade, Contract, Battle, Site, Activity, Reputation, Season }
 
         private static readonly (Section sec, string label)[] Nav =
         {
@@ -33,6 +33,7 @@ namespace KMHPatch.Features.Standings
             (Section.Contract,   "Contract Records"),
             (Section.Battle,     "Battle Records"),
             (Section.Site,       "Site Records"),
+            (Section.Activity,   "Activity Records"),
             (Section.Reputation, "Reputation Records"),
             (Section.Season,     "Season Archive"),
         };
@@ -42,8 +43,7 @@ namespace KMHPatch.Features.Standings
         private Vector2 _scroll;
         private float   _refresh = DialogLayout.AutoRefreshSeconds;
 
-        // Cached sorted views per board, rebuilt only when the section/tab or the underlying snapshot changes - the
-        // sort/aggregation must not run every frame on a big roster.
+        // Rebuilt only when the section/tab or snapshot changes - sorting a big roster every frame is not free.
         private List<PlayerLeaderboardEntry> _pView; private string _pKey = "";
         private List<GuildAgg>               _gView; private string _gKey = "";
         private List<ColonistEntry>          _cView; private string _cKey = "";
@@ -56,14 +56,14 @@ namespace KMHPatch.Features.Standings
 
         private static void RequestAll()
         {
-            // Push our own colony data first so the caller's row fills in promptly (the timer-driven report can be up
-            // to 2 min away); then pull everyone's snapshots. The server rate-limits the report, so this is cheap.
+            // Our own colony first, or the caller's row stays blank until the timer-driven report fires.
             GameComponent_KMHColonyReporter.SendNow();
             PlayerStatsHandler.RequestSnapshot();
             PlayerStatsHandler.RequestColonistRoster();
             GuildHandler.RequestLeaderboard();
             ReputationCache.RequestSnapshot();
             SeasonHandler.RequestSnapshot();
+            ChatRosterCache.RequestIfStale();
         }
 
         public override void WindowUpdate()
@@ -76,36 +76,49 @@ namespace KMHPatch.Features.Standings
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Server Standings");
+            // Said once here rather than on twenty column headers.
+            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, DialogLayout.TextRowH),
+                $"<color=grey>Season {SeasonArchiveCache.Snapshot?.CurrentSeason ?? 1} · totals are cumulative on this server; each season's leaders are kept in the Season Archive.</color>");
+            y += DialogLayout.TextRowH;
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            // Left section nav.
-            const float navW = 196f;
-            Rect nav = new Rect(0f, y, navW, rect.height - y - DialogLayout.FooterReserve);
+            // Proportional, or on a clamped window the nav eats a quarter of the table it exists to navigate.
+            float navW = Mathf.Clamp(rect.width * 0.22f, 130f, 196f);
+            Rect nav = new Rect(0f, y, navW, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(nav);
             DrawNav(nav);
 
-            // Right content.
-            Rect content = new Rect(navW + 10f, y, rect.width - navW - 10f, rect.height - y - DialogLayout.FooterReserve);
+            Rect content = new Rect(navW + 10f, y, rect.width - navW - 10f, DialogLayout.BodyHeight(rect, y));
             DrawSection(content);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
 
+        private Vector2 _navScroll;
+
+        // Scrolls: on a short window the last sections would otherwise draw below the panel and be unclickable.
         private void DrawNav(Rect box)
         {
             Rect inner = box.ContractedBy(6f);
-            const float h = 30f;
+            const float h = 30f, pitch = 32f;
+            float contentH = Nav.Length * pitch;
+            Rect view = new Rect(0f, 0f,
+                                 Mathf.Max(1f, inner.width - (contentH > inner.height ? DialogLayout.ScrollbarReserveWidth : 0f)),
+                                 Mathf.Max(contentH, inner.height));
+
+            Widgets.BeginScrollView(inner, ref _navScroll, view);
             for (int i = 0; i < Nav.Length; i++)
             {
-                Rect r = new Rect(inner.x, inner.y + i * (h + 2f), inner.width, h);
+                Rect r = new Rect(0f, i * pitch, view.width, h);
                 bool active = _section == Nav[i].sec;
                 if (active) Widgets.DrawBoxSolid(r, new Color(0.30f, 0.45f, 0.65f, 0.55f));
                 Widgets.DrawHighlightIfMouseover(r);
                 Color old = GUI.color; if (active) GUI.color = new Color(0.8f, 0.9f, 1f);
-                DialogLayout.LabelTrunc(new Rect(r.x + 8f, r.y + 5f, r.width - 12f, h - 8f), Nav[i].label);
+                DialogLayout.LabelTrunc(new Rect(r.x + 8f, r.y, r.width - 12f, h), Nav[i].label);
                 GUI.color = old;
                 if (Widgets.ButtonInvisible(r) && _section != Nav[i].sec) { _section = Nav[i].sec; _scroll = Vector2.zero; }
             }
+            Widgets.EndScrollView();
         }
 
         private void DrawSection(Rect c)
@@ -120,8 +133,6 @@ namespace KMHPatch.Features.Standings
             }
         }
 
-        // ---- player-row boards (Player / Members / Colony / Colonist / Trade / Contract / Battle / Site) ----
-
         private sealed class Tab
         {
             public string Label; public Comparison<PlayerLeaderboardEntry> Sort; public int Accent;
@@ -133,19 +144,19 @@ namespace KMHPatch.Features.Standings
             (Col<PlayerLeaderboardEntry>[] cols, Tab[] tabs) = PlayerBoardDef(_section);
 
             int tab = _tab[(int)_section];
-            Rect tabRow = new Rect(c.x, c.y, c.width, 28f);
             string[] labels = new string[tabs.Length];
             for (int i = 0; i < tabs.Length; i++) labels[i] = tabs[i].Label;
+            Rect tabRow = new Rect(c.x, c.y, c.width, StandingsTable.TabsH(labels, c.width));
             if (StandingsTable.Tabs(tabRow, labels, ref tab)) { _tab[(int)_section] = tab; _scroll = Vector2.zero; }
             tab = Mathf.Clamp(tab, 0, tabs.Length - 1);
 
-            float hy = c.y + 32f;
+            float hy = c.y + StandingsTable.TabsH(labels, c.width) + 6f;
             StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, tabs[tab].Accent, hasInfo: true);
 
             Rect list = new Rect(c.x, hy + 24f, c.width, c.height - (hy + 24f - c.y));
             Widgets.DrawMenuSection(list);
 
-            string key = $"{(int)_section}:{tab}:{PlayerStatsCache.LastUpdatedUtc.Ticks}";
+            string key = $"{(int)_section}:{tab}:{PlayerStatsCache.LastUpdatedUtc.Ticks}:{ReputationCache.Version}";
             if (_pView == null || _pKey != key)
             {
                 _pView = new List<PlayerLeaderboardEntry>(StandingsData.Players());
@@ -172,14 +183,14 @@ namespace KMHPatch.Features.Standings
                     return (new[]
                     {
                         Name, Guild,
-                        Col("Contribution", 0.42f, e => StandingsData.Contribution(e).ToString("N0")),
+                        Col("Contribution", 0.42f, e => e.EconomyScore.ToString("N0")),
                         Col("Donated",      0.56f, e => Silver(e.SilverDonated)),
                         Col("Contracts",    0.68f, e => e.QuestsCompleted.ToString()),
                         Col("Site Work",    0.78f, e => e.WorkerXp.ToString("N0")),
                         Col("Trade",        0.88f, e => Silver(e.SalesEarned + e.PurchasesSpent)),
                     }, new[]
                     {
-                        new Tab("Overall",   (a, b) => StandingsData.Contribution(b).CompareTo(StandingsData.Contribution(a)), 2),
+                        new Tab("Overall",   (a, b) => b.EconomyScore.CompareTo(a.EconomyScore), 2),
                         new Tab("Donations", (a, b) => b.SilverDonated.CompareTo(a.SilverDonated), 3),
                         new Tab("Contracts", (a, b) => b.QuestsCompleted.CompareTo(a.QuestsCompleted), 4),
                         new Tab("Site Work", (a, b) => b.WorkerXp.CompareTo(a.WorkerXp), 5),
@@ -191,7 +202,8 @@ namespace KMHPatch.Features.Standings
                     {
                         new Col<PlayerLeaderboardEntry>("Colony", 0.00f, e => Str(e.ColonyName)),
                         new Col<PlayerLeaderboardEntry>("Player", 0.18f, e => Fmt(e.Username)),
-                        Col("Wealth",  0.34f, e => Silver(e.Wealth)),
+                        // Settlements only: this board's other columns are all on-map, and Player Standings ranks the total.
+                        Col("Settlements", 0.34f, e => Silver(e.Wealth)),
                         Col("Age",     0.47f, e => Days(e.ColonyAgeDays)),
                         Col("Pop",     0.56f, e => e.Population.ToString()),
                         Col("Dev",     0.65f, e => e.DevelopmentScore.ToString("N0")),
@@ -264,19 +276,40 @@ namespace KMHPatch.Features.Standings
                         new Tab("Survival",  (a, b) => a.PawnsLost.CompareTo(b.PawnsLost), 7),
                     });
 
+                case Section.Activity:
+                    return (new[]
+                    {
+                        Name, Colony, Guild,
+                        Col("Status",    0.42f, e => !ChatRosterCache.Known ? StandingsTable.Dash
+                                                     : ChatRosterCache.IsOnline(e.Username) ? "Online" : "<color=grey>Offline</color>"),
+                        Col("Active",    0.53f, e => Span(e.ActiveSeconds)),
+                        Col("Connected", 0.64f, e => Span(e.ConnectedSeconds)),
+                        Col("Focus",     0.76f, e => FocusCell(e)),
+                        Col("Last Seen", 0.86f, e => Str(KmhAgo.Since(e.LastSeenUtcTicks))),
+                    }, new[]
+                    {
+                        // Named tiebreak throughout: List.Sort is unstable and most rows tie on zero, so it reshuffles.
+                        new Tab("Most Active",  (a, b) => Then(b.ActiveSeconds.CompareTo(a.ActiveSeconds), a, b), 4),
+                        new Tab("Connected",    (a, b) => Then(b.ConnectedSeconds.CompareTo(a.ConnectedSeconds), a, b), 5),
+                        new Tab("Focus",        (a, b) => Then(Focus(b).CompareTo(Focus(a)), a, b), 6),
+                        new Tab("Recently Seen",(a, b) => Then(b.LastSeenUtcTicks.CompareTo(a.LastSeenUtcTicks), a, b), 7),
+                    });
+
                 case Section.Site:
                     return (new[]
                     {
                         Name, Colony,
-                        Col("Sites",      0.42f, e => e.SitesBuilt.ToString()),
-                        Col("Produced",   0.55f, e => Silver(e.SiteSilverProduced)),
-                        Col("Worker XP",  0.70f, e => e.WorkerXp.ToString("N0")),
-                        Col("Workers",    0.85f, e => StandingsTable.Dash),
+                        Col("Sites",      0.40f, e => e.SitesOwned.ToString()),
+                        Col("Produced",   0.52f, e => Silver(e.SiteSilverProduced)),
+                        Col("Worker XP",  0.66f, e => e.WorkerXp.ToString("N0")),
+                        Col("Outposts",   0.80f, e => e.OutpostsHeld > 0 || e.FrontierCaptures > 0
+                                                       ? $"{e.OutpostsHeld} ({e.FrontierCaptures} taken)" : StandingsTable.Dash),
                     }, new[]
                     {
-                        new Tab("Top Owners",     (a, b) => b.SitesBuilt.CompareTo(a.SitesBuilt), 2),
+                        new Tab("Top Owners",     (a, b) => b.SitesOwned.CompareTo(a.SitesOwned), 2),
                         new Tab("Production",     (a, b) => b.SiteSilverProduced.CompareTo(a.SiteSilverProduced), 3),
                         new Tab("Worker XP",      (a, b) => b.WorkerXp.CompareTo(a.WorkerXp), 4),
+                        new Tab("Frontier",       (a, b) => b.FrontierCaptures.CompareTo(a.FrontierCaptures), 5),
                     });
 
                 default: // Player Standings
@@ -285,7 +318,7 @@ namespace KMHPatch.Features.Standings
                         Name, Colony, Guild,
                         Col("Age",       0.40f, e => Days(e.ColonyAgeDays)),
                         Col("Time",      0.48f, e => Hours(e.TimePlayedHours)),
-                        Col("Wealth",    0.56f, e => Silver(e.Wealth)),
+                        Col("Wealth",    0.56f, e => Silver(e.TotalWealth)),
                         Col("Kills",     0.67f, e => e.Kills.ToString("N0")),
                         Col("Contracts", 0.75f, e => e.QuestsCompleted.ToString()),
                         Col("Rep",       0.83f, e => RepCell(e.Username)),
@@ -293,7 +326,7 @@ namespace KMHPatch.Features.Standings
                     }, new[]
                     {
                         new Tab("Overall",    (a, b) => Overall(b).CompareTo(Overall(a)), -1),
-                        new Tab("Wealth",     (a, b) => b.Wealth.CompareTo(a.Wealth), 5),
+                        new Tab("Wealth",     (a, b) => b.TotalWealth.CompareTo(a.TotalWealth), 5),
                         new Tab("Combat",     (a, b) => b.Kills.CompareTo(a.Kills), 6),
                         new Tab("Contracts",  (a, b) => b.QuestsCompleted.CompareTo(a.QuestsCompleted), 7),
                         new Tab("Reputation", (a, b) => StandingsData.Rep(b.Username).CompareTo(StandingsData.Rep(a.Username)), 8),
@@ -304,17 +337,27 @@ namespace KMHPatch.Features.Standings
             }
         }
 
+        // Ties break on the name, which is the only field on a row that is unique and never changes.
+        internal static int Then(int primary, PlayerLeaderboardEntry a, PlayerLeaderboardEntry b)
+            => primary != 0 ? primary : string.Compare(a?.Username ?? "", b?.Username ?? "", StringComparison.OrdinalIgnoreCase);
+
+        private static int Focus(PlayerLeaderboardEntry e) => StandingsData.Focus(e.ActiveSeconds, e.ConnectedSeconds);
+
+        private static string FocusCell(PlayerLeaderboardEntry e)
+        {
+            int f = Focus(e);
+            return f < 0 ? StandingsTable.Dash : f + "%";
+        }
+
         // Rough "overall" rank: a blend so the default Player Standings tab rewards all-round play.
         private static long Overall(PlayerLeaderboardEntry e)
-            => e.Wealth / 1000 + e.Kills * 50 + (long)e.QuestsCompleted * 100 + StandingsData.Rep(e.Username) * 10 + e.TimePlayedHours;
-
-        // ---- guild board ----
+            => e.TotalWealth / 1000 + e.Kills * 50 + (long)e.QuestsCompleted * 100 + StandingsData.Rep(e.Username) * 10 + e.TimePlayedHours;
 
         private void DrawGuildBoard(Rect c)
         {
             string[] labels = { "Overall", "Treasury", "Members", "Combat", "Contracts", "Sites", "Trade", "Reputation" };
             int tab = _tab[(int)Section.Guild];
-            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, 28f), labels, ref tab)) { _tab[(int)Section.Guild] = tab; _scroll = Vector2.zero; }
+            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, StandingsTable.TabsH(labels, c.width)), labels, ref tab)) { _tab[(int)Section.Guild] = tab; _scroll = Vector2.zero; }
             tab = Mathf.Clamp(tab, 0, labels.Length - 1);
 
             Col<GuildAgg>[] cols =
@@ -330,7 +373,7 @@ namespace KMHPatch.Features.Standings
             };
             int accent = new[] { -1, 2, 1, 4, 5, 6, 7, -1 }[tab];
 
-            float hy = c.y + 32f;
+            float hy = c.y + StandingsTable.TabsH(labels, c.width) + 6f;
             StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, accent, hasInfo: false);
             Rect list = new Rect(c.x, hy + 24f, c.width, c.height - (hy + 24f - c.y));
             Widgets.DrawMenuSection(list);
@@ -346,7 +389,8 @@ namespace KMHPatch.Features.Standings
                 7 => (a, b) => b.RepAvg.CompareTo(a.RepAvg),
                 _ => (a, b) => (b.Wealth + b.Treasury).CompareTo(a.Wealth + a.Treasury),
             };
-            string gkey = $"G:{tab}:{PlayerStatsCache.LastUpdatedUtc.Ticks}:{GuildLeaderboardCache.LastUpdatedUtc.Ticks}";
+            // Reputation feeds the per-guild average, so a rep update alone must still rebuild the sort.
+            string gkey = $"G:{tab}:{PlayerStatsCache.LastUpdatedUtc.Ticks}:{GuildLeaderboardCache.LastUpdatedUtc.Ticks}:{ReputationCache.Version}";
             if (_gView == null || _gKey != gkey)
             {
                 _gView = StandingsData.GuildAggs();
@@ -359,13 +403,16 @@ namespace KMHPatch.Features.Standings
                 g => !string.IsNullOrEmpty(myGuild) && string.Equals(g.Name, myGuild, StringComparison.OrdinalIgnoreCase), null);
         }
 
-        // ---- reputation board ----
+        private List<ReputationEntryDto> _rView; private string _rKey = "";
 
         private void DrawReputationBoard(Rect c)
         {
-            string[] labels = { "Most Trusted", "Reliable", "Guild" };
+            bool inGuild = GuildCache.InGuild && !string.IsNullOrEmpty(GuildCache.Guild?.Name);
+            string[] labels = inGuild ? new[] { "Most Trusted", "Lowest", "My Guild" }
+                                      : new[] { "Most Trusted", "Lowest" };
             int tab = _tab[(int)Section.Reputation];
-            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, 28f), labels, ref tab)) { _tab[(int)Section.Reputation] = tab; _scroll = Vector2.zero; }
+            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, StandingsTable.TabsH(labels, c.width)), labels, ref tab)) { _tab[(int)Section.Reputation] = tab; _scroll = Vector2.zero; }
+            tab = Mathf.Clamp(tab, 0, labels.Length - 1);
 
             Col<ReputationEntryDto>[] cols =
             {
@@ -373,24 +420,47 @@ namespace KMHPatch.Features.Standings
                 new Col<ReputationEntryDto>("Reputation", 0.45f, e => e.Score.ToString("N0")),
                 new Col<ReputationEntryDto>("Status",     0.70f, e => TierLabel(e.Tier)),
             };
-            float hy = c.y + 32f;
+            float hy = c.y + StandingsTable.TabsH(labels, c.width) + 6f;
             StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, 1, hasInfo: false);
             Rect list = new Rect(c.x, hy + 24f, c.width, c.height - (hy + 24f - c.y));
             Widgets.DrawMenuSection(list);
 
-            List<ReputationEntryDto> rows = ReputationCache.Leaderboard();   // already sorted + cheap; not re-sorted here
+            string key = $"{tab}:{ReputationCache.Version}:{PlayerStatsCache.LastUpdatedUtc.Ticks}";
+            if (_rView == null || _rKey != key)
+            {
+                _rView = ReputationCache.Leaderboard();
+                if (tab == 1) _rView.Reverse();
+                else if (tab == 2) _rView = OnlyGuild(_rView, GuildCache.Guild.Name);
+                _rKey = key;
+            }
+
             string me = KmhSession.Me;
-            StandingsTable.Draw(list, rows, cols, ref _scroll,
+            StandingsTable.Draw(list, _rView, cols, ref _scroll,
                 e => KmhSession.Same(e.Username, me), null);
         }
 
-        // ---- colonist records board (rows = ColonistEntry from the flattened roster) ----
+        // Reputation rows carry no guild, so membership is joined from the player snapshot rather than guessed.
+        private static List<ReputationEntryDto> OnlyGuild(List<ReputationEntryDto> rows, string guild)
+        {
+            var members = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (PlayerLeaderboardEntry p in StandingsData.Players())
+                if (string.Equals(p.GuildName, guild, StringComparison.OrdinalIgnoreCase)) members.Add(p.Username);
 
+            var kept = new List<ReputationEntryDto>();
+            foreach (ReputationEntryDto e in rows) if (members.Contains(e.Username)) kept.Add(e);
+            return kept;
+        }
+
+        // An all-rounder, so the default tab is not just the Deadliest one beside it; a kill is worth a skill point x20.
+        private static long ColonistScore(ColonistEntry e)
+            => e.Kills * 20L + e.SkShooting + e.SkMelee + e.SkMedicine + e.SkCrafting + e.SkConstruction;
+
+        // Rows are ColonistEntry from the flattened roster, not one row per player.
         private void DrawColonistBoard(Rect c)
         {
             string[] labels = { "Top Colonists", "Deadliest", "Best Shooter", "Best Melee", "Best Doctor", "Best Crafter", "Best Builder", "Oldest", "Longest Serving" };
             int tab = _tab[(int)Section.Colonist];
-            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, 28f), labels, ref tab)) { _tab[(int)Section.Colonist] = tab; _scroll = Vector2.zero; }
+            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, StandingsTable.TabsH(labels, c.width)), labels, ref tab)) { _tab[(int)Section.Colonist] = tab; _scroll = Vector2.zero; }
             tab = Mathf.Clamp(tab, 0, labels.Length - 1);
 
             Col<ColonistEntry>[] cols =
@@ -405,15 +475,16 @@ namespace KMHPatch.Features.Standings
                 new Col<ColonistEntry>("Build",    0.79f, e => e.SkConstruction.ToString()),
                 new Col<ColonistEntry>("Age/Days", 0.88f, e => $"{e.Age}y · {e.Days}d"),
             };
-            int accent = new[] { 2, 2, 3, 4, 5, 6, 7, 8, 8 }[tab];
+            int accent = new[] { -1, 2, 3, 4, 5, 6, 7, 8, 8 }[tab];
 
-            float hy = c.y + 32f;
+            float hy = c.y + StandingsTable.TabsH(labels, c.width) + 6f;
             StandingsTable.Header(new Rect(c.x, hy, c.width, 22f), cols, accent, hasInfo: true);
             Rect list = new Rect(c.x, hy + 24f, c.width, c.height - (hy + 24f - c.y));
             Widgets.DrawMenuSection(list);
 
             Comparison<ColonistEntry> sort = tab switch
             {
+                1 => (a, b) => b.Kills.CompareTo(a.Kills),
                 2 => (a, b) => b.SkShooting.CompareTo(a.SkShooting),
                 3 => (a, b) => b.SkMelee.CompareTo(a.SkMelee),
                 4 => (a, b) => b.SkMedicine.CompareTo(a.SkMedicine),
@@ -421,7 +492,7 @@ namespace KMHPatch.Features.Standings
                 6 => (a, b) => b.SkConstruction.CompareTo(a.SkConstruction),
                 7 => (a, b) => b.Age.CompareTo(a.Age),
                 8 => (a, b) => b.Days.CompareTo(a.Days),
-                _ => (a, b) => b.Kills.CompareTo(a.Kills),
+                _ => (a, b) => ColonistScore(b).CompareTo(ColonistScore(a)),
             };
             string ckey = $"C:{tab}:{ColonistRosterCache.LastUpdatedUtc.Ticks}";
             if (_cView == null || _cKey != ckey)
@@ -437,8 +508,7 @@ namespace KMHPatch.Features.Standings
                 e => OpenColonistInfo(e, me));
         }
 
-        // Colonist row Info: my own colonist opens RimWorld's real pawn info card when the pawn exists locally;
-        // remote/server-only colonists open the KMH colonist profile for that player.
+        // A local pawn opens RimWorld's own info card; anyone else's opens the KMH colonist profile.
         private static void OpenColonistInfo(ColonistEntry e, string me)
         {
             if (e == null) return;
@@ -471,10 +541,11 @@ namespace KMHPatch.Features.Standings
         {
             string[] labels = { "Current Season", "Server Records", "Past Seasons" };
             int tab = _tab[(int)Section.Season];
-            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, 28f), labels, ref tab)) { _tab[(int)Section.Season] = tab; _scroll = Vector2.zero; }
+            if (StandingsTable.Tabs(new Rect(c.x, c.y, c.width, StandingsTable.TabsH(labels, c.width)), labels, ref tab)) { _tab[(int)Section.Season] = tab; _scroll = Vector2.zero; }
             tab = Mathf.Clamp(tab, 0, labels.Length - 1);
 
-            Rect body = new Rect(c.x, c.y + 34f, c.width, c.height - 34f);
+            float bodyY = StandingsTable.TabsH(labels, c.width) + 8f;
+            Rect body = new Rect(c.x, c.y + bodyY, c.width, Mathf.Max(0f, c.height - bodyY));
             Widgets.DrawMenuSection(body);
 
             SeasonArchiveSnapshot snap = SeasonArchiveCache.Snapshot;
@@ -545,8 +616,6 @@ namespace KMHPatch.Features.Standings
             Widgets.EndScrollView();
         }
 
-        // ---- formatting helpers ----
-
         private static Col<PlayerLeaderboardEntry> Col(string h, float f, Func<PlayerLeaderboardEntry, string> cell)
             => new Col<PlayerLeaderboardEntry>(h, f, cell);
 
@@ -555,6 +624,7 @@ namespace KMHPatch.Features.Standings
         private static string Silver(long v)     => SilverFmt.Format(v);
         private static string Days(int d)        => d > 0 ? $"{d}d" : StandingsTable.Dash;
         private static string Hours(int h)       => h > 0 ? $"{h}h" : StandingsTable.Dash;
+        private static string Span(long secs)    => secs > 0 ? KmhAgo.Span(secs) : StandingsTable.Dash;
 
         private static string RepCell(string user)
         {

@@ -3,7 +3,7 @@ using KMH.Sdk.Client.Records;
 
 namespace KMH.Sdk.Client.Apis
 {
-    // Read-only cache views for extensions; mutations go through the wire and fresh server snapshots.
+    /// <summary>Read-only cache views for extensions; mutations go through the wire and fresh server snapshots.</summary>
     public interface ITreasuryCache
     {
         bool HasSnapshot { get; }
@@ -25,7 +25,12 @@ namespace KMH.Sdk.Client.Apis
 
         bool TryCancel(long listingId);
 
+        /// <summary>Post a listing priced in whole silver.</summary>
         bool TryPost(string defName, int qty, int unitPriceSilver,
+                     string visibility = "public", int expiresHours = 0);
+
+        /// <summary>Post a listing priced in silver, to at most three decimal places; a finer price is refused.</summary>
+        bool TryPost(string defName, int qty, decimal unitPriceSilver,
                      string visibility = "public", int expiresHours = 0);
     }
 

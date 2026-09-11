@@ -41,8 +41,7 @@ namespace KMHPatch.Features.Enforcement
 
         private const long MaxFileBytes = 25_000_000; // skip giant files (caches/log dumps)
 
-        // Zip the folder minus the denylist and anything extraExclude rejects (the safe list). Subfolder paths are
-        // preserved
+        // Zips the folder minus the denylist and anything extraExclude rejects; subfolder paths are preserved.
         public static byte[] CreateConfigZipBytes(string configFolderPath, Func<string, bool> extraExclude = null)
         {
             if (string.IsNullOrEmpty(configFolderPath)) throw new ArgumentException(nameof(configFolderPath));
@@ -72,8 +71,7 @@ namespace KMHPatch.Features.Enforcement
             }
         }
 
-        // Extract a profile zip into destinationFolder, guarding against zip-slip (entries that try to escape the
-        // destination via .. or absolute paths)
+        // Guards zip-slip: entries that try to escape the destination via .. or an absolute path.
         public static void ExtractZipBytesToFolder(byte[] zipBytes, string destinationFolder)
         {
             if (zipBytes == null || zipBytes.Length == 0) throw new ArgumentException(nameof(zipBytes));
@@ -144,8 +142,7 @@ namespace KMHPatch.Features.Enforcement
             return false;
         }
 
-        // Folder-aware exclude (ModFeatures/, RimHUD/, ...) plus the filename rules. Used by both publish and
-        // apply. Accepts '/' or '\'
+        // Folder-aware exclude plus the filename rules; publish and apply both call this so their sets stay identical.
         public static bool ShouldExcludeByRelPath(string rel)
         {
             if (string.IsNullOrEmpty(rel)) return true;

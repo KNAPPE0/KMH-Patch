@@ -6,8 +6,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // "KMH" overlay button top-right of the main menu (under the version badge), opens About overlaid instead of
-    // inserted into DoMainMenuControls - RWT shares that list and order is finicky
+    // Drawn as an overlay rather than added to DoMainMenuControls, a list RWT also inserts into.
     [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
     internal static class Patch_MainMenuDrawer_AboutButton
     {
@@ -18,7 +17,7 @@ namespace KMHPatch.Patches
             const float height  = 28f;
             const float padding = 8f;
 
-            // Top-right, just below the version badge (badge is ~22px tall at y=8).
+            // Below the version badge, which is ~22px tall at y=8.
             Rect r = new Rect(
                 Verse.UI.screenWidth - width - padding,
                 padding + 26f,

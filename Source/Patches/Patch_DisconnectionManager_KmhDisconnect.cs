@@ -4,8 +4,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Patches
 {
-    // RWT routes every disconnect through HandleDisconnect, so one postfix resets KMH session state for a clean
-    // re-handshake. Postfix (not Prefix) so RWT's own teardown runs first.
+    // Every RWT disconnect routes through here; postfix, not prefix, so RWT's own teardown runs first.
     [HarmonyPatch(typeof(DisconnectionManager), nameof(DisconnectionManager.HandleDisconnect))]
     internal static class Patch_DisconnectionManager_KmhDisconnect
     {
@@ -25,11 +24,10 @@ namespace KMHPatch.Patches
             }
             KmhDispatcher.ResetSession();
             KmhClientCaches.ClearAll();   // server switch: drop the old server's cached snapshots
-            KmhDebugUplink.ServerRequested = false;   // next server's hello decides again
+            KmhDebugUplink.ResetForNewServer();   // session consent never follows the player to the next server
+            KmhDebugConsent.Reset();
 
-            // Clear the live snapshot + stop the tamper-revert watcher. Applied server configs stay on disk and
-            // STAY LOCKED in the main menu (the lock falls back to the applied-profile file list) until the player
-            // restores them from the KMH tab or joins a non-enforcing server
+            // Applied server configs stay on disk and stay locked until the player restores them or joins a non-enforcing server.
             Features.Enforcement.EnforcementCache.Apply(false, true, false, false, false, null);
             Features.Enforcement.EnforcementProfileApplier.StopWatching();
             Features.Enforcement.EnforcementHandler.ResetConnectionState();

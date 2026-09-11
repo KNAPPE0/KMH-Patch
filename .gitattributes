@@ -1,0 +1,17 @@
+# LF everywhere, stored AND checked out, whatever core.autocrlf happens to be set to on a contributor's machine.
+# Patterns below win over this one - gitattributes is last-match-wins - so the binaries keep their own rule.
+* text=auto eol=lf
+
+# Never line-ending-translate a binary. The repo ships its mod DLLs and textures ready to install, and a
+# translated .dll or .dds is simply corrupt.
+*.png  binary
+*.dds  binary
+*.zstd binary
+*.dll  binary
+*.so   binary
+*.pdb  binary
+*.exe  binary
+*.zip  binary
+
+# Kept for parity with the server repo, so a shell script added here is safe from core.autocrlf.
+*.sh text eol=lf

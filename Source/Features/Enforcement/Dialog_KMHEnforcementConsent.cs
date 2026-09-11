@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Verse;
 
@@ -8,7 +8,7 @@ namespace KMHPatch.Features.Enforcement
     public class Dialog_KMHEnforcementConsent : Window
     {
         private readonly Action _onClose;
-        public override Vector2 InitialSize => new Vector2(520f, 300f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(520f, 300f);
 
         public Dialog_KMHEnforcementConsent(Action onClose)
         {
@@ -20,7 +20,6 @@ namespace KMHPatch.Features.Enforcement
             closeOnCancel           = false;
             closeOnClickedOutside   = false;
             draggable               = false;
-            preventCameraMotion     = true;
         }
 
         public override void OnCancelKeyPressed() { /* swallow Escape - the player must choose */ }

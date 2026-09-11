@@ -7,8 +7,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Corner button on a mod's settings panel that toggles its safe status in one click. Only a connected admin
-    // sees it
+    // One-click safe toggle on a mod's settings panel; only a connected admin sees it.
     internal static class EnforcementAdminButton
     {
         public static void Draw(Rect inRect, Verse.Mod mod)

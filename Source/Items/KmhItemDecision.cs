@@ -1,7 +1,6 @@
 namespace KMHPatch.Items
 {
-    // The single answer the shared item layer returns for "may KMH handle this item, and if not why". Every picker,
-    // row, tooltip, and capture path consumes THIS instead of re-deciding safety on its own.
+    // Every picker, row and capture path consumes this rather than re-deciding safety on its own.
     internal readonly struct KmhItemDecision
     {
         public readonly bool Allowed;

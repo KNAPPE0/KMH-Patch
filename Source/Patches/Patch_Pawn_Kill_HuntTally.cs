@@ -1,13 +1,9 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using RimWorld;
 using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Kill tally by defName feeding hunt auto-verify, keyed by kind and race defName. Counts only kills the PLAYER'S
-    // side caused (hunting/combat/traps/turrets) - NOT natural deaths, predator kills, or another faction's kills, so
-    // a thrumbo dying in a raid can't complete your "hunt thrumbo" quest. Stored in GameComponent_KMHKillTally so it
-    // survives save/reload. The server still accepts client-reported completion; this just saves the manual Report click
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.Kill))]
     internal static class Patch_Pawn_Kill_HuntTally
     {
@@ -22,21 +18,19 @@ namespace KMHPatch.Patches
                 if (__instance == null || !__instance.Dead) return;
                 if (__instance.Faction == Faction.OfPlayer)
                 {
-                    // Our own humanlike (colonist/slave) died - count it as a colony loss for Battle Records.
+                    // A colony loss for Battle Records.
                     if (__instance.RaceProps?.Humanlike == true)
                         GameComponent_KMHKillTally.Current?.BumpDeath();
-                    return;                                                  // not an enemy kill
+                    return;
                 }
-                // Count the kill when the player struck the killing blow OR did meaningful damage recently (bleed-out /
-                // downed-then-collapsed). Pure predator/weather/disease/starvation deaths with no player damage don't count.
+                // A thrumbo dying in a raid must not complete a hunt quest, so the player has to have struck or recently damaged it.
                 bool playerBlow   = dinfo?.Instigator?.Faction == Faction.OfPlayer;
                 bool playerRecent = KmhRecentDamage.PlayerDamagedRecently(__instance);
                 if (!playerBlow && !playerRecent) return;
 
                 GameComponent_KMHKillTally tally = GameComponent_KMHKillTally.Current;
                 if (tally == null) return;
-                // Bump each DISTINCT defName once. For animals kindDef.defName == def.defName (e.g. both "Muffalo"),
-                // so bumping both would count one kill twice - the reported "counts as 2" bug. Dedupe fixes it.
+                // For animals kindDef.defName equals def.defName, so bumping both would count one kill twice.
                 string kind = __instance.kindDef?.defName;
                 string race = __instance.def?.defName;
                 tally.Bump(kind);

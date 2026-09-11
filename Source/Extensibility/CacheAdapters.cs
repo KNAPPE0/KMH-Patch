@@ -13,8 +13,7 @@ using KMHPatch.Features.World;
 
 namespace KMHPatch.Extensibility
 {
-    // Adapter wrappers that translate the internal KMHPatch caches / handlers into the SDK's stable interfaces.
-    // Each adapter is stateless - the cache singletons hold the actual data; adapters just read through
+    // Stateless by design: the cache singletons hold the data, so an adapter never owns a second copy.
 
     internal sealed class TreasuryCacheAdapter : ITreasuryCache
     {
@@ -67,8 +66,17 @@ namespace KMHPatch.Extensibility
         public bool RequestRefresh()                         => MarketplaceHandler.RequestSnapshot();
         public bool TryBuy(long listingId, int qty)          => MarketplaceHandler.TryBuy(listingId, qty);
         public bool TryCancel(long listingId)                => MarketplaceHandler.TryCancel(listingId);
+        // The int overload has always meant whole silver, so an extension still passing 100 must keep listing at 100 silver.
+        internal static int WireMilliFromSilverApi(int unitPriceSilver) => KmhSilver.ToMilli(unitPriceSilver);
+
+        internal static decimal PublicSilverFromWireMilli(long unitPriceMilli) => unitPriceMilli / 1000m;
+
         public bool TryPost(string defName, int qty, int unitPriceSilver, string visibility = "public", int expiresHours = 0)
-            => MarketplaceHandler.TryPost(defName, qty, unitPriceSilver, visibility, expiresHours);
+            => MarketplaceHandler.TryPost(defName, qty, WireMilliFromSilverApi(unitPriceSilver), visibility, expiresHours);
+
+        public bool TryPost(string defName, int qty, decimal unitPriceSilver, string visibility = "public", int expiresHours = 0)
+            => KmhSilver.TryToMilli(unitPriceSilver, out int milli)
+               && MarketplaceHandler.TryPost(defName, qty, milli, visibility, expiresHours);
 
         public IReadOnlyList<MarketplaceListingRecord> Listings
         {
@@ -89,10 +97,10 @@ namespace KMHPatch.Extensibility
                             RemainingQty      = l.RemainingQty,
                             OriginalQty       = l.OriginalQty,
                             UnitPriceSilver   = l.UnitPriceSilver,
+                            UnitPrice         = PublicSilverFromWireMilli(l.EffectiveMilli),
                             ListedUtcTicks    = l.ListedUtcTicks,
                             ExpiresUtcTicks   = l.ExpiresUtcTicks,
-                            // Visibility isn't in the patch-side wire DTO (server filters before push); default to
-                            // "public" for the SDK contract
+                            // Not on the patch-side DTO because the server filters before push.
                             Visibility        = "public",
                         });
                     }
@@ -186,8 +194,7 @@ namespace KMHPatch.Extensibility
                 {
                     Name           = g.Name ?? "",
                     Motd           = g.Motd ?? "",
-                    // TreasurySilver isn't on the patch-side wire DTO - read it from the per-guild
-                    // GuildLeaderboardCache if present, else 0
+                    // Not on the patch-side DTO, so it comes from the leaderboard cache or not at all.
                     TreasurySilver = LookupGuildTreasurySilver(g.Name),
                     Members        = members,
                 };
@@ -263,6 +270,9 @@ namespace KMHPatch.Extensibility
                             QuestsCompleted   = e.QuestsCompleted,
                             QuestsPosted      = e.QuestsPosted,
                             SitesBuilt        = e.SitesBuilt,
+                            SitesOwned        = e.SitesOwned,
+                            OutpostsHeld      = e.OutpostsHeld,
+                            FrontierCaptures  = e.FrontierCaptures,
                             WorkerXp          = e.WorkerXp,
                             EconomyScore      = e.EconomyScore,
                         });

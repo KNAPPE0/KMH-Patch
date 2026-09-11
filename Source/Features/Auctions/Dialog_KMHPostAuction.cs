@@ -5,10 +5,10 @@ using Verse;
 
 namespace KMHPatch.Features.Auctions
 {
-    // Auction post form; the server escrows the treasury item, so players only auction what they deposited.
+    // The server escrows from the treasury, so a player can only auction what they already deposited.
     public class Dialog_KMHPostAuction : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(580f, 470f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(580f, 470f);
 
         // Only the vault as it looked when the form opened - read Live* for anything shown or used as a quantity bound.
         private readonly Dictionary<string, int> _treasuryItems;
@@ -66,7 +66,6 @@ namespace KMHPatch.Features.Auctions
                 : $"{ItemKeys.LabelForKey(_itemKey)}  <color=grey>(available x{_itemAvailable})</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                // Same picker the Treasury uses; full-state stacks keep their exact state through escrow.
                 UI.KmhItemPickerService.Open(
                     title:           "Pick item to auction",
                     pickActionLabel: "Select",
@@ -126,6 +125,14 @@ namespace KMHPatch.Features.Auctions
         {
             if (string.IsNullOrEmpty(_itemKey)) { Reject("Pick an item first"); return; }
             if (!int.TryParse(T(_qty), out int qty) || qty <= 0) { Reject("Quantity: positive whole number"); return; }
+
+            // Re-read: the vault can change between the draw and Submit.
+            _itemAvailable = CurrentAvailable();
+            if (_itemAvailable <= 0)
+            { Reject($"{ItemKeys.LabelForKey(_itemKey)} is no longer in your treasury"); return; }
+            if (qty > _itemAvailable)
+            { Reject($"You only have {_itemAvailable} of that to auction"); return; }
+
             if (!int.TryParse(T(_startingBid), out int start) || start <= 0) { Reject("Starting bid: positive whole number"); return; }
             if (!int.TryParse(T(_minIncrement), out int inc) || inc <= 0) { Reject("Min raise: positive whole number"); return; }
             int buyout = 0;
@@ -154,20 +161,22 @@ namespace KMHPatch.Features.Auctions
         // A deposit, sale or compaction can land while the form sits open - re-read what's about to be auctioned.
         private void OnTreasuryUpdated()
         {
-            if (!string.IsNullOrEmpty(_fingerprint))
-            {
-                List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
-                if (live == null) return;   // no snapshot cached: keep what we have, never read null as "empty"
-                foreach (KMHPatch.Items.KmhThingPayload p in live)
-                    if (p != null && p.Fingerprint == _fingerprint) { _itemAvailable = p.StackCount; return; }
-                _itemAvailable = 0;         // that exact stack is gone (withdrawn, sold, or merged by compaction)
-                return;
-            }
-            if (!string.IsNullOrEmpty(_itemKey)) _itemAvailable = LiveCount(_itemKey);
+            if (!string.IsNullOrEmpty(_itemKey)) _itemAvailable = CurrentAvailable();
         }
 
-        // A cached snapshot is authoritative (absent = 0); the opening copy is a fallback only when none exists, so
-        // a null snapshot is never mistaken for an empty vault.
+        // The one answer to "how many right now", so the drawn number and the validated number can never differ.
+        private int CurrentAvailable()
+        {
+            if (string.IsNullOrEmpty(_fingerprint)) return LiveCount(_itemKey);
+
+            List<KMHPatch.Items.KmhThingPayload> live = Treasury.TreasuryCache.Snapshot?.ItemPayloads;
+            if (live == null) return _itemAvailable;   // no snapshot cached: keep what we have, never read null as "empty"
+            foreach (KMHPatch.Items.KmhThingPayload p in live)
+                if (p != null && p.Fingerprint == _fingerprint) return p.StackCount;
+            return 0;                                  // that exact stack is gone (withdrawn, sold, or merged by compaction)
+        }
+
+        // The opening copy is a fallback only when no snapshot exists, so null is never mistaken for an empty vault.
         private int LiveCount(string key)
         {
             Dictionary<string, int> live = Treasury.TreasuryCache.Snapshot?.Items;

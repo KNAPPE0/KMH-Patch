@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.SubProtocol;
 using UnityEngine;
@@ -11,7 +11,7 @@ namespace KMHPatch.Features.Servers
     {
         private Vector2 _scroll;
 
-        public override Vector2 InitialSize => new Vector2(560f, 480f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(560f, 480f);
 
         protected override void DrawContents(Rect inRect)
         {

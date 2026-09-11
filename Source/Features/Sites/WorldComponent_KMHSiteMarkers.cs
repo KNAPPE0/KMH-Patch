@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Diagnostics;
 using KMHPatch.Features.Sites.Dto;
@@ -10,10 +10,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Keeps KMH site + guild-hall markers synced to the latest snapshots. They're server-driven, so transient
-    // (never saved into RWT's shared world), and WorldObjects are main-thread only, so reconcile runs there.
-    // Driven from BOTH WorldComponentTick (normal play) and Patch_Root_Update_KmhMarkers (every frame the world
-    // exists), so markers show on the paused world view / reconnect / landing-site page, not just after a map load.
+    // Driven from the world tick AND a per-frame patch, so markers also show on the paused world and landing-site views.
     public class WorldComponent_KMHSiteMarkers : WorldComponent
     {
         private static float _lastReconcileReal = -999f;
@@ -21,13 +18,28 @@ namespace KMHPatch.Features.Sites
         // Tiles the current world doesn't have. Reconcile runs continuously, so warn once each instead of every pass.
         private static readonly HashSet<int> _warnedTiles = new HashSet<int>();
 
-        // A server site can name a tile this planet has no index for (site made on a different world/seed, or a
-        // smaller planet coverage). Resolving it throws deep inside RimWorld, so screen it out first.
+        // A site built on another world names a tile this planet lacks, and resolving it throws deep inside RimWorld.
         private static bool TileExists(int tile)
         {
             if (tile < 0) return false;
             try { return Find.WorldGrid != null && tile < Find.WorldGrid.TilesCount; }
             catch { return false; }
+        }
+
+        // Reconcile retries failed tiles every pass; logging per pass once cost a player 218 identical lines.
+        private static readonly Dictionary<int, string> _warnedPlacements = new Dictionary<int, string>();
+
+        internal static bool ShouldWarnPlacement(Dictionary<int, string> seen, int tile, string reason)
+        {
+            if (seen.TryGetValue(tile, out string had) && had == reason) return false;
+            seen[tile] = reason;
+            return true;
+        }
+
+        private static void WarnPlacementOnce(int tile, string reason)
+        {
+            if (!ShouldWarnPlacement(_warnedPlacements, tile, reason)) return;
+            KmhLog.Warn($"Could not place site marker at tile {tile}: {reason}");
         }
 
         private static void WarnMissingTileOnce(int tile, string what)
@@ -42,8 +54,7 @@ namespace KMHPatch.Features.Sites
 
         public override void WorldComponentTick() => TryReconcile(2f);
 
-        // Called from both drivers. Throttled by real time so it's safe to call every frame; runs only when a world
-        // (and its object holder) actually exists.
+        // Throttled by real time, so both drivers can call it every frame.
         internal static void TryReconcile(float minSeconds)
         {
             if (Find.World == null || Find.WorldObjects == null) return;
@@ -54,9 +65,15 @@ namespace KMHPatch.Features.Sites
             try { ReconcileGuildHall(); }  catch (Exception ex) { KmhLog.Warn($"Guild hall marker reconcile threw: {ex.Message}"); }
         }
 
+        // Reused across passes: this runs twice a second for the whole session, and the garbage adds up.
+        private static readonly List<KMHSiteWorldObject> _existing = new List<KMHSiteWorldObject>();
+        private static readonly Dictionary<int, SiteEntry> _desired = new Dictionary<int, SiteEntry>();
+        private static readonly HashSet<int> _have = new HashSet<int>();
+
         private static void ReconcileSites()
         {
-            List<KMHSiteWorldObject> existing = new List<KMHSiteWorldObject>();
+            List<KMHSiteWorldObject> existing = _existing;
+            existing.Clear();
             foreach (WorldObject wo in Find.WorldObjects.AllWorldObjects)
                 if (wo is KMHSiteWorldObject m) existing.Add(m);
 
@@ -64,10 +81,12 @@ namespace KMHPatch.Features.Sites
             if (!KmhDispatcher.IsKmhServer || !SiteCache.HasSnapshot || SiteCache.Snapshot?.Sites == null)
             {
                 foreach (KMHSiteWorldObject m in existing) Find.WorldObjects.Remove(m);
+                existing.Clear();
                 return;
             }
 
-            Dictionary<int, SiteEntry> desired = new Dictionary<int, SiteEntry>();
+            Dictionary<int, SiteEntry> desired = _desired;
+            desired.Clear();
             foreach (SiteEntry s in SiteCache.Snapshot.Sites)
             {
                 if (s == null || s.Tile < 0) continue;
@@ -75,46 +94,60 @@ namespace KMHPatch.Features.Sites
                 desired[s.Tile] = s;
             }
 
-            HashSet<int> have = new HashSet<int>();
+            HashSet<int> have = _have;
+            have.Clear();
             foreach (KMHSiteWorldObject m in existing)
             {
                 int tile = m.Tile.tileId;
                 if (have.Contains(tile)) { Find.WorldObjects.Remove(m); continue; }   // dedupe stray doubles
-                if (desired.TryGetValue(tile, out SiteEntry s)) { Apply(m, s); have.Add(tile); }
+                // A def is fixed at creation, so a site turning into an outpost must be recreated or it keeps the old art.
+                if (desired.TryGetValue(tile, out SiteEntry s) && DefNameFor(s) == m.def?.defName)
+                { Apply(m, s); have.Add(tile); }
                 else Find.WorldObjects.Remove(m);
             }
 
-            WorldObjectDef def = DefDatabase<WorldObjectDef>.GetNamedSilentFail("KMHSite");
-            if (def == null) return;
             foreach (KeyValuePair<int, SiteEntry> kv in desired)
             {
                 if (have.Contains(kv.Key) || kv.Key < 0) continue;
+                WorldObjectDef def = DefDatabase<WorldObjectDef>.GetNamedSilentFail(DefNameFor(kv.Value));
+                if (def == null) continue;
                 try
                 {
+                    KmhMarkerArt.ForgetMisses();   // a new marker is a new chance for art that was not loaded yet
                     KMHSiteWorldObject m = (KMHSiteWorldObject)WorldObjectMaker.MakeWorldObject(def);
                     m.Tile = kv.Key;
                     Apply(m, kv.Value);
                     Find.WorldObjects.Add(m);
                     have.Add(kv.Key);
                 }
-                catch (Exception ex) { KmhLog.Warn($"Could not place site marker at tile {kv.Key}: {ex.Message}"); }
+                catch (Exception ex) { WarnPlacementOnce(kv.Key, ex.Message); }
             }
+
+            // Held references would keep removed markers alive until the next pass.
+            existing.Clear();
+            desired.Clear();
         }
+
+        // Both defs share one worldObjectClass, so the kind lives in the def name alone.
+        private static string DefNameFor(SiteEntry s) => KmhMarkerArt.IsOutpost(s) ? "KMHOutpost" : "KMHSite";
 
         private static void Apply(KMHSiteWorldObject m, SiteEntry s)
         {
+            m.Entry          = s;
             m.SiteOwner      = string.IsNullOrEmpty(s.OwnerGuild) ? (s.OwnerUsername ?? "") : $"{s.OwnerGuild} (guild)";
+            m.MineToManage   = SiteOwnershipClient.CanManage(s, UI.KmhSession.Me);
             m.SiteItem       = UI.ItemLabels.ResolveLabel(s.ItemDefName);
             m.SiteWorkers    = s.Workers?.Count ?? 0;
             m.SiteMaxWorkers = s.MaxWorkers;
         }
 
-        // One marker for the player's own guild hall, reconciled from the guild snapshot (same transient rules as
-        // sites: gone on disconnect, moved/removed as the snapshot changes). Kept independent of the SITE snapshot so
-        // a hall marker can show even when the player owns no sites.
+        // Driven by the guild snapshot, not the site one, so a hall marker shows even when the player owns no sites.
+        private static readonly List<Guilds.KMHGuildHallWorldObject> _halls = new List<Guilds.KMHGuildHallWorldObject>();
+
         private static void ReconcileGuildHall()
         {
-            List<Guilds.KMHGuildHallWorldObject> existing = new List<Guilds.KMHGuildHallWorldObject>();
+            List<Guilds.KMHGuildHallWorldObject> existing = _halls;
+            existing.Clear();
             foreach (WorldObject wo in Find.WorldObjects.AllWorldObjects)
                 if (wo is Guilds.KMHGuildHallWorldObject h) existing.Add(h);
 
@@ -132,6 +165,7 @@ namespace KMHPatch.Features.Sites
                 }
                 else Find.WorldObjects.Remove(h);
             }
+            existing.Clear();   // a held reference would keep a removed hall alive until the next pass
             if (!want || applied) return;
 
             WorldObjectDef def = DefDatabase<WorldObjectDef>.GetNamedSilentFail("KMHGuildHall");

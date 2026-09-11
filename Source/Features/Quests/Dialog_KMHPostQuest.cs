@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Quests.Dto;
 using KMHPatch.UI;
@@ -10,7 +10,7 @@ namespace KMHPatch.Features.Quests
     // Quest Post composer for DeliverItem + Bounty kinds (Bounty hides delivery rows - it's manual poster sign-off).
     public class Dialog_KMHPostQuest : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(620f, 700f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(620f, 700f);
 
         private string _kind              = QuestEntry.KindDeliverItem;
         private string _visibility        = QuestHandler.QuestVisibilityPublic;
@@ -23,8 +23,6 @@ namespace KMHPatch.Features.Quests
         private string _targetItemQty     = "1";
         private int    _targetQualityIdx  = 0; // 0 = any, 1..7 = Awful..Legendary (or better)
 
-        // Per-kind inputs. Tiles are entered as world-tile ids; the "Current" button fills the player's current map
-        // tile.
         private string _escortPickupTile  = "";
         private string _escortDropoffTile = "";
         private string _escortTargetDesc  = "";
@@ -59,8 +57,6 @@ namespace KMHPatch.Features.Quests
             GUI.color = oldCol;
             y += 22f;
 
-            // Kind toggle. DeliverItem = server-verifiable when claimer delivers the target item. Bounty = manual
-            // sign-off (poster confirms when satisfied)
             const float labelW = 180f;
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Kind");
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), KindLabel(_kind)))
@@ -79,8 +75,12 @@ namespace KMHPatch.Features.Quests
             }
             y += 30f;
 
-            // Visibility row - Public (default) or Guild + allies only. Server enforces personal-poster ->
-            // public-only (no guild key to scope against)
+            // The snapshot never says whether an owner routed auto-verified kinds to review, so nothing may promise settlement.
+            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f),
+                "<color=grey>Auto-verified kinds settle without you acting - unless this server asks the poster to sign off first.</color>");
+            y += 20f;
+
+            // The server forces a personal poster to public: there is no guild key to scope the quest against.
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
             string visLabel = _visibility == QuestHandler.QuestVisibilityGuildOnly
                 ? "Guild + allies only"
@@ -100,8 +100,6 @@ namespace KMHPatch.Features.Quests
 
             y = DrawTextRow(rect, y, "Title", ref _title);
 
-            // Description: clickable preview that opens the multiline editor. Single-line text fields look cramped
-            // for quest descriptions that often run multiple sentences
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Description");
             string descPreview = string.IsNullOrEmpty(_description)
                 ? "<color=grey>(click to edit)</color>"
@@ -151,8 +149,6 @@ namespace KMHPatch.Features.Quests
             return y + 30f;
         }
 
-        // A button that shows the currently-picked label (or a placeholder) and opens a def picker - so players
-        // choose from a list instead of typing a raw defName
         private static float DrawPickRow(Rect rect, float y, string label, string currentLabel,
             string placeholder, List<Dialog_KMHDefPicker.Entry> source, Action<string, string> onPick)
         {
@@ -295,8 +291,7 @@ namespace KMHPatch.Features.Quests
             }
         }
 
-        // Switching sub-kind invalidates any picked target (an animal defName isn't a valid pawn-kind), so clear
-        // it
+        // An animal defName is not a valid pawn-kind, so switching sub-kind must clear the picked target.
         private void SetHuntKind(string k)
         {
             if (_huntTargetKind == k) return;
@@ -341,8 +336,7 @@ namespace KMHPatch.Features.Quests
                 BountySilver = bounty,
             };
 
-            // Per-kind fields. Light client-side checks; the server re-validates authoritatively and replies with a
-            // chat reason on rejection
+            // Light client-side checks only; the server re-validates and replies with a chat reason on rejection.
             switch (_kind)
             {
                 case QuestEntry.KindDeliverItem:

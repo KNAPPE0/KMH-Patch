@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Guilds;
 using KMHPatch.Features.Guilds.Dto;
@@ -14,12 +14,11 @@ namespace KMHPatch.Features.Marketplace
     // Marketplace browse: per-listing rows with ownership-gated Buy…/Cancel, newest-first.
     public class Dialog_KMHMarketplace : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(1040f, 620f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(1040f, 620f);
 
         private Vector2  _scroll;
 
-        // Toolbar state. Categories are a fixed ThingCategoryDef list, so the filter works against any RimWorld
-        // expansion / mod that places defs into them.
+        // Categories are ThingCategoryDefs, so the filter works for any expansion or mod that files defs under them.
         private string _filter         = "";
         private string _categoryFilter = "All";
         private bool   _onlyMine       = false;
@@ -45,6 +44,15 @@ namespace KMHPatch.Features.Marketplace
             "All", "Resources", "Manufactured", "Foods", "Drugs",
             "Medicine", "Weapons", "Apparel", "Plants", "BodyParts", "Other"
         };
+
+        // The stored values are ThingCategoryDef defNames, which the filter matches on; only the display differs.
+        private static string CategoryName(string cat)
+            => cat == "All" ? "All categories" : cat == "BodyParts" ? "Body parts" : cat;
+
+        private static IEnumerable<string> CategoryNames()
+        {
+            foreach (string c in CommonCategories) yield return CategoryName(c);
+        }
 
         private List<MarketplaceListing> _visible;
         private object                   _visibleSource;
@@ -81,7 +89,7 @@ namespace KMHPatch.Features.Marketplace
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Player Marketplace");
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!MarketplaceCache.HasSnapshot)
@@ -94,7 +102,6 @@ namespace KMHPatch.Features.Marketplace
 
             MarketplaceSnapshot s = MarketplaceCache.Snapshot;
 
-            // Stats header - house pool + lifetime trades.
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
@@ -104,63 +111,72 @@ namespace KMHPatch.Features.Marketplace
             GUI.color = oldCol;
             y += 24f;
 
-            // Two-row toolbar (1040 px wide but filter + category + scope + 2 buttons still gets tight)
-            //
-            // Row 1: filter + category + Refresh / Post listing right.
-            const float toolbarBtnW = 110f;
-            _filter = DialogLayout.SearchField(new Rect(0f, y, 230f, 28f), _filter, "Filter by item or seller…");
+            // Measured, never fixed to one resolution, and a row each so the pinned buttons cannot slide under the search field.
+            float catW = DialogLayout.DropdownWidth(CategoryNames(), 110f, 200f);
 
-            if (Widgets.ButtonText(new Rect(238f, y, 130f, 28f), $"Category: {_categoryFilter}"))
+            float mineW  = DialogLayout.TightCheckboxWidth("Only mine");
+            float guildW = DialogLayout.TightCheckboxWidth("My guild only");
+            float sortW  = Mathf.Clamp(Text.CalcSize($"Sort: {SortLabel(SortMode.NameAsc)}").x + 26f, 110f, 170f);
+
+            // The toggles and sort take a row of their own before the search field is squeezed below readability.
+            const float searchMin = 210f;
+            bool  filterOneRow = rect.width >= searchMin + catW + mineW + guildW + sortW + 24f;
+            float filterW = filterOneRow
+                ? rect.width - catW - mineW - guildW - sortW - 24f
+                : Mathf.Max(120f, rect.width - catW - 8f);
+
+            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter, "Filter by item or seller");
+
+            if (DialogLayout.DrawDropdownButton(new Rect(filterW + 8f, y, catW, 28f), CategoryName(_categoryFilter)))
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>();
                 foreach (string cat in CommonCategories)
                 {
                     string captured = cat;
-                    opts.Add(new FloatMenuOption(captured, () => _categoryFilter = captured));
+                    opts.Add(new FloatMenuOption(CategoryName(captured), () => _categoryFilter = captured));
                 }
                 Find.WindowStack.Add(new FloatMenu(opts));
             }
 
-            if (IconButton.Draw(new Rect(rect.width - toolbarBtnW, y, toolbarBtnW - 4f, 28f), KMHTextures.Post, "Post listing…"))
-            {
-                Dialog_KMHPostListing.Open();
-            }
-            if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 2f, y, toolbarBtnW - 4f, 28f), "Refresh"))
-            {
-                MarketplaceHandler.RequestSnapshot();
-                MarkRefreshed();
-            }
-            if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 3f, y, toolbarBtnW - 4f, 28f), "Auctions…"))
-            {
-                Find.WindowStack.Add(new Features.Auctions.Dialog_KMHAuctions());
-            }
-            if (Widgets.ButtonText(new Rect(rect.width - toolbarBtnW * 4f, y, toolbarBtnW - 4f, 28f), "Want board…"))
-            {
-                Find.WindowStack.Add(new Features.WantBoard.Dialog_KMHWantBoard());
-            }
-            y += 32f;
+            float togY = filterOneRow ? y : y + 32f;
+            float cbx  = filterOneRow ? filterW + catW + 20f : 0f;
+            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, "Only mine",     ref _onlyMine);
+            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, "My guild only", ref _onlyMyGuild);
 
-            // Row 2: scope toggles (left) + sort (right).
-            float cbx = 0f;
-            cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "Only mine",    ref _onlyMine);
-            cbx = DialogLayout.DrawTightCheckbox(cbx, y + 4f, "My guild only", ref _onlyMyGuild);
-
-            if (Widgets.ButtonText(new Rect(rect.width - 160f, y, 156f, 26f), $"Sort: {SortLabel(_sort)}"))
+            if (rect.width - sortW - 4f >= cbx
+                && Widgets.ButtonText(new Rect(rect.width - sortW, togY, sortW, 28f), $"Sort: {SortLabel(_sort)}"))
                 DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
-            y += 30f;
+
+            y = togY + DialogLayout.ToolbarRowH;
+
+            // All four share the shrink evenly, so the left and right pairs never meet in the middle.
+            float actW = Mathf.Max(
+                Mathf.Max(IconButton.WidthFor("Want board", false), IconButton.WidthFor("Auctions", false)),
+                Mathf.Max(IconButton.WidthFor("Refresh",    false), IconButton.WidthFor("Post listing", true)));
+            actW = Mathf.Max(70f, Mathf.Min(actW, (rect.width - 32f) / 4f));
+
+            if (Widgets.ButtonText(new Rect(0f, y, actW, 28f), "Want board"))
+                Find.WindowStack.Add(new Features.WantBoard.Dialog_KMHWantBoard());
+            if (Widgets.ButtonText(new Rect(actW + 8f, y, actW, 28f), "Auctions"))
+                Find.WindowStack.Add(new Features.Auctions.Dialog_KMHAuctions());
+            if (Widgets.ButtonText(new Rect(rect.width - actW * 2f - 8f, y, actW, 28f), "Refresh"))
+                MarketplaceHandler.RequestSnapshot();
+            if (IconButton.Draw(new Rect(rect.width - actW, y, actW, 28f), KMHTextures.Post, "Post listing"))
+                Dialog_KMHPostListing.Open();
+
+            y += 32f;
 
             DrawHeader(new Rect(0f, y, rect.width, 22f));
             y += 24f;
 
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawRows(listBox, s);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
 
-        // Action column reserves trailing space for the per-row Buy/Cancel button. Other columns get rebalanced via
-        // ColumnXs to keep header labels aligned with the cells
+        // Reserved for the per-row button; ColumnXs rebalances the rest so headers stay aligned with their cells.
         private const float ActionColumnWidth = 100f;
 
         private static void DrawHeader(Rect r)
@@ -171,7 +187,7 @@ namespace KMHPatch.Features.Marketplace
             DialogLayout.DrawCenteredLabel(new Rect(cols[2], r.y, cols[3] - cols[2], r.height), "<b>Unit</b>");
             DialogLayout.DrawCenteredLabel(new Rect(cols[3], r.y, cols[4] - cols[3], r.height), "<b>Total</b>");
             DialogLayout.LabelTrunc(new Rect(cols[4], r.y, cols[5] - cols[4], r.height), "<b>Seller</b>");
-            DialogLayout.DrawCenteredLabel(new Rect(cols[5], r.y, r.width - cols[5] - ActionColumnWidth, r.height), "<b>Listed / Expires</b>");
+            DialogLayout.DrawCenteredLabel(new Rect(cols[5], r.y, ListedW(r.width, cols[5]), r.height), "<b>Listed</b>");
             // Action column has no header text - buttons speak for themselves.
         }
 
@@ -182,8 +198,7 @@ namespace KMHPatch.Features.Marketplace
             string mine        = KmhSession.Me;
             string filterLower = (_filter ?? "").Trim().ToLower();
 
-            // 'My guild only' - names of guild members from the cached guild snapshot, or null when caller isn't in
-            // a guild
+            // Null when the caller is in no guild.
             HashSet<string> myGuildMembers = null;
             if (_onlyMyGuild)
             {
@@ -260,9 +275,21 @@ namespace KMHPatch.Features.Marketplace
             long now = DateTime.UtcNow.Ticks;
             // 'mine' already computed above for the filter pass; reused here for the per-row 'is mine?' check
 
-            string empty = (s.Listings == null || s.Listings.Count == 0)
-                ? "<color=grey>No open listings. Be the first to sell something!</color>"
-                : "<color=grey>No listings match the filter.</color>";
+            // Naming the active filters, because an empty table under a filter otherwise looks like an empty market.
+            string empty;
+            if (s.Listings == null || s.Listings.Count == 0)
+                empty = "<color=grey>No open listings. Be the first to sell something!</color>";
+            else
+            {
+                List<string> active = new List<string>();
+                if (!string.IsNullOrEmpty(filterLower)) active.Add($"the search \"{_filter.Trim()}\"");
+                if (_categoryFilter != "All")           active.Add($"category {CategoryName(_categoryFilter)}");
+                if (_onlyMine)                          active.Add("Only mine");
+                if (_onlyMyGuild)                       active.Add("My guild only");
+                empty = active.Count == 0
+                    ? "<color=grey>No listings to show.</color>"
+                    : $"<color=grey>{s.Listings.Count} listing{(s.Listings.Count == 1 ? "" : "s")} open, but none match {string.Join(" + ", active.ToArray())}.</color>";
+            }
 
             // Only the visible rows draw - a busy/modded marketplace can have hundreds of listings.
             DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH, (i, row) =>
@@ -276,8 +303,6 @@ namespace KMHPatch.Features.Marketplace
                     if (!string.IsNullOrEmpty(demandTip)) TooltipHandler.TipRegion(row, demandTip);
                 }
 
-                // Icon + info card + label in the Item column. Icon reserved as a 22px square; rest of the column is
-                // the (possibly stuff+quality prefixed) label
                 const float iconSize = 22f;
                 ItemLabels.DrawIcon(new Rect(cols[0] + 2f, ly + 1f, iconSize, iconSize), r.ItemDefName);
                 UI.KmhItemInfo.ButtonForDef(cols[0] + iconSize + 4f, ly + 2f, r.ItemDefName, r.StuffDefName);
@@ -286,7 +311,7 @@ namespace KMHPatch.Features.Marketplace
                 if (r.IsAutoListing) itemLabel = $"<color=#9090ff>[auto]</color> {itemLabel}";
                 if (!string.IsNullOrEmpty(r.StateNote)) itemLabel += $" <color=grey>({r.StateNote})</color>";   // full-state note (tainted/damaged/legacy)
                 DialogLayout.LabelTrunc(new Rect(cols[0] + iconSize + UI.KmhItemInfo.Size + 8f, ly + 2f,
-                    cols[1] - cols[0] - iconSize - UI.KmhItemInfo.Size - 10f, rowH - 4f), itemLabel);
+                    Mathf.Max(0f, cols[1] - cols[0] - iconSize - UI.KmhItemInfo.Size - 10f), rowH - 4f), itemLabel);
 
                 DialogLayout.DrawCenteredLabel(new Rect(cols[1], ly + 2f, cols[2] - cols[1], rowH - 4f),
                     $"{r.RemainingQty}<color=grey>/{r.OriginalQty}</color>");
@@ -297,11 +322,12 @@ namespace KMHPatch.Features.Marketplace
                 DialogLayout.LabelTrunc(new Rect(cols[4] + 4f, ly + 2f, cols[5] - cols[4] - 4f, rowH - 4f),
                     string.IsNullOrEmpty(r.SellerUsername) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(r.SellerUsername));
                 DialogLayout.DrawCenteredLabel(
-                    new Rect(cols[5], ly + 2f, row.width - cols[5] - ActionColumnWidth, rowH - 4f),
+                    new Rect(cols[5], ly + 2f, ListedW(row.width, cols[5]), rowH - 4f),
                     FormatListedExpires(r, now));
 
                 // Action button column: Cancel for own listings, Buy for others.
-                Rect actionRect = new Rect(row.width - ActionColumnWidth + 4f, ly + 2f, ActionColumnWidth - 8f, rowH - 4f);
+                float aw = ActionW(row.width);
+                Rect actionRect = new Rect(row.width - aw + 4f, ly + 2f, Mathf.Max(1f, aw - 8f), rowH - 4f);
                 bool isMine = KmhSession.Same(r.SellerUsername, mine);
                 if (isMine)
                 {
@@ -312,10 +338,9 @@ namespace KMHPatch.Features.Marketplace
                 }
                 else if (r.RemainingQty > 0)
                 {
-                    // Capture by local so the lambda doesn't reference the loop variable (would change as we
-                    // iterate further rows before the user picks an amount)
+                    // Captured, or the lambda would read a later row by the time the player picks an amount.
                     MarketplaceListing captured = r;
-                    if (IconButton.Draw(actionRect, KMHTextures.Buy, "Buy…"))
+                    if (IconButton.Draw(actionRect, KMHTextures.Buy, "Buy"))
                     {
                         Find.WindowStack.Add(new Dialog_KMHAmountInput(
                             title: $"Buy {FormatItemName(captured)} from {captured.SellerUsername}",
@@ -328,23 +353,33 @@ namespace KMHPatch.Features.Marketplace
             }, empty);
         }
 
-        private static float[] ColumnXs(float w)
+        internal static float[] ColumnXs(float w)
         {
-            // 6 cols: Item | Qty | Unit | Total | Seller | Listed/Expires
+            // The last column is sized first and the row laid out back from it, or it truncates against the action button.
+            float listed = ListedColumnW(w);
+            float right  = Mathf.Max(120f, w - ActionW(w) - listed - 4f);
+            float body   = Mathf.Max(160f, right - 10f);
             return new float[]
             {
-                10f,           // 0 Item
-                w * 0.38f,     // 1 Qty
-                w * 0.48f,     // 2 Unit
-                w * 0.58f,     // 3 Total
-                w * 0.68f,     // 4 Seller
-                w * 0.84f      // 5 Listed/Expires (right-most)
+                10f,                  // 0 Item
+                10f + body * 0.42f,   // 1 Qty
+                10f + body * 0.54f,   // 2 Unit
+                10f + body * 0.68f,   // 3 Total
+                10f + body * 0.82f,   // 4 Seller
+                right                 // 5 Listed/Expires (right-most)
             };
         }
 
-        // True when the item's ThingDef belongs (transitively) to a ThingCategoryDef whose defName matches the
-        // requested category. 'Other' is the catch-all: true for any item that didn't match a more specific
-        // category.
+        // Shrinks on a narrow window: a fixed width against a proportional grid drives the last column negative.
+        private static float ActionW(float w) => Mathf.Min(ActionColumnWidth, Mathf.Max(48f, w * 0.14f));
+
+        // Whatever is left between the last column and the action button, never negative.
+        internal static float ListedW(float w, float col5) => Mathf.Max(0f, w - col5 - ActionW(w) - 4f);
+
+        // Capped so a wide dialog spends the extra room on the item name rather than on a date.
+        private static float ListedColumnW(float w) => Mathf.Clamp((w - ActionW(w)) * 0.17f, 96f, 190f);
+
+        // "Other" is the catch-all, true for anything that matched none of these more specific categories.
         private static readonly System.Collections.Generic.HashSet<string> KnownCategoryDefs
             = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
               { "Resources", "Manufactured", "Foods", "Drugs", "Medicine",
@@ -370,30 +405,11 @@ namespace KMHPatch.Features.Marketplace
             return other;
         }
 
-        // Display name for a listing. Resolves defNames -> human labels via DefDatabase ("plasteel knife" for
-        // ItemDefName=Knife + StuffDefName=Plasteel) and prepends quality where present ("Excellent plasteel
-        // knife")
         private static string FormatItemName(MarketplaceListing r)
         {
             string baseName      = ItemLabels.ResolveStuffedLabel(r.ItemDefName, r.StuffDefName);
-            string qualityPrefix = r.QualityIndex > 0 ? $"{QualityName(r.QualityIndex)} " : "";
+            string qualityPrefix = r.QualityIndex > 0 ? $"{ItemKeys.QualityName(r.QualityIndex)} " : "";
             return $"{qualityPrefix}{baseName}".Trim();
-        }
-
-        // Mirror of RimWorld.QualityCategory ordering. 1..7 = Awful..Legendary.
-        private static string QualityName(int idx)
-        {
-            switch (idx)
-            {
-                case 1: return "Awful";
-                case 2: return "Poor";
-                case 3: return "Normal";
-                case 4: return "Good";
-                case 5: return "Excellent";
-                case 6: return "Masterwork";
-                case 7: return "Legendary";
-                default: return "";
-            }
         }
 
         private static string FormatListedExpires(MarketplaceListing r, long nowTicks)

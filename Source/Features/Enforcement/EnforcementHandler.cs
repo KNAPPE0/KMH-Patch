@@ -7,8 +7,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Receives the server's enforcement messages: the snapshot, the chunked profile (begin/chunk/end), and the
-    // restore signal
+    // Receives the server's enforcement messages: snapshot, chunked profile, restore.
     internal static class EnforcementHandler
     {
         public static void Register()
@@ -20,11 +19,8 @@ namespace KMHPatch.Features.Enforcement
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementRestore,      OnRestore);
         }
 
-        // -- admin mutations from the in-game enforcement dialog --
-
-        // Re-pull the snapshot so the dialog sees current is_admin (e.g. after being op'd mid-session) without a
-        // reconnect
-        public static void RequestSnapshot()
+        // Returns whether the request left the client, so hydration can retry instead of sitting on "Loading…".
+        public static bool RequestSnapshot()
             => KmhDispatcher.Send(KmhProtocol.Kind.EnforcementSnapshotRequest, null);
 
         public static void SetEnabled(bool enabled)
@@ -39,12 +35,10 @@ namespace KMHPatch.Features.Enforcement
         public static void SetFlag(string flag, bool value)
             => KmhDispatcher.Send(KmhProtocol.Kind.EnforcementSetFlag, new { flag, value });
 
-        // 32KB raw per chunk: base64 (~43KB) + JSON envelope overhead stays under the 64KB envelope cap (our
-        // transport is JSON, not raw binary packets)
+        // 32KB raw: base64 (~43KB) plus envelope overhead stays under the 64KB cap, since the transport is JSON not binary.
         private const int UploadChunkRawBytes = 32 * 1024;
 
-        // Zip this admin's Config folder and upload it as the server profile. ConfigProfileUtility drops
-        // personal/cache/mod-list files; safe mods too
+        // Uploads this admin's Config folder as the server profile, minus personal/cache/mod-list files and safe mods.
         public static bool PublishMyConfigs(out string summary)
         {
             summary = "";
@@ -76,8 +70,7 @@ namespace KMHPatch.Features.Enforcement
         private static string Short(string hash)
             => string.IsNullOrEmpty(hash) ? "?" : hash.Substring(0, Math.Min(8, hash.Length));
 
-        // Once per connection (the snapshot can arrive several times); reset on disconnect so the next server
-        // re-notifies
+        // Once per connection: the snapshot can arrive several times, and disconnect resets it so the next server re-notifies.
         private static bool _joinNoticeShown;
 
         public static void ResetConnectionState() { _joinNoticeShown = false; EnforcementFlow.ResetForNewConnection(); }
@@ -123,8 +116,7 @@ namespace KMHPatch.Features.Enforcement
             }
             else
             {
-                // EnforcementFlow decides: exempt admins do nothing; an already-applied profile re-asserts quietly; a
-                // new/changed profile shows the Apply-now/Disconnect consent dialog (no silent apply or restart).
+                // A new or changed profile always asks for consent - never a silent apply or restart.
                 EnforcementFlow.Evaluate();
             }
 

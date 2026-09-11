@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
@@ -9,10 +9,7 @@ using Verse;
 
 namespace KMHPatch.Items
 {
-    // Capture a real Thing into a state-preserving payload and rebuild it later. Item-loss prevention: replaces the
-    // lossy "defName+count -> ThingMaker" path so deposits/withdraws never clean, repair, reroll, or strip items.
-    // Tiers: simple stackables stay compact (def+count lossless); everything else deep-serializes via Scribe (full),
-    // falling back to hp/quality/taint/stuff metadata (partial) with a warning if that fails.
+    // A round-trip must never clean, repair, reroll or strip an item, so anything stateful deep-serializes.
     internal static class KmhThingCapture
     {
         // A def whose full state is exactly def+count: plain stackables with no quality/rot/biocode/comp identity.
@@ -27,10 +24,7 @@ namespace KMHPatch.Items
             return true;
         }
 
-        // Superset of IsSimple that ALSO allows rottable food/meals: a fungible item the server may stack with an
-        // equal-identity one (wear weight-averaged). Still excludes weapons/apparel/minified and quality/biocode/art/
-        // persona (real per-instance identity). Only used to set the Mergeable flag - it does NOT change what's
-        // captured (exact HP + full scribe blob are still kept, so nothing is stripped or refreshed).
+        // Sets the Mergeable flag only; it never changes what is captured, so nothing is stripped.
         public static bool IsFungible(ThingDef d)
         {
             if (d == null || d.category != ThingCategory.Item) return false;
@@ -42,11 +36,20 @@ namespace KMHPatch.Items
             return true;
         }
 
+        // A far weaker claim than merging: RimWorld already holds these units in one stack, so they interchange.
+        public static bool IsSplittableStack(Thing thing)
+        {
+            if (thing?.def == null) return false;
+            if (thing.def.category != ThingCategory.Item) return false;
+            if (thing.def.stackLimit <= 1) return false;
+            if (typeof(MinifiedThing).IsAssignableFrom(thing.def.thingClass)) return false;
+            return thing.stackCount > 1;
+        }
+
         public static KmhThingPayload Capture(Thing thing)
         {
             if (thing == null) return null;
-            // Shared safety gate: an unsafe type (minified/corpse/pawn/missing-def) must never be captured. Returning
-            // null makes the all-or-nothing caller abort and keep every item in the colony rather than destroy any.
+            // Returning null aborts the all-or-nothing caller, so an unsafe type keeps every item in the colony.
             if (!KmhItemSafety.CanKmhHandleThing(thing, KmhItemContext.Store, out string block))
             {
                 KmhLog.Warn($"KMH: refused to capture '{thing.def?.defName}' - {block}");
@@ -64,11 +67,11 @@ namespace KMHPatch.Items
             try { if (thing.def != null && thing.def.useHitPoints) { p.HitPoints = thing.HitPoints; p.MaxHitPoints = thing.MaxHitPoints; } } catch { }
             try { p.MarketValue = (long)Math.Round(thing.MarketValue); } catch { }
 
-            // Fungible-stacking metadata (additive; does not change the captured state). Mark stackable food/resources
-            // so the server may merge equal stacks, and carry rot so it can weight-average freshness on merge.
+            // Additive metadata only; rot rides along so the server can weight-average freshness on merge.
             try
             {
-                p.Mergeable = IsFungible(thing.def);
+                p.Mergeable  = IsFungible(thing.def);
+                p.Splittable = IsSplittableStack(thing);
                 CompRottable rot = thing.TryGetComp<CompRottable>();
                 if (rot != null) p.RotProgressTicks = (long)rot.RotProgress;
             }
@@ -96,8 +99,7 @@ namespace KMHPatch.Items
             return p;
         }
 
-        // Rebuild the exact Thing. Full+scribe -> deserialize; otherwise best-effort from metadata. Returns null on
-        // total failure so the caller can fall back to the legacy def+count path.
+        // Null on total failure, so the caller falls back to the legacy path rather than losing the item.
         public static Thing Restore(KmhThingPayload p)
         {
             if (p == null) return null;
@@ -108,15 +110,13 @@ namespace KMHPatch.Items
                 if (t != null)
                 {
                     if (p.StackCount > 1 && t.def != null && t.def.stackLimit >= p.StackCount) t.stackCount = p.StackCount;
-                    // Fungible stacks are weight-averaged server-side on merge, so the payload's rot/HP is the
-                    // authoritative freshness (all merged stacks share one representative blob) - apply it over the blob.
+                    // The payload's rot wins over the blob's: merged stacks share one representative blob.
                     if (p.Mergeable) ApplyAveragedWear(t, p);
                     return t;
                 }
                 KmhLog.Warn($"KMH: exact item restore failed for {p.DefName}; rebuilding from captured state (some detail may be lost).");
             }
 
-            // Metadata / simple rebuild.
             ThingDef def = ColonyGoods.Def(p.DefName);
             if (def == null) { KmhLog.Warn($"KMH: cannot restore unknown item '{p.DefName}'."); return null; }
             try
@@ -132,8 +132,7 @@ namespace KMHPatch.Items
             catch (Exception ex) { KmhLog.Warn($"KMH: metadata restore of {p.DefName} threw: {ex.Message}"); return null; }
         }
 
-        // Deterministic storage identity: any state difference that must NOT merge changes the fingerprint. Kept in
-        // lockstep with the addon's KmhItemSafety.GetStateFingerprint.
+        // In lockstep with the addon's GetStateFingerprint: a difference that must not merge has to change this.
         public static string Fingerprint(KmhThingPayload p)
         {
             if (p == null) return "";
@@ -157,8 +156,51 @@ namespace KMHPatch.Items
             }
         }
 
-        // Apply a fungible payload's (server-averaged) rot + HP onto a freshly-restored blob item, so a merged stack's
-        // freshness is what the server computed - not whatever the single representative blob happened to carry.
+        // The server discards the extra blobs anyway, so folding here changes only the wire size.
+        public static bool TryFoldFungible(List<KmhThingPayload> captured, KmhThingPayload p)
+        {
+            if (captured == null || p == null || !p.Mergeable) return false;
+            foreach (KmhThingPayload e in captured)
+            {
+                if (!CanMergeFungible(e, p)) continue;
+                MergeFungible(e, p);
+                return true;
+            }
+            return false;
+        }
+
+        // Wear is deliberately not identity, since MergeFungible averages it; material and taint are.
+        private static bool CanMergeFungible(KmhThingPayload a, KmhThingPayload b)
+        {
+            if (a == null || b == null || !a.Mergeable || !b.Mergeable) return false;
+            return string.Equals(a.DefName, b.DefName, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.StuffDefName ?? "", b.StuffDefName ?? "", StringComparison.OrdinalIgnoreCase)
+                && a.Quality == b.Quality
+                && a.Tainted == b.Tainted;
+        }
+
+        // Weight-averaged by count, so a merged stack is neither refreshed nor over-rotted.
+        private static void MergeFungible(KmhThingPayload target, KmhThingPayload incoming)
+        {
+            if (target == null || incoming == null) return;
+            long ct = Math.Max(1, target.StackCount);
+            long ci = Math.Max(1, incoming.StackCount);
+            target.HitPoints        = (int)WeightedAvg(target.HitPoints, ct, incoming.HitPoints, ci);
+            target.RotProgressTicks = WeightedAvg(target.RotProgressTicks, ct, incoming.RotProgressTicks, ci);
+            target.StackCount       = (int)Math.Min(int.MaxValue, ct + ci);
+        }
+
+        // A negative value means unknown and is skipped, so -1 comes back only when both are unknown.
+        private static long WeightedAvg(long a, long ca, long b, long cb)
+        {
+            if (a < 0 && b < 0) return -1;
+            if (a < 0) return b;
+            if (b < 0) return a;
+            long denom = ca + cb;
+            return denom <= 0 ? a : (long)Math.Round((a * (double)ca + b * (double)cb) / denom);
+        }
+
+        // The server's averaged freshness wins over whatever the representative blob happened to carry.
         private static void ApplyAveragedWear(Thing t, KmhThingPayload p)
         {
             if (t == null || p == null) return;

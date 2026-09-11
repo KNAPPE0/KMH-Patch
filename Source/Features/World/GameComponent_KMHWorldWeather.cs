@@ -6,12 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.World
 {
-    // Applies active world_weather events as GameConditions on player maps.
-    //
-    // Server EndsUtcTicks is the only authority. Conditions register open-ended so RimWorld's timer can't expire them
-    // early at high game speed - that left them inactive-but-wanted and the next sync recreated them, forever. KMH ends
-    // them itself on the real clock. State is per map+event+def and persisted, so a reload still knows what we own; a
-    // condition we didn't apply is never claimed or ended.
+    // Applies active world_weather events as GameConditions on player maps; the server's end time is the only authority.
     public class GameComponent_KMHWorldWeather : GameComponent
     {
         private const int SyncEveryTicks       = 250;
@@ -160,8 +155,7 @@ namespace KMHPatch.Features.World
             Diagnostics.KmhLog.Debug($"World weather: {def.defName} applied (ends {RemainingReal(m.EndsUtcTicks)})");
         }
 
-        // Ends ONLY what we applied. With no snapshot, falls back to the last known end so a dropped link expires
-        // weather on schedule rather than cancelling it early.
+        // Ends ONLY what we applied; with no snapshot it falls back to the last known end so a dropped link never cancels early.
         private void Retire(List<Map> maps, List<WorldEventDto> active, bool haveSnapshot, long nowUtc)
         {
             for (int i = _managed.Count - 1; i >= 0; i--)

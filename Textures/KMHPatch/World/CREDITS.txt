@@ -1,0 +1,21 @@
+KMH world-map marker art is from Google Noto Emoji
+(https://github.com/googlefonts/noto-emoji), licensed under the Apache License 2.0.
+
+The same source as the KMH button icons under Textures/KMHPatch/UI, so the tab and
+the world map speak one visual language.
+
+Glyphs used (Unicode codepoint -> marker):
+
+  U+1F33E  sheaf of rice        -> Farmland
+  U+26CF   pick                 -> Quarry
+  U+1F332  evergreen tree       -> Woodland
+  U+1F404  cow                  -> Ranch
+  U+1F6A7  construction barrier -> Roadworks
+  U+1F3ED  factory              -> Custom
+  U+1F3F0  castle               -> GuildHall
+  U+1F6E1  shield               -> Frontier Outpost
+  U+1F537  blue diamond         -> Generic fallback
+
+No other artwork is redistributed here. Fonts installed on a build machine (Segoe UI
+Emoji and the like) are deliberately NOT used - they are proprietary and shipping
+renders of them would redistribute someone else's artwork.

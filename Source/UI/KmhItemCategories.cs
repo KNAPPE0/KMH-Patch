@@ -4,8 +4,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Shared friendly item taxonomy: maps a def (or composed def|stuff|quality key) to one bucket by walking its
-    // ThingCategory ancestry, so one category dropdown works across every KMH picker. First matching bucket wins.
+    // First matching bucket wins, so the declaration order below is the precedence.
     public static class KmhItemCategories
     {
         private static readonly (string Label, string[] Cats)[] Buckets =

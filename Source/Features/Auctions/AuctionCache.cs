@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using KMHPatch.Features.Auctions.Dto;
 
 namespace KMHPatch.Features.Auctions
@@ -14,6 +14,9 @@ namespace KMHPatch.Features.Auctions
 
         internal static void Apply(AuctionSnapshot snapshot)
         {
+            // Transports reorder; the disconnect clear is what lets a new server's lower revision still apply.
+            if (snapshot == null) return;
+            if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Auction");

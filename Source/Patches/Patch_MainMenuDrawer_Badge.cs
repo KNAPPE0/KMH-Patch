@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -6,16 +6,10 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Draws a small, faint "KMH Patch vX.Y.Z" label in the bottom-right corner of the main menu so players can
-    // confirm at a glance that the patch is loaded
-    //
-    // Same target method as Patch_MainMenuDrawer_MainMenuOnGUI (the welcome dialog patch). Harmony runs multiple
-    // postfixes on the same target independently; ordering doesn't matter here because neither postfix touches
-    // state the other depends on
+    // Shares a target method with the welcome-dialog patch; the postfixes are independent and share no state.
     [HarmonyPatch(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI))]
     internal static class Patch_MainMenuDrawer_Badge
     {
-        // Cached so we're not allocating + reflecting every frame.
         private static readonly string BadgeText = BuildBadgeText();
 
         private static string BuildBadgeText()
@@ -31,7 +25,6 @@ namespace KMHPatch.Patches
             const float height  = 22f;
             const float padding = 8f;
 
-            // Top-right corner. Tiny font, half-opacity so it doesn't compete with the menu's own UI
             Rect r = new Rect(
                 Verse.UI.screenWidth - width - padding,
                 padding,

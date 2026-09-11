@@ -8,8 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Holds an assigned colonist inside a KMH site. Records are restored by pawn id/name after reload because
-    // cross-refs to pawns inside a ThingOwner can resolve late or fail with heavy modpacks.
+    // Holds a colonist inside a site; records restore by pawn id/name because ThingOwner cross-refs resolve late.
     public class WorldComponent_KMHSiteWorkers : WorldComponent, IThingHolder
     {
         private const int UnconfirmedSyncLimit = 4;   // sync passes (~40s each) before an unconfirmed join is recalled
@@ -84,7 +83,9 @@ namespace KMHPatch.Features.Sites
         public bool Hold(Pawn pawn, int siteTile, string username)
         {
             if (pawn == null || pawn.Dead || pawn.Destroyed || siteTile < 0) return false;
-            if (FindRecord(siteTile, username) != null) return true;
+            // True only for THIS pawn: another pawn holding the slot would report a colonist that never left the caravan.
+            HeldWorker existing = FindRecord(siteTile, username);
+            if (existing != null) return existing.Pawn == pawn;
             try
             {
                 ThingOwner from = pawn.holdingOwner;
@@ -196,8 +197,7 @@ namespace KMHPatch.Features.Sites
             }
         }
 
-        // Rebuild missing records from the server snapshot after save/load. This protects against cross-ref loss where
-        // the pawn deep-loads inside _held, but the HeldWorker.Pawn reference resolves null.
+        // Covers cross-ref loss on load: the pawn deep-loads inside _held but HeldWorker.Pawn resolves null.
         public void AdoptOrphansFromSnapshot(IEnumerable<SiteEntry> sites, string localUsername)
         {
             ReattachRecordPawns();

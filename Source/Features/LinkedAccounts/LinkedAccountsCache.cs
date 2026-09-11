@@ -1,23 +1,18 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.LinkedAccounts.Dto;
 
 namespace KMHPatch.Features.LinkedAccounts
 {
-    // Static client cache of in-game username -> Discord display name. Every
-    // dialog that renders a username should call Format() instead of writing the raw username so Discord-linked
-    // players get the standard visual treatment everywhere
+    // Every dialog rendering a username calls Format(), so linked players look the same everywhere.
     public static class LinkedAccountsCache
     {
-        // Case-insensitive - server might be inconsistent in casing, and RWT usernames are case-preserving but
-        // compared case-insensitively elsewhere in the codebase
+        // RWT usernames are case-preserving but compared case-insensitively, and the server's casing may differ.
         private static Dictionary<string, string> _links
             = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public static DateTime LastUpdatedUtc { get; private set; } = DateTime.MinValue;
 
-        // True once at least one snapshot has been received. Format() works either way - just returns the plain
-        // username when the cache is empty
         public static bool HasSnapshot { get; private set; } = false;
 
         public static event Action Updated;
@@ -35,15 +30,33 @@ namespace KMHPatch.Features.LinkedAccounts
             return _links.TryGetValue(username, out string d) ? d : null;
         }
 
-        // Render a username with the standard Discord-aware treatment: linked users get the Discord brand color,
-        // unlinked stay default. Calling Format() at every username render site means a single change here (e.g.
-        // adding an icon) ripples through every feature dialog.
+        // DM channel ids are lowercased by construction, so a name parsed back out of one needs its casing from the roster.
+        public static string Canonical(string username)
+        {
+            if (string.IsNullOrEmpty(username)) return username;
+            try
+            {
+                var all = PlayerStats.PlayerStatsCache.Entries;
+                if (all != null)
+                    foreach (var e in all)
+                        if (e != null && string.Equals(e.Username, username, System.StringComparison.OrdinalIgnoreCase))
+                            return e.Username;
+            }
+            catch { }
+            return username;   // roster not loaded yet - show what we have rather than nothing
+        }
+
         public static string Format(string username)
         {
             if (string.IsNullOrEmpty(username)) return "<color=grey>(unknown)</color>";
-            if (!IsLinked(username))            return username;
-            // Discord brand blue. Slight saturation drop so it stays readable in the RimWorld UI
-            return $"<color=#5865F2>{username}</color>";
+            username = Canonical(username);
+            // Here rather than at each render site, so "who is staff" is answerable everywhere instead of only in chat.
+            string badge = Identity.KmhStaff.Tag(username);
+            // From the theme, not a literal, or recolouring the Discord mark gives two blues for one idea on one screen.
+            string name = IsLinked(username)
+                        ? $"<color={UI.KmhTheme.Hex(UI.KmhTheme.DiscordSrc)}>{username}</color>"
+                        : username;
+            return badge + name;
         }
 
         internal static void Apply(LinkedAccountsSnapshot snapshot)

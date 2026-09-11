@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -9,21 +9,14 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Redirect RWT's stock guild list (GameClient.Dialogs.DLG_GuildList) to KMH's Dialog_KMHGuildHall on a KMH server.
-    // Stock RWT's list is a flat "Username - Rank" scroll; the Guild Hall adds Manage, MOTD, perks, diplomacy, settings.
-    //
-    // Manually patched (NOT an attribute patch) on purpose: the type was removed/renamed in newer RWT builds, and a
-    // compile-time [HarmonyPatch(typeof(DLG_GuildList))] / typed parameter would trip ReflectionTypeLoadException when
-    // this class's metadata is scanned on a build where the type is absent. We resolve it by name and skip cleanly.
-    // Only redirects on a KMH server (the GuildCache is empty otherwise, so the Hall would sit on "Loading...").
+    // Patched manually, not by attribute: the type is absent in some RWT builds and a typed reference would throw during scanning.
     internal static class Patch_DLG_GuildList_KmhRedirect
     {
-        // Called once from KmhEntry after the attribute patches apply. Safe on every RWT build.
         public static void TryApply(Harmony harmony)
         {
             try
             {
-                // 26.6.23.1 moved it under .Guild, 26.7.25.1 renamed the root; ResolveType also covers future moves.
+                // RWT has both moved and renamed this type, so every known location is offered.
                 string ns = RwtCompat.ClientNsRoot + ".Dialogs";
                 Type t = RwtCompat.ResolveType(ns, "DLG_GuildList", ns + ".DLG_GuildList", ns + ".Guild.DLG_GuildList");
                 if (t == null)
@@ -32,9 +25,7 @@ namespace KMHPatch.Patches
                     return;
                 }
 
-                // Match the "open with a member list" constructor without naming RWT's member type (it may have been
-                // renamed): the single-arg ctor whose parameter is a List<>. Patching only it avoids double-firing on
-                // chained constructors.
+                // Matched by shape, not by RWT's member type name, and only one ctor so chained ones cannot double-fire.
                 ConstructorInfo target = null;
                 foreach (ConstructorInfo c in t.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
                 {

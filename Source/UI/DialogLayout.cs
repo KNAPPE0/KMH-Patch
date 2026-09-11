@@ -1,56 +1,93 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Verse;
 // I will never remove these comments (:
 namespace KMHPatch.UI
 {
-    // Shared layout constants + helpers for the KMH dialog family, so every dialog keeps a pixel-consistent look.
     internal static class DialogLayout
     {
-        // -- Title row --
         public const float TitleHeight = 32f;
         public const float AfterTitle  = 36f;
 
-        // -- Section divider --
         public const float DividerHeight = 8f;
 
-        // -- List rows -- (>= one font line so a single-line cell has room)
+        // At least one font line, or a single-line cell has no room to draw.
         public const float RowHeightSingle = 28f;
 
-        // -- Close / footer --
         public const float CloseBtnWidth  = 96f;
         public const float CloseBtnHeight = 32f;
         public const float FooterReserve  = 44f;
 
-        // -- Live indicator (top-right "● live · Ns ago") --
+        // A small enough resize drag makes the raw subtraction negative, which throws inside BeginScrollView.
+        public static float BodyHeight(Rect rect, float y) => Mathf.Max(MinBodyHeight, rect.height - y - FooterReserve);
+
+        public const float MinBodyHeight = 40f;
+
+        // RimWorld centres a window at InitialSize without clamping, and resizing cannot recover off-screen content.
+        public static Vector2 FitToScreen(float width, float height)
+            => FitToScreen(width, height, Verse.UI.screenWidth, Verse.UI.screenHeight);
+
+        // Pure overload so the clamp can be proven without a running game.
+        public static Vector2 FitToScreen(float width, float height, float screenW, float screenH)
+            => new Vector2(Mathf.Clamp(width,  MinDialogWidth,  Mathf.Max(MinDialogWidth,  screenW - ScreenMargin)),
+                           Mathf.Clamp(height, MinDialogHeight, Mathf.Max(MinDialogHeight, screenH - ScreenMargin)));
+
+        public const float ScreenMargin    = 40f;
+        public const float MinDialogWidth  = 320f;
+        public const float MinDialogHeight = 240f;
+
+        // LabelTrunc grows any shorter rect to a full line, so a pitch under the font height overlaps every row.
+        public static float TextRowH => Mathf.Ceil(Text.LineHeight);
+
+        // Pitch for a row of `lines` stacked text lines plus optional padding, measured rather than guessed.
+        public static float TextRowsH(int lines, float pad = 0f) => Mathf.Max(1, lines) * TextRowH + pad;
+
+        public const float TabHeight = 26f;
+        public const float TabGap    = 3f;
+
+        // Wraps: laid out left-to-right with no width check, the last tabs draw outside the dialog and cannot be clicked.
+        public static float TabRow(float y, float width, System.Collections.Generic.IList<string> labels,
+                                   int selected, System.Action<int> onSelect)
+        {
+            if (labels == null || labels.Count == 0) return y;
+            float x = 0f;
+            for (int i = 0; i < labels.Count; i++)
+            {
+                string label = labels[i] ?? "";
+                float w = Mathf.Min(Mathf.Max(66f, Text.CalcSize(label).x + 18f), Mathf.Max(1f, width));
+                if (x > 0f && x + w > width) { x = 0f; y += TabHeight + TabGap; }
+
+                Color old = GUI.color;
+                if (i == selected) GUI.color = new Color(0.45f, 0.75f, 1f);
+                if (Widgets.ButtonText(new Rect(x, y, w, TabHeight), label)) onSelect?.Invoke(i);
+                GUI.color = old;
+
+                x += w + TabGap;
+            }
+            return y + TabHeight + 6f;
+        }
+
         public const float LiveBadgeWidth  = 220f;
         public const float LiveBadgeY      = 6f;
         public const float LiveBadgeHeight = 18f;
         public static readonly Color LiveBadgeColor = new Color(0.6f, 0.85f, 0.6f);
 
-        // Fallback poll for open dialogs; the server pushes fresh snapshots on every change, so this only catches
-        // missed pushes - 12s halves idle packet noise vs the old 8s with no visible staleness.
+        // Only a fallback: the server pushes on every change, so this exists to catch a missed push.
         public const float AutoRefreshSeconds = 12f;
 
-        // -- Standard padding --
         public const float ListInnerPad         = 4f;
         public const float ScrollbarReserveWidth = 16f;
 
-        // -- Design tokens. Prefer these over ad-hoc literals so every KMH
-        //    dialog shares one look (spacing, button size, subtext colour). --
+        // Prefer these over ad-hoc literals, or dialogs drift apart on spacing and button size.
         public const float EdgePad      = 6f;   // content inset from a panel edge
         public const float RowGap       = 6f;   // vertical gap between stacked controls
         public const float ButtonHeight = 30f;  // standard button row height
         public const float ButtonWidth  = 110f; // standard button width
 
-        // Muted grey for secondary text. One value so subtext reads the same everywhere instead of drifting between
-        // 0.7 and 0.8 per dialog
+        // One value, or subtext drifts between 0.7 and 0.8 per dialog.
         public static readonly Color MutedColor = new Color(0.72f, 0.72f, 0.72f);
 
-        // -- Helpers --
 
-        // Row virtualization: which row indices are actually inside the scroll viewport, so a list draws only the
-        // ~visible handful instead of every row (keeps big modded item/quest/auction lists at a flat per-frame cost).
-        // Keep the scroll viewRect height at count*rowH so the scrollbar stays correct; loop only [first, last).
+        // Keep the viewRect height at count*rowH so the scrollbar stays correct; loop only [first, last).
         public static void VisibleRange(Vector2 scroll, float viewportHeight, float rowH, int count,
                                         out int first, out int last)
         {
@@ -60,12 +97,7 @@ namespace KMHPatch.UI
             last = Mathf.Min(count, first + (int)(viewportHeight / rowH) + 2);
         }
 
-        // One-call scrolling, virtualized row list for the KMH list dialogs (auctions, wants, marketplace, quests,
-        // sites, standings…). Handles the identical boilerplate every one of them used to repeat: inner inset, view
-        // height + scrollbar reserve, BeginScrollView, the visible-range window, per-row alternating tint and
-        // mouseover highlight, the empty-state label, and EndScrollView. The caller only draws each row's content via
-        // drawRow(index, rowRect) and supplies an optional message for the empty case. `scroll` is the caller's
-        // persisted scroll position. Draw any panel background (DrawMenuSection) around `box` before calling.
+        // Draw any panel background around `box` before calling; this owns everything inside it.
         public static void ScrollList(Rect box, ref Vector2 scroll, int count, float rowH,
                                       System.Action<int, Rect> drawRow, string emptyLabel = null)
         {
@@ -88,9 +120,7 @@ namespace KMHPatch.UI
             Widgets.EndScrollView();
         }
 
-        // Placeholder for a feature list still waiting on its first server snapshot. A pre-1.1.0 server never sends
-        // the v1.1.0 snapshots, so its empty ServerBuild means the snapshot will never arrive - say that plainly
-        // instead of spinning on "Loading…" forever. Caller wraps the result in its own colour tags.
+        // An empty ServerBuild means the snapshot will never arrive, so say so instead of spinning on "Loading…".
         public static string AwaitingSnapshot(string loadingLabel, string featureName)
             => string.IsNullOrEmpty(SubProtocol.KmhDispatcher.ServerBuild)
                 ? $"{featureName} need a newer server (KMH {SubProtocol.KmhProtocol.BuildVersion}+)."
@@ -108,11 +138,26 @@ namespace KMHPatch.UI
             return $"{(int)s.TotalSeconds}s";
         }
 
+        // Kept separate from TimeLeft: "never"/"expired" and "—"/"closing…" are both load-bearing wordings.
+        public static string TimeRemainingShort(long expiresUtcTicks, long nowTicks)
+        {
+            if (expiresUtcTicks <= 0) return "never";
+            if (nowTicks >= expiresUtcTicks) return "<color=#ff8080>expired</color>";
+            try
+            {
+                System.TimeSpan span = System.TimeSpan.FromTicks(expiresUtcTicks - nowTicks);
+                if (span.TotalDays    >= 1) return $"{(int)span.TotalDays}d";
+                if (span.TotalHours   >= 1) return $"{(int)span.TotalHours}h";
+                if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m";
+                return $"{(int)span.TotalSeconds}s";
+            }
+            catch { return "?"; }
+        }
+
         public static float DrawTitle(Rect rect, string title)
         {
             Text.Font = GameFont.Medium;
-            // Size the title to the Medium font's real line height so its descenders don't clip; content starts
-            // just below it
+            // Sized to the Medium font's real line height, or the title's descenders clip.
             float h = Mathf.Max(TitleHeight, Text.LineHeight);
             Widgets.Label(new Rect(0f, 2f, rect.width, h), title);
             Text.Font = GameFont.Small;
@@ -125,15 +170,32 @@ namespace KMHPatch.UI
             y += DividerHeight;
         }
 
-        public static void DrawLiveBadge(Rect rect, int secondsSinceRefresh)
+        // Well past the auto-refresh interval, so an ordinary gap between snapshots never reads as a fault.
+        private const int StaleAfterSeconds = 30;
+
+        // received=false means nothing has been applied yet, so the badge must not claim to be live.
+        public static void DrawLiveBadge(Rect rect, int secondsSinceRefresh, float reserveRight = 0f)
+            => DrawLiveBadge(rect, secondsSinceRefresh, true, reserveRight);
+
+        public static void DrawLiveBadge(Rect rect, int secondsSinceRefresh, bool received, float reserveRight)
         {
             Text.Font = GameFont.Tiny;
+            TextAnchor oldAnchor = Text.Anchor;
             Color old = GUI.color;
-            GUI.color = LiveBadgeColor;
-            string text = secondsSinceRefresh <= 1
-                ? "● live · just now"
-                : $"● live · {secondsSinceRefresh}s ago";
-            Widgets.Label(new Rect(rect.width - LiveBadgeWidth, LiveBadgeY, LiveBadgeWidth, LiveBadgeHeight), text);
+            bool stale = received && secondsSinceRefresh >= StaleAfterSeconds;
+            GUI.color = !received ? new Color(0.62f, 0.62f, 0.62f)
+                      : stale     ? new Color(1f, 0.81f, 0.35f)
+                                  : LiveBadgeColor;
+            Text.Anchor = TextAnchor.UpperRight;
+            // The word carries the state, not the colour.
+            string text = !received ? "○ waiting…"
+                        : stale     ? $"◐ stale · {secondsSinceRefresh}s ago"
+                        : secondsSinceRefresh <= 1 ? "● live · just now"
+                                                   : $"● live · {secondsSinceRefresh}s ago";
+            float right = rect.width - Mathf.Max(0f, reserveRight);
+            float w     = Mathf.Min(LiveBadgeWidth, Mathf.Max(0f, right));
+            if (w > 0f) Widgets.Label(new Rect(right - w, LiveBadgeY, w, LiveBadgeHeight), text);
+            Text.Anchor = oldAnchor;
             GUI.color = old;
             Text.Font = GameFont.Small;
         }
@@ -151,8 +213,6 @@ namespace KMHPatch.UI
         public static void DrawCenteredLabel(Rect r, string text)
             => LabelTrunc(r, text, TextAnchor.MiddleCenter);
 
-        // Secondary / hint text in the shared muted grey. Saves the save-color / set / label / restore dance every
-        // caller repeats
         public static void DrawMutedLabel(Rect r, string text)
         {
             Color old = GUI.color;
@@ -161,20 +221,18 @@ namespace KMHPatch.UI
             GUI.color = old;
         }
 
-        // Single-line label that fits the rect: text wider than the rect is truncated with an ellipsis (never
-        // clipped mid-glyph), full text on hover. Rich-text formatting is kept while it fits.
+        // Truncated with an ellipsis rather than clipped mid-glyph, with the full text on hover.
         public static void LabelTrunc(Rect r, string text, TextAnchor anchor = TextAnchor.UpperLeft)
         {
             if (string.IsNullOrEmpty(text)) return;
+            // A subtracted column width can go non-positive, and drawing into it throws or spills across neighbours.
+            if (r.width <= 1f) return;
             TextAnchor oldAnchor = Text.Anchor;
             try
             {
-                // Guarantee a full line of vertical room so descenders (g/y/p/q) and the bottoms of letters never
-                // clip, even when a caller passes a row shorter than the font. Grow the rect (centered) and
-                // vertically-center the text - the fix for "bottoms cut off"
+                // Grows DOWNWARD only: growing centred starts the text above its rect and draws over the row before it.
                 float lineH = Text.LineHeight;
-                if (r.height < lineH)
-                    r = new Rect(r.x, r.y - (lineH - r.height) / 2f, r.width, lineH);
+                if (r.height < lineH) r = new Rect(r.x, r.y, r.width, lineH);
                 Text.Anchor = ToMiddle(anchor);
 
                 if (Text.CalcSize(text).x <= r.width)
@@ -196,9 +254,7 @@ namespace KMHPatch.UI
             finally { Text.Anchor = oldAnchor; }
         }
 
-        // Universal filter/search box. Field is grown to a full line and the placeholder vertically centered so
-        // neither the text nor the greyed placeholder clips (the old ContractedBy(6,4) clipped glyph bottoms).
-        public static string SearchField(Rect r, string current, string placeholder = "Filter…")
+        public static string SearchField(Rect r, string current, string placeholder = "Filter")
         {
             float minH = Text.LineHeight + 6f;
             if (r.height < minH) r = new Rect(r.x, r.y, r.width, minH);
@@ -211,8 +267,7 @@ namespace KMHPatch.UI
                 Color      oldC = GUI.color;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color   = new Color(1f, 1f, 1f, 0.35f);
-                // Inset only horizontally (clear of the caret); keep full height so the centered placeholder keeps
-                // its descender room
+                // Horizontal inset only: losing height costs the centred placeholder its descender room.
                 Widgets.Label(new Rect(r.x + 7f, r.y, r.width - 12f, r.height), placeholder);
                 GUI.color   = oldC;
                 Text.Anchor = oldA;
@@ -220,8 +275,6 @@ namespace KMHPatch.UI
             return result;
         }
 
-        // Keep the horizontal alignment but force vertical centering, so a single line sits in the middle of its
-        // row with descender room
         private static TextAnchor ToMiddle(TextAnchor a)
         {
             switch (a)
@@ -233,28 +286,105 @@ namespace KMHPatch.UI
             }
         }
 
-        // Drop rich-text tags (<b>, <color=..>, <i>) so width measurement and truncation operate on the visible
-        // characters only
+        // Width measurement and truncation must see only the visible characters, not the markup.
         public static string StripTags(string s)
             => string.IsNullOrEmpty(s) ? s : System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty);
 
-        // Compact checkbox + label with the box right next to the text (vanilla CheckboxLabeled wastes 80-100 px
-        // on a flexible gap, awkward in toolbar rows). Returns the next x so calls can chain along a row.
+        // Shared, or a checkbox row sits 2px higher in one dialog than the next.
+        public const float ToolbarRowH = 32f;
+
+        // Vanilla CheckboxLabeled wastes 80-100px on a flexible gap, which does not fit a toolbar row.
+        public static float TightCheckboxWidth(string label) => 20f + 4f + Text.CalcSize(label ?? "").x + 14f;
+
+        // Not Widgets.Checkbox: its unchecked texture is a cross, which on a filter row reads as "blocked", not "off".
         public static float DrawTightCheckbox(float x, float y, string label, ref bool value)
         {
             const float boxSize = 20f;
             const float padding = 4f;
             const float trail   = 14f;
+            label ??= "";
             float labelW = Text.CalcSize(label).x;
 
-            Widgets.Checkbox(x, y - 2f, ref value, boxSize);
+            Rect box = new Rect(x, y - 2f, boxSize, boxSize);
+            Rect hit = new Rect(x, y - 2f, boxSize + padding + labelW + 4f, boxSize + 2f);
+
+            if (Mouse.IsOver(hit)) Widgets.DrawHighlight(hit);
+
+            Color prevCol = GUI.color;
+            Widgets.DrawBoxSolid(box, value ? CheckboxOnFill : CheckboxOffFill);
+            GUI.color = CheckboxOutline;
+            Widgets.DrawBox(box);
+            GUI.color = prevCol;
+
+            if (value)
+            {
+                TextAnchor prevAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(box, "✓");
+                Text.Anchor = prevAnchor;
+            }
+
             Widgets.Label(new Rect(x + boxSize + padding, y, labelW + 4f, 22f), label);
+
+            if (Widgets.ButtonInvisible(hit))
+            {
+                value = !value;
+                Verse.Sound.SoundStarter.PlayOneShotOnCamera(
+                    value ? RimWorld.SoundDefOf.Checkbox_TurnedOn : RimWorld.SoundDefOf.Checkbox_TurnedOff);
+            }
             return x + boxSize + padding + labelW + trail;
         }
 
-        // Pop a float menu listing every value of enum T (labeled by `label`), invoking `onPick` with the chosen one.
-        // Replaces the identical "new List<FloatMenuOption> → foreach Enum.GetValues → capture → add → new FloatMenu"
-        // boilerplate every enum dropdown (sort pickers, etc.) used to repeat.
+        private static readonly Color CheckboxOnFill  = new Color(0.35f, 0.52f, 0.38f);
+        private static readonly Color CheckboxOffFill = new Color(0.16f, 0.16f, 0.16f);
+        private static readonly Color CheckboxOutline = new Color(0.55f, 0.55f, 0.55f);
+
+        // A "Category: " prefix spends width on a word the player knows and truncates the part that varies.
+        public static string DropdownLabel(string value) => (value ?? "") + " ▼";
+
+        // Measured against every value the menu can show, or the first one fits and the rest ellipse.
+        public static float DropdownWidth(System.Collections.Generic.IEnumerable<string> values,
+                                          float min = 110f, float max = 220f)
+        {
+            float w = 0f;
+            if (values != null)
+                foreach (string v in values)
+                {
+                    try { w = Mathf.Max(w, Text.CalcSize(DropdownLabel(v)).x); } catch { }
+                }
+            return Mathf.Clamp(w + 26f, min, Mathf.Max(min, max));
+        }
+
+        // Label drawn separately so an over-long value truncates with a tooltip instead of being clipped mid-word.
+        public static bool DrawDropdownButton(Rect r, string value)
+        {
+            bool clicked = Widgets.ButtonText(r, string.Empty);
+            LabelTrunc(new Rect(r.x + 8f, r.y, Mathf.Max(1f, r.width - 16f), r.height),
+                       DropdownLabel(value), TextAnchor.MiddleLeft);
+            return clicked;
+        }
+
+        // Not a checkbox: three boxes with one ticked reads as three independent options, not one choice.
+        public static bool DrawSegment(Rect r, string label, bool selected, bool enabled = true)
+        {
+            Color prev = GUI.color;
+            Widgets.DrawBoxSolid(r, selected ? CheckboxOnFill : CheckboxOffFill);
+            GUI.color = selected ? SegmentSelectedOutline : CheckboxOutline;
+            Widgets.DrawBox(r);
+            GUI.color = prev;
+
+            if (enabled && Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+
+            Color textPrev = GUI.color;
+            if (!enabled) GUI.color = MutedColor;
+            LabelTrunc(new Rect(r.x + 6f, r.y, Mathf.Max(1f, r.width - 12f), r.height), label, TextAnchor.MiddleCenter);
+            GUI.color = textPrev;
+
+            return enabled && Widgets.ButtonInvisible(r);
+        }
+
+        private static readonly Color SegmentSelectedOutline = new Color(0.72f, 0.86f, 0.74f);
+
         public static void EnumFloatMenu<T>(System.Func<T, string> label, System.Action<T> onPick) where T : System.Enum
         {
             System.Collections.Generic.List<FloatMenuOption> opts = new System.Collections.Generic.List<FloatMenuOption>();
@@ -266,8 +396,7 @@ namespace KMHPatch.UI
             Find.WindowStack.Add(new FloatMenu(opts));
         }
 
-        // Friendly version of an enum name - drops the CamelCase and adds spaces so "EconomyScore" -> "Economy
-        // Score" for FloatMenu labels
+        // "EconomyScore" -> "Economy Score" for menu labels.
         public static string FriendlyEnumName(System.Enum value)
         {
             if (value == null) return "";

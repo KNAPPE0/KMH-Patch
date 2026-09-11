@@ -25,11 +25,10 @@ namespace KMHPatch.Patches
             Ensure<GameComponent_KMHWorldWeather>(__instance);
             Ensure<Features.Sites.GameComponent_KMHSiteWorkerSync>(__instance);
 
-            // Site markers live on a WorldComponent, which RimWorld only auto-instantiates at world build - on first
-            // join the payload can load after that, so the marker component is missing until a rejoin rebuilds the
-            // world (markers then only appeared on rejoin). Ensure it here too, exactly like the GameComponents.
+            // RimWorld auto-instantiates WorldComponents only at world build, which the payload can load after.
             EnsureWorld<Features.Sites.WorldComponent_KMHSiteMarkers>();
             EnsureWorld<Features.Sites.WorldComponent_KMHSiteWorkers>();   // holds assigned pawns "inside" sites
+            EnsureWorld<Features.Roadworks.WorldComponent_KMHRoads>();     // remembers which world roads are KMH's
         }
 
         private static void Ensure<T>(Game game) where T : GameComponent

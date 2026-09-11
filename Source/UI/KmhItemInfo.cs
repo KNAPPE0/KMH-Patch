@@ -3,9 +3,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // RimWorld's REAL info card ("i" button) for KMH item rows, so players can inspect an item's stats before
-    // depositing/withdrawing/buying/selling/bidding/fulfilling. Works from a composed key or def+stuff names -
-    // no live Thing needed (server-side items only exist as defs + KMH payload metadata on this side).
+    // Works without a live Thing, because a server-side item exists here only as a def plus payload metadata.
     internal static class KmhItemInfo
     {
         public const float Size = 24f;

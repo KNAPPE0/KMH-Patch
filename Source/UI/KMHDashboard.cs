@@ -12,9 +12,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Registry-driven KMH dashboard. Every enabled feature has a ROW that is ALWAYS rendered (loading/empty/data/
-    // disabled/stale) - the row exists first, snapshots only update its text. A feature can never go missing because
-    // its snapshot arrived late or not at all (the old snapshot-driven build dropped rows with no cached data).
+    // The row exists first and snapshots only update its text, so a late snapshot can never drop a feature.
     internal static class KMHDashboard
     {
         private static bool _buildErrorLogged;   // one-shot so a recurring section failure can't flood the log
@@ -24,8 +22,7 @@ namespace KMHPatch.UI
         private static bool On(string feature) => Features.KmhFeatures.IsEnabled(feature);
         private static string Me() => KmhSession.Me;
 
-        // A dashboard row. Summary returns the current text (it decides loading/empty/data/stale). The server-disabled
-        // state is handled centrally from Feature. Visible is an extra gate (e.g. Transport needs the local setting).
+        // Status only, never navigation: nothing may be reachable from here alone.
         private readonly struct Row
         {
             public readonly string Label;
@@ -33,23 +30,19 @@ namespace KMHPatch.UI
             public readonly Func<string> Summary;
             public readonly Func<bool> Visible;    // null = always visible
             public readonly Func<string> Tooltip;  // null = no hover detail
-            public readonly Action OnClick;        // null = not clickable
             public Row(string label, string feature, Func<string> summary, Func<bool> visible = null,
-                       Func<string> tooltip = null, Action onClick = null)
-            { Label = label; Feature = feature; Summary = summary; Visible = visible; Tooltip = tooltip; OnClick = onClick; }
+                       Func<string> tooltip = null)
+            { Label = label; Feature = feature; Summary = summary; Visible = visible; Tooltip = tooltip; }
         }
 
         private static List<Row> _rows;
 
-        // The dashboard is informational and its snapshots update slowly, but DoWindowContents runs on every OnGUI
-        // event (Layout + Repaint, ~2x/visual frame). Rebuilding all rows - several of which scan whole snapshot lists -
-        // that often is wasted work, so the built line set is cached and refreshed a few times a second. Row count only
-        // changes between rebuilds, which also keeps the panel height stable within a frame.
+        // Cached so the row count, and therefore the panel height, stays stable within a frame.
         private static readonly TimeSpan RebuildInterval = TimeSpan.FromMilliseconds(250);
-        private static List<(string Label, string Value, Color color, Func<string> Tip, Action OnClick)> _cachedLines;
+        private static List<(string Label, string Value, Color color, Func<string> Tip)> _cachedLines;
         private static DateTime _lastBuildUtc = DateTime.MinValue;
 
-        // Built once (the set of features is fixed for the mod). Order = display order.
+        // Declaration order is display order.
         private static List<Row> Rows()
         {
             if (_rows != null) return _rows;
@@ -61,9 +54,11 @@ namespace KMHPatch.UI
                 new Row("Marketplace",   "marketplace", MarketplaceSummary),
                 new Row("Auctions",      "auctions",    AuctionsSummary),
                 new Row("Want Board",    "wantboard",   WantSummary),
+                new Row("Mail",          "mail",        MailSummary),
+                new Row("Chat",          "chat",        ChatSummary),
                 new Row("Quests",        "quests",      QuestsSummary),
                 new Row("Sites",         "",            SitesSummary),
-                new Row("World Events",  "world",       WorldEventsSummary, null, WorldEventsTooltip, OpenWorldEvents),
+                new Row("World Events",  "world",       WorldEventsSummary, null, WorldEventsTooltip),
                 new Row("Global Quests", "world",       GlobalQuestsSummary),
                 new Row("Standings",     "standings",   StandingsSummary),
                 new Row("Enforcement",   "",            EnforcementSummary),
@@ -81,9 +76,7 @@ namespace KMHPatch.UI
         {
             var lines = BuildLines();
 
-            // Render as two aligned columns. The loop restores GUI state so one bad row can't corrupt the panel/buttons.
-            // rowH must be >= Text.LineHeight (22) - LabelTrunc grows shorter rows to a full line, so 20/1 made
-            // neighboring rows overlap ("text bleeding"); the tab body scrolls now, so no need to squeeze.
+            // rowH must be at least Text.LineHeight: LabelTrunc grows a shorter row and it overlaps its neighbour.
             const float labelW = 120f, rowH = 23f, rowGap = 2f, panelPad = 6f;
             float panelH = panelPad * 2f + Math.Max(0, lines.Count) * (rowH + rowGap);
             Rect panelRect = listing.GetRect(panelH);
@@ -93,7 +86,7 @@ namespace KMHPatch.UI
             {
                 Widgets.DrawMenuSection(panelRect);
                 float ly = panelRect.y + panelPad;
-                foreach (var (label, value, color, tip, onClick) in lines)
+                foreach (var (label, value, color, tip) in lines)
                 {
                     try
                     {
@@ -103,18 +96,12 @@ namespace KMHPatch.UI
                         DialogLayout.LabelTrunc(labelRect, $"<color=#9FB1C9>{label ?? ""}</color>");
                         DialogLayout.LabelTrunc(valueRect, value ?? "");
 
-                        // Getter + per-row uniqueId: the tip carries a live countdown, and the string overload keys
-                        // uniqueId off the text hash, so a ticking clock re-registers a new tooltip mid-hover.
-                        if (tip != null || onClick != null)
+                        // A per-row uniqueId, because the string overload hashes the text and a countdown re-registers.
+                        if (tip != null)
                         {
                             Rect rowRect = new Rect(labelRect.x, ly, valueRect.xMax - labelRect.x, rowH);
-                            if (tip != null && Mouse.IsOver(rowRect))
+                            if (Mouse.IsOver(rowRect))
                                 TooltipHandler.TipRegion(rowRect, new TipSignal(tip, (label ?? "kmhrow").GetHashCode()));
-                            if (onClick != null)
-                            {
-                                Widgets.DrawHighlightIfMouseover(rowRect);
-                                if (Widgets.ButtonInvisible(rowRect)) onClick();
-                            }
                         }
                     }
                     catch (Exception ex) { LogSectionOnce("row-render", ex); }
@@ -125,24 +112,27 @@ namespace KMHPatch.UI
             finally { Text.Font = prevFont; Text.Anchor = prevAnchor; GUI.color = prevColor; }
         }
 
-        // Compute the row text set, cached and refreshed at most every RebuildInterval (see field note).
-        private static List<(string Label, string Value, Color color, Func<string> Tip, Action OnClick)> BuildLines()
+        private static List<(string Label, string Value, Color color, Func<string> Tip)> BuildLines()
         {
             DateTime now = DateTime.UtcNow;
             if (_cachedLines != null && now - _lastBuildUtc < RebuildInterval) return _cachedLines;
 
-            var lines = new List<(string Label, string Value, Color color, Func<string> Tip, Action OnClick)>();
+            var lines = new List<(string Label, string Value, Color color, Func<string> Tip)>();
 
-            // Persistent version-mismatch notice (kept above the feature rows).
+            // Compatibility is capability-based, so a build difference is information, not an update alarm.
             try
             {
                 if (SubProtocol.KmhDispatcher.IsKmhServer)
                 {
-                    string sb = SubProtocol.KmhDispatcher.ServerBuild;
-                    if (string.IsNullOrEmpty(sb))
-                        lines.Add(("KMH version", "<color=#E2C16B>server is pre-1.1.0 - newer features hidden until it updates</color>", Color.white, null, null));
-                    else if (sb != SubProtocol.KmhProtocol.BuildVersion)
-                        lines.Add(("KMH version", $"<color=#E2C16B>server {sb} vs your mod {SubProtocol.KmhProtocol.BuildVersion} - update so both match</color>", Color.white, null, null));
+                    string sb  = SubProtocol.KmhDispatcher.ServerBuild;
+                    string srv = string.IsNullOrEmpty(sb) ? "pre-1.1.0" : sb;
+                    bool   caps = SubProtocol.KmhCapabilities.ManifestSeen;
+                    string note = caps
+                        ? "<color=#7CD37C>compatible</color>"
+                        : "<color=#9FB1C9>legacy server - newer features hidden</color>";
+                    lines.Add(("KMH version",
+                        $"client {SubProtocol.KmhProtocol.DisplayVersion} · server {srv} · protocol v{SubProtocol.KmhProtocol.CurrentVersion} · {note}",
+                        Color.white, null));
                 }
             }
             catch (Exception ex) { LogSectionOnce("version", ex); }
@@ -154,9 +144,9 @@ namespace KMHPatch.UI
                 {
                     if (r.Visible != null && !r.Visible()) continue;
                     string text = !string.IsNullOrEmpty(r.Feature) && !On(r.Feature) ? DisabledText : (r.Summary() ?? LoadingText);
-                    lines.Add((r.Label, text, Color.white, r.Tooltip, r.OnClick));
+                    lines.Add((r.Label, text, Color.white, r.Tooltip));
                 }
-                catch (Exception ex) { LogSectionOnce(r.Label, ex); lines.Add((r.Label, "<color=#D37C7C>error - refresh</color>", Color.white, null, null)); }
+                catch (Exception ex) { LogSectionOnce(r.Label, ex); lines.Add((r.Label, "<color=#D37C7C>error - refresh</color>", Color.white, null)); }
             }
 
             _cachedLines = lines;
@@ -164,7 +154,6 @@ namespace KMHPatch.UI
             return lines;
         }
 
-        // --- per-feature summary providers (each handles loading / empty / data; "" -> caller shows loading) ---
 
         private static string TransportSummary()
         {
@@ -238,6 +227,25 @@ namespace KMHPatch.UI
             return mine == 0 ? $"<b>{count}</b> open" : $"<b>{count}</b> open  <color=grey>· {mine} yours</color>";
         }
 
+        private static string MailSummary()
+        {
+            if (!Features.Mail.MailCache.HasSnapshot) return LoadingText;
+            int total  = Features.Mail.MailCache.Snapshot?.Messages?.Count ?? 0;
+            int unread = Features.Mail.MailCache.Unread;
+            if (total == 0) return "<color=grey>empty</color>";
+            return unread > 0
+                ? $"<b><color={KmhTheme.Hex(KmhTheme.Accent)}>{unread} unread</color></b>  <color=grey>· {total} total</color>"
+                : $"<color=grey>{total} message(s)</color>";
+        }
+
+        private static string ChatSummary()
+        {
+            int unread = Features.Chat.ChatCache.TotalUnread();
+            if (unread > 0) return $"<b><color={KmhTheme.Hex(KmhTheme.Accent)}>{unread} unread</color></b>  <color=grey>· server channel</color>";
+            int have = Features.Chat.ChatCache.Recent(Features.Chat.ChatCache.ServerChannel).Count;
+            return have > 0 ? $"<color=grey>{have} recent · server channel</color>" : "<color=grey>quiet · open to say hello</color>";
+        }
+
         private static string QuestsSummary()
         {
             if (!QuestCache.HasSnapshot) return LoadingText;
@@ -274,17 +282,13 @@ namespace KMHPatch.UI
         private static string WorldEventsSummary()
         {
             if (!Features.World.WorldCache.HasSnapshot) return LoadingText;
-            // ActiveEvents, not Snapshot.Events: a stale snapshot still lists events whose end time has passed, and
-            // showing those as active made one-time events look permanent.
+            // ActiveEvents, not Snapshot.Events: a stale snapshot still lists events whose end time has passed.
             var ev = Features.World.WorldCache.ActiveEvents();
             if (ev.Count == 0) return "<color=grey>none active - waiting for next roll</color>";
-            string hint = "  <color=#79b8ff>(click for details)</color>";
             return ev.Count == 1
-                ? $"<b><color=#7CD37C>{Features.World.WorldEventText.Title(ev[0])}</color></b>  <color=grey>{ev[0].Description}</color>{hint}"
-                : $"<b><color=#7CD37C>{ev.Count} active</color></b>  <color=grey>{string.Join(", ", ev.ConvertAll(Features.World.WorldEventText.Title))}</color>{hint}";
+                ? $"<b><color=#7CD37C>{Features.World.WorldEventText.Title(ev[0])}</color></b>  <color=grey>{ev[0].Description}</color>"
+                : $"<b><color=#7CD37C>{ev.Count} active</color></b>  <color=grey>{string.Join(", ", ev.ConvertAll(Features.World.WorldEventText.Title))}</color>";
         }
-
-        private static void OpenWorldEvents() => Find.WindowStack.Add(new Features.World.Dialog_KMHWorldEvents());
 
         private static string WorldEventsTooltip()
         {
@@ -302,7 +306,7 @@ namespace KMHPatch.UI
                 string desc = (e.Description ?? "").Trim();
                 if (desc.Length > 0) sb.Append('\n').Append(desc);
             }
-            sb.Append("\n\nClick to open Active world events.");
+            sb.Append("\n\nFull details in the World window.");
             return sb.ToString();
         }
 

@@ -7,9 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.LinkedAccounts
 {
-    // Receives kmh.linked_accounts.snapshot pushes from the server and applies them to LinkedAccountsCache, and (on
-    // request from the Link button) the kmh.link.code reply with a fresh single-use Discord link code. Server pushes
-    // the snapshot once during handshake and whenever a link/unlink happens, so the map stays fresh without polling.
     internal static class LinkedAccountsHandler
     {
         public static void Register()
@@ -47,10 +44,14 @@ namespace KMHPatch.Features.LinkedAccounts
             string code = env?.GetString("code");
             if (string.IsNullOrEmpty(code)) { KmhNotifications.Rejected("Server did not return a link code"); return; }
             int mins = env.GetInt("ttl_minutes", 0);
-            try { GUIUtility.systemCopyBuffer = code; } catch { }
             string ttl = mins > 0 ? $" (expires in {mins} min, one use)" : "";
-            Find.WindowStack.Add(new Dialog_MessageBox(
-                $"Your Discord link code:\n\n<b>{code}</b>{ttl}\n\nCopied to your clipboard. In Discord, post in an allowed channel or DM the bot:\n!kmh-link {code}"));
+            // The clipboard and the window stack are main-thread only, and a throw here would only be logged.
+            KmhMainThread.Post(() =>
+            {
+                try { GUIUtility.systemCopyBuffer = code; } catch { }
+                Find.WindowStack.Add(new Dialog_MessageBox(
+                    $"Your Discord link code:\n\n<b>{code}</b>{ttl}\n\nCopied to your clipboard. In Discord, post in an allowed channel or DM the bot:\n!kmh-link {code}"));
+            });
         }
     }
 }

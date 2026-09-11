@@ -1,17 +1,13 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.UI
 {
-    // Reusable single-line text input modal. Counterpart to Dialog_KMHAmountInput for string mutations (MOTDs,
-    // guild names, quest titles in the future composer, etc.)
-    //
-    // Empty-string Confirm is allowed by default - caller decides whether an empty value is meaningful (e.g. "clear
-    // MOTD"). Set rejectEmpty to true to enforce non-empty input
+    // Empty confirms by default, because for some callers empty is the meaningful value ("clear MOTD").
     public class Dialog_KMHTextInput : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(460f, 180f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(460f, 180f);
 
         private readonly string         _title;
         private readonly string         _confirmLabel;
@@ -52,7 +48,6 @@ namespace KMHPatch.UI
             string next = Widgets.TextField(inputRect, _input ?? "");
             if (next != null && next.Length <= _maxChars) _input = next;
 
-            // Char counter
             Color old = GUI.color;
             GUI.color = DialogLayout.MutedColor;
             DialogLayout.LabelTrunc(new Rect(0f, 66f, rect.width, 18f), $"{(_input ?? "").Length} / {_maxChars}");

@@ -6,24 +6,39 @@
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
-  <modVersion>1.2.2</modVersion>
+  <modVersion>1.3.0</modVersion>
 
   <description>KMH is a community feature pack for the official RimWorld Together mod
 
 It adds an in-game KMH tab with:
+
+Trade and wealth
 - a player marketplace (buy/sell, search, guild-only listings)
 - timed auctions and a want-to-buy board
 - treasury vaults, personal and guild
+- off-map wealth counts toward RimWorld's raid scaling, so parking value in KMH is not a safe haven (the server decides whether this is on)
+
+Work and territory
+- custom production sites with workers and reward routing
+- site archetypes - Farmland, Quarry, Woodland, Ranch, Roadworks or Custom - each using the colonist skill that fits
+- site buildings and storage, plus site condition and repair
+- Roadworks: plan a route on the world map, get a quote before you commit, and build Trail, Road or Highway
+- Frontier Operations: derelict and contested locations you can claim for yourself or your guild
+
+People
+- guilds with ranks, buyable perks, alliances, and a shared vault
+- a Communications hub: server chat, guild chat and direct messages in one window
+- player mail with silver, item and full-condition gear attachments - recallable while unread, and returned if never claimed
+- per-channel notification levels and player blocking
+- a reputation system with quest-trust scoring
+
+World and records
 - a quest board: deliver, bounty, hunt, build, escort, defend, and custom quests
 - server-wide events and co-op/competitive global quests (Living World)
-- guilds with ranks, buyable perks, alliances, and a shared vault
-- a reputation system with quest-trust scoring
-- custom production sites with workers and reward routing
-- Server Standings: player, guild, colony, colonist, trade, battle, and site records with profiles and a season archive
-- offline mail for outcomes that happen while you're away
+- Server Standings: player, guild, colony, colonist, trade, battle, site and Frontier records with profiles and a season archive
 - an optional Discord bridge
 
-KMH only activates when you connect to a KMH-enabled server.
+KMH only activates when you connect to a KMH-enabled server. Features the server has not enabled stay hidden.
 
 Client mod (this): https://github.com/KNAPPE0/KMH-Patch
 Server addon: https://github.com/KNAPPE0/KMH-Server-Addon
@@ -48,6 +63,7 @@ Server addon: https://github.com/KNAPPE0/KMH-Server-Addon
     <li>Ludeon.RimWorld.Royalty</li>
     <li>Ludeon.Rimworld.Ideology</li>
     <li>Ludeon.Rimworld.Biotech</li>
+    <li>Ludeon.RimWorld.Anomaly</li>
     <li>Ludeon.Rimworld.Odyssey</li>
     <li>nova.rimworldtogether</li>
   </loadAfter>

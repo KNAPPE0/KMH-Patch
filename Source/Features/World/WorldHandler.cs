@@ -22,31 +22,23 @@ namespace KMHPatch.Features.World
         public static bool SendContribution(long questId, int total)
             => KmhDispatcher.Send(KmhProtocol.Kind.WorldContribute, new { quest_id = questId, total = total });
 
-        // Remove goods before reporting, restoring on send failure; source is caravan or colony stockpiles.
+        // Nothing leaves the colony: the server pays from the treasury, the only stock it can prove you own, so this asks and it withdraws or refuses.
         public static bool TryDeliver(long questId, string targetDefName, int qty)
         {
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
             ThingDef def = ColonyGoods.Def(targetDefName);
             if (def == null) { KmhNotifications.Rejected($"Unknown item '{targetDefName}'"); return false; }
 
-            Caravan caravan = CaravanReader.GetSelectedCaravan();
-            Map     map     = caravan == null ? ColonyGoods.DepositMap() : null;
-            string  src     = caravan != null ? "caravan" : "colony";
-
-            int have = caravan != null ? ColonyGoods.Count(caravan, def) : ColonyGoods.CountOnMap(map, def);
-            if (have < qty) { KmhNotifications.Rejected($"Your {src} only has {have} {def.label}"); return false; }
-
-            bool removed = caravan != null
-                ? ColonyGoods.TryRemove(caravan, def, qty)
-                : ColonyGoods.TryRemoveOnMap(map, def, qty);
-            if (!removed) { KmhNotifications.Rejected($"Could not take the items from your {src}"); return false; }
-
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WorldDeliver,
-                new { quest_id = questId, item_def_name = targetDefName, qty });
-            if (sent) KmhNotifications.Positive($"Delivered ×{qty} {def.label}");
-            else { ColonyGoods.Deliver(def, qty); KmhNotifications.Rejected("Not connected - items returned"); }
+                new { quest_id = questId, item_def_name = targetDefName, qty },
+                KmhOpId.For($"world.deliver|{questId}|{targetDefName}|{qty}"));
+            if (!sent) KmhNotifications.Rejected("Not connected - nothing was delivered");
             return sent;
         }
+
+        // What the treasury can cover, so the dialog can offer a number the server will actually accept.
+        public static int TreasuryStockOf(string targetDefName)
+            => Features.Treasury.TreasuryCache.CompactCountOf(targetDefName);
 
         private static void OnSnapshot(KmhEnvelope env)
         {

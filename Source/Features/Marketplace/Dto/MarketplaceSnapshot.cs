@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Marketplace.Dto
@@ -6,6 +6,8 @@ namespace KMHPatch.Features.Marketplace.Dto
     // Wire DTO for marketplace snapshots; server stays authoritative.
     public class MarketplaceSnapshot
     {
+        // Server-stamped under its read lock; older revisions are dropped because transports reorder.
+        [JsonProperty("revision")] public long Revision { get; set; } = 0;
         [JsonProperty("listings")]
         public List<MarketplaceListing> Listings { get; set; } = new List<MarketplaceListing>();
 
@@ -37,8 +39,7 @@ namespace KMHPatch.Features.Marketplace.Dto
         [JsonProperty("remaining_qty")]       public int    RemainingQty    { get; set; } = 0;
         [JsonProperty("original_qty")]        public int    OriginalQty     { get; set; } = 0;
         [JsonProperty("unit_price_silver")]   public int    UnitPriceSilver { get; set; } = 0;   // rounded display / old-server fallback
-        // Canonical unit price in milli-silver (1000 = 1 silver) so items can cost below 1 full silver. 0 => an old
-        // server that only sent whole silver, so fall back to UnitPriceSilver * 1000.
+        // Canonical, in milli-silver so an item can cost under 1 silver; 0 means an old server and falls back to whole silver.
         [JsonProperty("unit_price_milli")]    public int    UnitPriceMilli  { get; set; } = 0;
 
         [JsonProperty("listed_utc_ticks")]    public long   ListedUtcTicks  { get; set; } = 0;

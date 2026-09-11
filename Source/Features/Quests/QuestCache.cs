@@ -1,10 +1,9 @@
-using System;
+﻿using System;
 using KMHPatch.Features.Quests.Dto;
 
 namespace KMHPatch.Features.Quests
 {
-    // Client cache for the most recent quest-board snapshot. Same pattern as the other feature caches - readers go
-    // through Snapshot, subscribe to Updated for invalidation
+    // Client cache for the most recent quest-board snapshot.
     public static class QuestCache
     {
         public static QuestSnapshot Snapshot       { get; private set; }
@@ -16,6 +15,9 @@ namespace KMHPatch.Features.Quests
 
         internal static void Apply(QuestSnapshot snapshot)
         {
+            // Two transports can deliver out of order; Clear() on disconnect lets a new server's lower revision apply.
+            if (snapshot == null) return;
+            if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
             Snapshot       = snapshot;
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Quest");

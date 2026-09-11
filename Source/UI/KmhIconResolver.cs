@@ -5,8 +5,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Single place item icons are resolved + drawn. A safe item whose icon failed gets a category fallback (never the
-    // red-X BadTex); a missing/unsafe def draws nothing. ItemLabels.DrawIcon and every row delegate here.
+    // A failed icon falls back to its category, never the red-X BadTex; an unsafe def draws nothing at all.
     internal static class KmhIconResolver
     {
         public static Texture2D IconFor(string key) => IconForDef(DefOf(key));

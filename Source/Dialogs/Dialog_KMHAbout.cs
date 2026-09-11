@@ -1,13 +1,15 @@
-using KMHPatch.Diagnostics;
+﻿using KMHPatch.Diagnostics;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.Dialogs
 {
-    // Main-menu KMH info panel for links, diagnostics, and client settings.
     public class Dialog_KMHAbout : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(560f, 420f);
+        protected override bool ClosesOnSessionEnd => false;
+
+        // Sized so every button clears the close button, not to the paragraph alone.
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(560f, 620f);
 
         public Dialog_KMHAbout()
         {
@@ -19,7 +21,6 @@ namespace KMHPatch.Dialogs
 
         protected override void DrawContents(Rect inRect)
         {
-            // Leave room for the close button.
             Rect content = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - 45f);
 
             Listing_Standard listing = new Listing_Standard();
@@ -31,9 +32,11 @@ namespace KMHPatch.Dialogs
 
             listing.Gap(6f);
             listing.Label(
-                "KMH is a feature pack that adds client-side improvements on top of " +
-                "the official RimWorld Together mod. It runs as a separate patch - " +
-                "no RimWorld Together files are modified."
+                "KMH is a community feature pack for the official RimWorld Together mod: " +
+                "a marketplace, auctions and a want board, personal and guild treasuries, " +
+                "quests, guilds, production sites, roadworks, frontier outposts, chat and " +
+                "player mail, and server-wide events. It runs as a separate patch - no " +
+                "RimWorld Together files are modified."
             );
 
             listing.GapLine(12f);
@@ -43,7 +46,6 @@ namespace KMHPatch.Dialogs
 
             listing.Gap(12f);
 
-            // External links and KMH utility actions.
             const float gap = 6f;
 
             if (listing.ButtonText("Patch GitHub (client mod)"))
@@ -78,7 +80,6 @@ namespace KMHPatch.Dialogs
 
             if (listing.ButtonText("Open KMH log folder"))
             {
-                // Opens the log folder in the OS file manager.
                 Application.OpenURL(KmhLog.LogFolderPath);
             }
             listing.Gap(gap);

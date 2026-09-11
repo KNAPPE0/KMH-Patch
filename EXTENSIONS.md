@@ -69,6 +69,10 @@ cd my-mod
 The example is a fully working RimWorld mod that toasts the player
 when their marketplace listing count goes up.
 
+For a richer, code-focused reference — reacting to the *actionable*
+events (payouts, offline notifications, world events) and reading caches, all
+with no Verse references — see `Templates/ClientExtension-Earnings/`.
+
 ### 2. Edit About/About.xml
 
 - Change `packageId` to your own reverse-DNS string
@@ -130,7 +134,7 @@ The stable surface you get in `Register`. Holds:
 | Interface | Surface |
 |-----------|---------|
 | `ITreasuryCache` | `HasSnapshot`, `Snapshot`, `LastUpdatedUtc`, `RequestRefresh()` |
-| `IMarketplaceCache` | `HasSnapshot`, `Listings`, `LastUpdatedUtc`, `RequestRefresh()`, `TryBuy`, `TryCancel`, `TryPost` |
+| `IMarketplaceCache` | `HasSnapshot`, `Listings`, `LastUpdatedUtc`, `RequestRefresh()`, `TryBuy`, `TryCancel`, `TryPost` (see below) |
 | `IQuestCache` | `HasSnapshot`, `Quests`, `LastUpdatedUtc`, `RequestRefresh()`, `TryClaim`, `TrySubmit`, `TryApprove`, `TryCancel`, `TryPostDeliverItem`, `TryPostBounty` |
 | `IGuildCache` | `HasSnapshot`, `InGuild`, `Snapshot`, `LastUpdatedUtc`, `RequestRefresh()` |
 | `IGuildLeaderboardCache` | `HasSnapshot`, `Guilds`, `LastUpdatedUtc`, `RequestRefresh()` |
@@ -145,7 +149,27 @@ All snapshot/list reads return immutable record DTOs from
 server responds with a fresh snapshot which triggers the
 corresponding `Cache*Updated` event.
 
+### Marketplace prices
+
+Prices are plain silver. `TryPost` takes either a whole number or a
+decimal, so both of these list at the price they read as:
+
+```csharp
+Marketplace.TryPost("Steel", 50, 100);       // 100 silver
+Marketplace.TryPost("Steel", 50, 100.23m);   // 100.23 silver
+```
+
+KMH stores prices exactly, down to a thousandth of a silver. A price
+finer than that - `100.1234` - is refused rather than rounded, so a
+listing never goes up at a price you did not ask for.
+
+Reading a listing back, `UnitPrice` is the exact silver price as a
+decimal. `UnitPriceSilver` stays whole-silver and rounds, so a listing
+under half a silver reads as `0`.
+
 ### Events (`IKmhClientEvents`)
+
+**Lifecycle + cache-refresh** (tag-only — read the refreshed data via the matching `host.<Cache>` property):
 
 ```csharp
 event Action<KmhServerConnectedEvent>           KmhServerConnected;
@@ -159,7 +183,42 @@ event Action<PlayerStatsCacheUpdatedEvent>      PlayerStatsCacheUpdated;
 event Action<LinkedAccountsCacheUpdatedEvent>   LinkedAccountsCacheUpdated;
 event Action<AuctionCacheUpdatedEvent>          AuctionCacheUpdated;
 event Action<WorldCacheUpdatedEvent>            WorldCacheUpdated;
+event Action<WantCacheUpdatedEvent>             WantCacheUpdated;
+event Action<SiteCacheUpdatedEvent>             SiteCacheUpdated;
+event Action<ReputationCacheUpdatedEvent>       ReputationCacheUpdated;
+event Action<SeasonArchiveCacheUpdatedEvent>    SeasonArchiveCacheUpdated;
+event Action<ChatCacheUpdatedEvent>             ChatCacheUpdated;
+event Action<ChatModerationCacheUpdatedEvent>   ChatModerationCacheUpdated;
+event Action<MailCacheUpdatedEvent>             MailCacheUpdated;
 ```
+
+`ChatCacheUpdated` fires for new messages in any channel the local player can see, and
+`MailCacheUpdated` when their inbox, unread count, or outgoing escrow changes — so a client
+extension can react to chat and mail the same way it reacts to the economy boards.
+
+**Actionable events** (carry a payload — react to a precise moment, not a whole-cache refresh):
+
+```csharp
+event Action<KmhGrantReceivedEvent>       GrantReceived;        // a payout landed (silver/items into the colony)
+event Action<KmhNotificationReceivedEvent> NotificationReceived; // offline notification: auction won, sale, want filled
+event Action<KmhWorldEventFiredEvent>     WorldEventFired;      // a tax holiday / market boom / ... started
+event Action<KmhWorldEventEndedEvent>     WorldEventEnded;      // a world event expired / ended (pairs by Id)
+```
+
+```csharp
+// React to payouts:
+host.Events.GrantReceived += e =>
+{
+    if (e.Kind == "silver") host.Toast.Positive($"+{e.Silver} silver");
+};
+// Nudge the player during a favourable market window:
+host.Events.WorldEventFired += e =>
+{
+    if (e.Type == "tax_holiday") host.Toast.Positive($"{e.Title} — good time to sell!");
+};
+```
+
+`GrantReceived` fires for immediate *and* held-then-delivered payouts, so a running total never misses one. `WorldEventFired` is seeded silently on connect — you won't get "fired" for events already running when you joined.
 
 Handlers fire on RimWorld's main thread (snapshot callbacks arrive
 via the patch's main-thread queue). Long-running work should queue

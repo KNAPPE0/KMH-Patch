@@ -1,13 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using RimWorld;
 using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Tracks recent PLAYER-caused damage to pawns so a hunt-quest target that bleeds out / collapses shortly after a
-    // colonist hurt it still counts for the player (not just the direct killing blow). Pure predator/weather/disease/
-    // starvation deaths with no recent player damage do NOT count. Client-side only (the kill tally is client-side);
-    // the window/min match the intended GlobalQuestKillAttribution* defaults.
+    // A hunt target that bleeds out after a colonist hurt it still counts; a predator or disease death does not.
     internal static class KmhRecentDamage
     {
         private const int AttributionWindowTicks = 60000;  // ~1 in-game day (GlobalQuestKillAttributionWindowTicks)

@@ -6,8 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.Standings
 {
-    // One column of a ranked standings table. Frac is the column's left edge as a fraction of table width.
-    // cols[0] is always the name column (left-aligned, carries the rank + ★ self-marker); the rest are centered.
+    // Frac is the left edge as a fraction of table width; cols[0] is always the left-aligned name column.
     internal sealed class Col<T>
     {
         public readonly string Header;
@@ -21,19 +20,49 @@ namespace KMHPatch.Features.Standings
     {
         public const string Dash = "<color=grey>—</color>";
 
-        // A row of selectable category tabs. Returns true (and updates active) when the selection changes.
+        private const float TabH = 26f, TabGap = 4f;
+
+        private static float TabW(string label, float max)
+            => Mathf.Min(Mathf.Max(64f, Text.CalcSize(label ?? "").x + 20f), Mathf.Max(1f, max));
+
+        // Place the header below this, never at a fixed offset - a narrow window wraps some boards onto a second line.
+        public static float TabsH(IReadOnlyList<string> labels, float width)
+        {
+            if (labels == null || labels.Count == 0) return TabH;
+            float[] widths = new float[labels.Count];
+            for (int i = 0; i < labels.Count; i++) widths[i] = TabW(labels[i], width);
+            return TabsHFrom(widths, width);
+        }
+
+        // Kept pure and split from Text.CalcSize, which needs a running game, so the offline suite can cover the wrap.
+        public static float TabsHFrom(IReadOnlyList<float> widths, float containerWidth)
+        {
+            if (widths == null || widths.Count == 0) return TabH;
+            int lines = 1;
+            float x = 0f;
+            for (int i = 0; i < widths.Count; i++)
+            {
+                float w = widths[i];
+                if (x > 0f && x + w > containerWidth) { x = 0f; lines++; }
+                x += w + TabGap;
+            }
+            return lines * TabH + (lines - 1) * TabGap;
+        }
+
         public static bool Tabs(Rect row, IReadOnlyList<string> labels, ref int active)
         {
             bool changed = false;
-            float x = row.x;
+            float x = 0f, y = row.y;
             for (int i = 0; i < labels.Count; i++)
             {
-                float w = Mathf.Max(64f, Text.CalcSize(labels[i]).x + 20f);
+                float w = TabW(labels[i], row.width);
+                if (x > 0f && x + w > row.width) { x = 0f; y += TabH + TabGap; }
+
                 Color old = GUI.color;
                 if (i == active) GUI.color = new Color(0.45f, 0.75f, 1f);
-                if (Widgets.ButtonText(new Rect(x, row.y, w, 26f), labels[i])) { if (active != i) { active = i; changed = true; } }
+                if (Widgets.ButtonText(new Rect(row.x + x, y, w, TabH), labels[i])) { if (active != i) { active = i; changed = true; } }
                 GUI.color = old;
-                x += w + 4f;
+                x += w + TabGap;
             }
             return changed;
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using KMHPatch.Features.Auctions.Dto;
 using KMHPatch.Features.LinkedAccounts;
@@ -9,10 +9,9 @@ using Verse;
 
 namespace KMHPatch.Features.Auctions
 {
-    // Auction house for live bids, buyouts, posting, and canceling; server stays authoritative for every move.
     public class Dialog_KMHAuctions : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(900f, 620f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(900f, 620f);
 
         private Vector2  _scroll;
 
@@ -34,7 +33,7 @@ namespace KMHPatch.Features.Auctions
             }
         }
 
-        // Cached filtered/sorted view - rebuilt only when the snapshot, filter, or toggles change (not every frame).
+        // Rebuilt only when the snapshot, filter or toggles change, never per frame.
         private List<AuctionDto> _visible;
         private object _visibleSource;
         private string _visibleFilter;
@@ -60,24 +59,37 @@ namespace KMHPatch.Features.Auctions
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Auction House");
-            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh);
+            DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            const float btnW = 130f;
-            if (IconButton.Draw(new Rect(rect.width - btnW, y, btnW - 4f, 28f), KMHTextures.Post, "Post auction…"))
-                Dialog_KMHPostAuction.Open();
-            if (Widgets.ButtonText(new Rect(rect.width - btnW * 2f, y, btnW - 4f, 28f), "Refresh"))
+            // The left group needs a fixed cursor width, so below that the right-anchored buttons wrap to their own row.
+            float btnW = Mathf.Max(IconButton.WidthFor("Refresh", false), IconButton.WidthFor("Post auction", true));
+            float leftNeeded = 534f;
+            bool  oneRow     = rect.width >= leftNeeded + btnW * 2f + 8f;
+
+            float leftW   = oneRow ? rect.width - btnW * 2f - 8f : rect.width;
+            float filterW = Mathf.Clamp(leftW - 234f, 110f, 300f);
+
+            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter, "Filter by item or player");
+            float cx = DialogLayout.DrawTightCheckbox(filterW + 16f, y + 4f, "Mine", ref _mineOnly);
+            float sortW = Mathf.Clamp(leftW - cx - 8f, 0f, 150f);
+            if (sortW >= 90f && Widgets.ButtonText(new Rect(cx + 8f, y, sortW, 28f), $"Sort: {SortLabel(_sort)}"))
+                DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
+
+            float btnY = oneRow ? y : y + 32f;
+            float cell = oneRow ? btnW : rect.width / 2f;
+            float btnX = oneRow ? rect.width - btnW * 2f : 0f;
+
+            if (Widgets.ButtonText(new Rect(btnX, btnY, cell - 4f, 28f), "Refresh"))
             {
                 AuctionHandler.RequestSnapshot();
-                MarkRefreshed();
             }
-            _filter = DialogLayout.SearchField(new Rect(0f, y, 300f, 28f), _filter, "Filter by item or player…");
-            float cx = DialogLayout.DrawTightCheckbox(316f, y + 4f, "Mine", ref _mineOnly);
-            if (Widgets.ButtonText(new Rect(cx + 8f, y, 150f, 26f), $"Sort: {SortLabel(_sort)}"))
-                DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
-            y += 34f;
+            if (IconButton.Draw(new Rect(btnX + cell, btnY, cell - 4f, 28f), KMHTextures.Post, "Post auction"))
+                Dialog_KMHPostAuction.Open();
 
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            y = btnY + 34f;
+
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawList(listBox);
 
@@ -86,7 +98,8 @@ namespace KMHPatch.Features.Auctions
 
         private void DrawList(Rect box)
         {
-            const float rowH = 62f;
+            // Three stacked text lines plus padding, measured: an 18f pitch under a 22f font overlapped every line.
+            float rowH = DialogLayout.TextRowsH(3, 8f);
 
             string me  = KmhSession.Me;
             string flt = (_filter ?? "").Trim().ToLowerInvariant();
@@ -111,12 +124,11 @@ namespace KMHPatch.Features.Auctions
             DialogLayout.ScrollList(box, ref _scroll, rows.Count, rowH, (i, row) =>
             {
                 if (rows[i].EndsUtcTicks > 0 && rows[i].EndsUtcTicks - now < soon)
-                    Widgets.DrawBoxSolid(row, new Color(0.95f, 0.55f, 0.2f, 0.10f)); // ending-soon tint
+                    Widgets.DrawBoxSolid(row, new Color(0.95f, 0.55f, 0.2f, 0.10f));
                 DrawRow(row, rows[i], me, now);
             }, empty);
         }
 
-        // Filter + sort. Built only on change, not per frame.
         private static List<AuctionDto> Build(List<AuctionDto> src, string flt, bool mineOnly, string me, SortMode sort)
         {
             List<AuctionDto> outList = new List<AuctionDto>();
@@ -151,35 +163,32 @@ namespace KMHPatch.Features.Auctions
         {
             Rect inner = row.ContractedBy(6f);
             const float reservedRight = 116f;
-            float textW = inner.width - reservedRight;
+            // Floored: a negative width runs the text column back under the action buttons.
+            float textW = Mathf.Max(0f, inner.width - reservedRight);
 
             bool mine    = KmhSession.Same(a.SellerUsername, me);
             bool hasBids = a.CurrentBid > 0 && !string.IsNullOrEmpty(a.HighBidder);
             bool iLead   = hasBids && KmhSession.Same(a.HighBidder, me);
 
-            // Line 1: icon + info card + item + qty + seller
             ItemKeys.Split(a.ItemDefName, out string rowDef, out string rowStuff, out _);
             ItemLabels.DrawIcon(new Rect(inner.x, inner.y, 20f, 20f), rowDef);
             UI.KmhItemInfo.ButtonForDef(inner.x + 22f, inner.y, rowDef, rowStuff);
-            DialogLayout.LabelTrunc(new Rect(inner.x + 22f + UI.KmhItemInfo.Size + 4f, inner.y, textW - 22f - UI.KmhItemInfo.Size - 4f, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x + 22f + UI.KmhItemInfo.Size + 4f, inner.y, textW - 22f - UI.KmhItemInfo.Size - 4f, DialogLayout.TextRowH),
                 $"<b>#{a.Id}  {a.Qty}x {ItemKeys.LabelForKey(a.ItemDefName)}</b>  <color=grey>by</color> {Seller(a.SellerUsername)}");
 
-            // Line 2: current bid / starting + high bidder
             string bidLine = hasBids
                 ? $"Top bid: <color=yellow>{SilverFmt.Format(a.CurrentBid)}</color> <color=grey>by</color> {Seller(a.HighBidder)}{(iLead ? " <color=#7CD37C>(you)</color>" : "")}  <color=grey>· {a.BidCount} bid(s)</color>"
                 : $"<color=grey>No bids · starts at</color> <color=yellow>{SilverFmt.Format(a.StartingBid)}</color>";
             Color old = GUI.color; GUI.color = new Color(0.85f, 0.85f, 0.85f);
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 18f, textW, 18f), bidLine);
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, textW, DialogLayout.TextRowH), bidLine);
             GUI.color = old;
 
-            // Line 3: buyout + time left
             string buyout = a.BuyoutSilver > 0 ? $"Buyout <color=yellow>{SilverFmt.Format(a.BuyoutSilver)}</color>  ·  " : "";
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + 36f, textW, 18f),
+            DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, textW, DialogLayout.TextRowH),
                 $"{buyout}ends in {DialogLayout.TimeLeft(a.EndsUtcTicks, now)}  ·  +{SilverFmt.Format(a.MinIncrement)} min raise");
             GUI.color = old;
 
-            // Actions
             float bw = 106f, bx = inner.xMax - bw;
             if (mine)
             {
@@ -200,7 +209,7 @@ namespace KMHPatch.Features.Auctions
                         onConfirm:    amt => AuctionHandler.TryBid(captured, amt),
                         initial:      minBid.ToString()));
                 }
-                if (a.BuyoutSilver > 0 && IconButton.Draw(new Rect(bx, inner.y + 32f, bw, 24f), KMHTextures.Approve, "Buyout"))
+                if (a.BuyoutSilver > 0 && IconButton.Draw(new Rect(bx, inner.y + 32f, bw, 24f), KMHTextures.Buy, "Buyout"))
                 {
                     long id = a.Id, price = a.BuyoutSilver;
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(

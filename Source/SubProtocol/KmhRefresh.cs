@@ -13,29 +13,46 @@ using KMHPatch.Features.World;
 
 namespace KMHPatch.SubProtocol
 {
-    // Ask the server for a fresh snapshot of every feature at once (e.g. when the KMH tab opens) so the dashboard +
-    // caches are current without waiting for the player to open each dialog. Each send is guarded; server pushes fill
-    // the caches. No-op off a KMH server.
     internal static class KmhRefresh
     {
-        public static void RequestAll()
+        // Every request a join makes, named so a failed send is retried alone instead of stranding that feature on "Loading…".
+        internal static readonly (string Name, System.Func<bool> Send)[] All =
         {
-            if (!KmhDispatcher.IsKmhServer) return;
-            void Try(System.Func<bool> send) { try { send(); } catch { } }
+            ("sites",      SiteHandler.RequestSnapshot),
+            ("roadworks",  Features.Roadworks.RoadworksHandler.RequestSnapshot),
+            ("guild",      GuildHandler.RequestSnapshot),
+            ("world",      WorldHandler.RequestSnapshot),
+            ("treasury",   TreasuryHandler.RequestSnapshot),
+            ("marketplace",MarketplaceHandler.RequestSnapshot),
+            ("auctions",   AuctionHandler.RequestSnapshot),
+            ("wants",      WantHandler.RequestSnapshot),
+            ("mail",       Features.Mail.MailHandler.RequestSnapshot),
+            ("chat",       () => Features.Chat.ChatHandler.RequestSnapshot()),
+            ("quests",     QuestHandler.RequestSnapshot),
+            ("standings",  PlayerStatsHandler.RequestSnapshot),
+            ("reputation", ReputationCache.RequestSnapshot),
+            ("accounts",   LinkedAccountsHandler.RequestSnapshot),
+            ("enforcement",Features.Enforcement.EnforcementHandler.RequestSnapshot),
+        };
 
-            Try(TreasuryHandler.RequestSnapshot);
-            Try(GuildHandler.RequestSnapshot);
-            Try(MarketplaceHandler.RequestSnapshot);
-            Try(AuctionHandler.RequestSnapshot);
-            Try(WantHandler.RequestSnapshot);
-            Try(QuestHandler.RequestSnapshot);
-            Try(SiteHandler.RequestSnapshot);
-            Try(WorldHandler.RequestSnapshot);
-            Try(PlayerStatsHandler.RequestSnapshot);
-            Try(ReputationCache.RequestSnapshot);
-            Try(LinkedAccountsHandler.RequestSnapshot);
-            try { Features.Enforcement.EnforcementHandler.RequestSnapshot(); } catch { }   // void return, not Func<bool>
-            KmhLog.Debug("KMH refresh: requested fresh snapshots for treasury/guild/marketplace/auction/want/quest/site/world/standings/reputation/linked/enforcement.");
+        public static void RequestAll() => RequestAll(out _);
+
+        public static void RequestAll(out System.Collections.Generic.List<string> failed)
+        {
+            failed = new System.Collections.Generic.List<string>();
+            if (!KmhDispatcher.IsKmhServer) return;
+
+            foreach ((string name, System.Func<bool> send) in All)
+            {
+                bool ok = false;
+                try { ok = send(); } catch { }
+                if (!ok) failed.Add(name);
+            }
+
+            if (failed.Count == 0)
+                KmhLog.Debug("KMH refresh: requested fresh snapshots for every feature.");
+            else
+                KmhLog.Warn($"KMH refresh: {string.Join(", ", failed)} did not send - will retry.");
         }
     }
 }

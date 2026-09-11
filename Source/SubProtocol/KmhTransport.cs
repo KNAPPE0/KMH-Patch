@@ -15,6 +15,9 @@ namespace KMHPatch.SubProtocol
     {
         public static KmhTransportStatus Status { get; internal set; } = KmhTransportStatus.Offline;
 
+        // Set only when an advertised transport could not be reached; a chat-only server and a dead port look alike without it.
+        public static string DegradedReason { get; internal set; }
+
         // Short label for the KMH tab.
         public static string StatusLabel
         {
@@ -24,7 +27,9 @@ namespace KMHPatch.SubProtocol
                 {
                     case KmhTransportStatus.ApiConnected:    return "KMH API connected";
                     case KmhTransportStatus.ApiConnecting:   return "KMH API connecting…";
-                    case KmhTransportStatus.ChatFallback:    return "RWT chat fallback";
+                    case KmhTransportStatus.ChatFallback:
+                        return string.IsNullOrEmpty(DegradedReason) ? "RWT chat fallback"
+                                                                    : "RWT chat - KMH port unreachable";
                     case KmhTransportStatus.VersionMismatch: return "Version mismatch";
                     case KmhTransportStatus.AuthFailed:      return "KMH auth failed";
                     default:                                 return "KMH offline";

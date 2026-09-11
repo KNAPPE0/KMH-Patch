@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using KMHPatch.UI;
@@ -7,14 +7,15 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // In-game config enforcement: admins get the full controls, everyone else a read-only view + restore. The
-    // server is authoritative (mutations admin-gated)
+    // Admins get the full controls, everyone else a read-only view + restore; the server stays authoritative.
     public class Dialog_KMHEnforcement : Window_KMHBase
     {
-        public override Vector2 InitialSize => new Vector2(640f, 720f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(640f, 720f);
 
         private Vector2 _scroll;
         private string  _filter = "";
+        // Cached: rebuilding per OnGUI pass lower-cased every mod name and id twice a frame, on a list that never changes in-game.
+        private readonly KmhFilteredView<ModContentPack> _modsView = new KmhFilteredView<ModContentPack>();
 
         public Dialog_KMHEnforcement()
         {
@@ -28,8 +29,7 @@ namespace KMHPatch.Features.Enforcement
         public override void PreOpen()
         {
             base.PreOpen();
-            // Pull a fresh snapshot so is_admin reflects the server right now - e.g. if an admin just ran `op
-            // <you>` while you were already in-game
+            // Fresh snapshot so is_admin reflects the server right now, e.g. an admin ran `op <you>` mid-session.
             try { EnforcementHandler.RequestSnapshot(); } catch { }
             ConfigHeuristics.ClearCache(); // re-scan configs fresh each open
         }
@@ -60,14 +60,12 @@ namespace KMHPatch.Features.Enforcement
 
             if (!admin) { DrawClientView(rect, y); return; }
 
-            // Master toggle.
             bool enabled = EnforcementCache.Enabled, newEnabled = enabled;
             Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 28f),
                 "Enforce configs (lock players' Mod Options to the server)", ref newEnabled);
             if (newEnabled != enabled) EnforcementHandler.SetEnabled(newEnabled);
             y += 30f;
 
-            // Power rails.
             bool bypass = EnforcementCache.AdminBypass, newBypass = bypass;
             Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 24f), "Admins are exempt (you can edit freely)", ref newBypass);
             if (newBypass != bypass) EnforcementHandler.SetFlag("admin_bypass", newBypass);
@@ -102,10 +100,10 @@ namespace KMHPatch.Features.Enforcement
                 "<color=grey>Checked mods stay editable by players. Tags suggest which look personal.</color>");
             y += 24f;
 
-            _filter = DialogLayout.SearchField(new Rect(0f, y, rect.width, 28f), _filter, "Filter mods…");
+            _filter = DialogLayout.SearchField(new Rect(0f, y, rect.width, 28f), _filter, "Filter mods");
             y += 34f;
 
-            Rect listBox = new Rect(0f, y, rect.width, rect.height - y - DialogLayout.FooterReserve);
+            Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             DrawModList(listBox);
 
@@ -187,14 +185,15 @@ namespace KMHPatch.Features.Enforcement
             const float rowH = 30f;
             string filter = (_filter ?? "").Trim().ToLowerInvariant();
 
-            List<ModContentPack> mods = LoadedModManager.RunningModsListForReading
+            List<ModContentPack> running = LoadedModManager.RunningModsListForReading;
+            List<ModContentPack> mods = _modsView.Get(running, filter, () => running
                 .Where(m => m != null
                     && !(m.PackageId ?? "").StartsWith("ludeon.rimworld", StringComparison.OrdinalIgnoreCase) // skip Core + DLC
                     && (filter.Length == 0
                         || (m.Name ?? "").ToLowerInvariant().Contains(filter)
                         || (m.PackageId ?? "").ToLowerInvariant().Contains(filter)))
                 .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                .ToList());
 
             float viewH = Mathf.Max(inner.height, mods.Count * rowH + 6f);
             Rect viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);

@@ -5,8 +5,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Auctions
 {
-    // Receives kmh.auction.snapshot into AuctionCache + the post/bid/cancel sends.
-    // Bids draw from the player's treasury server-side, so there's nothing to remove client-side - just send the amount.
+    // Bids draw from the treasury server-side, so a bid sends only the amount and removes nothing locally.
     internal static class AuctionHandler
     {
         public static void Register() => KmhDispatcher.RegisterHandler(KmhProtocol.Kind.AuctionSnapshot, OnSnapshot);
@@ -27,13 +26,13 @@ namespace KMHPatch.Features.Auctions
                 buyout_silver  = buyout,
                 hours,
                 visibility     = visibility ?? "public",
-            });
+            }, KmhOpId.For($"auction.post|{itemDefName}|{stuffDefName}|{qualityIndex}|{qty}|{startingBid}"));
             if (sent) KmhNotifications.Neutral("Posting auction…");
             else      KmhNotifications.NotConnected();
             return sent;
         }
 
-        // Auction a full-state item (complex) by its treasury payload fingerprint - state preserved through escrow.
+        // By payload fingerprint, so a full-state item keeps its exact state through escrow.
         public static bool TryPostPayload(string fingerprint, int qty, long startingBid, long minIncrement,
             long buyout, int hours, string visibility)
         {
@@ -46,7 +45,7 @@ namespace KMHPatch.Features.Auctions
                 buyout_silver  = buyout,
                 hours,
                 visibility     = visibility ?? "public",
-            });
+            }, KmhOpId.For($"auction.post|{fingerprint}|{qty}|{startingBid}"));
             if (sent) KmhNotifications.Neutral("Posting auction (full state)…");
             else      KmhNotifications.NotConnected();
             return sent;

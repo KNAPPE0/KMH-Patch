@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using KMHPatch.Diagnostics;
@@ -12,10 +12,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Keeps my assigned site workers honest. HELD workers (normal path): the pawn is inside the site's holder,
-    // always "present" + earning XP; if the site or my claim is gone server-side it's recalled so it can't get
-    // stuck. Tag-only (holding failed): validated by caravan-at-tile; taken home pauses, dead/missing drops.
-    // Reports fire only when presence changes, so idle play adds no packet noise.
+    // Keeps assigned site workers honest; reports fire only when presence changes, so idle play adds no packets.
     public class GameComponent_KMHSiteWorkerSync : GameComponent
     {
         private const int   IntervalTicks   = 2500;  // ~40s at 1x
@@ -54,12 +51,10 @@ namespace KMHPatch.Features.Sites
                 if (s.Workers != null && s.Workers.Contains(me, StringComparer.OrdinalIgnoreCase)) myWorkerTiles.Add(s.Tile);
             }
 
-            // After save/load, heavy modpacks can deep-load the held pawn but lose the record->pawn cross-ref.
-            // Reattach from the server snapshot before reconciliation, otherwise the Recall button can disappear.
+            // Must run before reconciliation: a load can lose the record->pawn cross-ref and the Recall button with it.
             holding?.AdoptOrphansFromSnapshot(sites, me);
 
-            // Held pawns: the component reconciles each record against the snapshot (site gone / claim dropped after
-            // confirmation / join never confirmed) and recalls anything orphaned, so no pawn can stay stuck inside.
+            // Recalls anything orphaned, so no pawn can stay stuck inside a site that is gone.
             holding?.SyncClaims(
                 (tile, user) => byTile.ContainsKey(tile),
                 (tile, user) => myWorkerTiles.Contains(tile));
@@ -68,10 +63,7 @@ namespace KMHPatch.Features.Sites
             {
                 if (s == null || s.Tile < 0) continue;
 
-                // Held pawn (tile-authoritative): always present + earning. Re-report present=true even if the server
-                // momentarily lists no claim for me - that re-establishes the assignment after a reload/desync and
-                // clears any stale "pawn away" the server persisted from a previous session. SyncClaims (above) still
-                // recalls it home if the site or claim is genuinely gone.
+                // present=true is re-reported even with no server claim, which re-establishes the assignment after a reload.
                 if (holding?.IsHoldingAtTile(s.Tile) == true)
                 {
                     Pawn heldPawn = holding.HeldPawnAtTile(s.Tile);

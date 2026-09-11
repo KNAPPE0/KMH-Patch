@@ -19,8 +19,7 @@ namespace KMHPatch.Features.PlayerStats
         private static double _playSeconds;   // cumulative real seconds in-game (persisted)
         private float  _reportTimer = 6f;     // first upload ~6s after load
 
-        // Per-save id: fresh for a new colony, restored on load. The server uses a change here to detect a save reset
-        // (anti-exploit for treasury farming), so it must NOT be static - each game gets its own.
+        // The server reads a change here as a save reset, so this must NOT be static - each game gets its own.
         private string _saveId;
         public string SaveId
         {
@@ -78,12 +77,9 @@ namespace KMHPatch.Features.PlayerStats
             List<Pawn> colonists = FreeColonists();
             Pawn colonist = PickTopColonist(colonists);
 
+            List<SettlementReport> settlements = Settlements();
             long wealth = 0;
-            List<Map> maps = Find.Maps;
-            if (maps != null)
-                foreach (Map m in maps)
-                    if (m != null && m.IsPlayerHome && m.wealthWatcher != null)
-                        wealth += (long)m.wealthWatcher.WealthTotal;
+            foreach (SettlementReport s in settlements) wealth += s.Wealth;
 
             long kills = 0, kHuman = 0, kMech = 0, kAnimal = 0;
             foreach (Pawn p in colonists)
@@ -122,6 +118,7 @@ namespace KMHPatch.Features.PlayerStats
                 r.Colonist      = BuildColonistProfile(colonist);
             }
             r.Roster = BuildRoster(colonists);
+            r.Settlements = settlements;
             return r;
         }
 
@@ -138,6 +135,40 @@ namespace KMHPatch.Features.PlayerStats
                     if (p != null && !p.Dead && p.HostFaction == null) outList.Add(p);
             }
             return outList;
+        }
+
+        // One row per home map, using the same guard the colonist list uses so the rows sum to the reported totals.
+        private static List<SettlementReport> Settlements()
+        {
+            List<SettlementReport> outList = new List<SettlementReport>();
+            List<Map> maps = Find.Maps;
+            if (maps == null) return outList;
+            foreach (Map m in maps)
+            {
+                if (m == null || !m.IsPlayerHome) continue;
+                int pop = 0;
+                if (m.mapPawns?.FreeColonists != null)
+                    foreach (Pawn p in m.mapPawns.FreeColonists)
+                        if (p != null && !p.Dead && p.HostFaction == null) pop++;
+                outList.Add(new SettlementReport
+                {
+                    Name       = SettlementName(m),
+                    Wealth     = m.wealthWatcher != null ? (long)m.wealthWatcher.WealthTotal : 0,
+                    Population = pop,
+                });
+            }
+            return outList;
+        }
+
+        private static string SettlementName(Map m)
+        {
+            try
+            {
+                string n = m.Parent?.LabelCap;
+                if (!string.IsNullOrEmpty(n)) return n;
+            }
+            catch { }
+            return "Settlement";
         }
 
         // Compact per-colonist roster (≤10) for the per-skill Colonist Records boards. Owner + colony are stamped server-side.

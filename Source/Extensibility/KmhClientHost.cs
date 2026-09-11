@@ -7,8 +7,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Extensibility
 {
-    // IKmhClientHost implementation handed to each loaded extension. Each extension gets its own host instance so
-    // the IClientLog prefix can be extension-specific
+    // One instance per extension, so a log line carries the extension's own name.
     internal sealed class KmhClientHost : IKmhClientHost
     {
         private readonly string _extensionName;
@@ -55,8 +54,7 @@ namespace KMHPatch.Extensibility
 
         public bool Send(string kind, object data) => KmhDispatcher.Send(kind, data);
 
-        // Reserved wire-kind namespace - KMH core owns "kmh.". Extensions registering there could shadow core
-        // snapshot handling, so we refuse it. Every other kind stays open for extensions
+        // KMH core owns this namespace; an extension registering inside it could shadow core snapshot handling.
         private const string ReservedKindPrefix = "kmh.";
 
         public void RegisterHandler(string kind, Action<IKmhEnvelope> handler)
@@ -89,8 +87,6 @@ namespace KMHPatch.Extensibility
                 }
             });
         }
-
-        // -- Adapter classes: SDK contract <-> KMHPatch internals --
 
         private sealed class ClientLogAdapter : IClientLog
         {

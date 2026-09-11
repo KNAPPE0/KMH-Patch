@@ -3,9 +3,7 @@ using System.Collections.Generic;
 
 namespace KMHPatch.UI
 {
-    // Last-known-good KMH capability/UI state. Kept separate from the live dispatcher so a re-handshake or a hello that
-    // omits a field can't blank the tab's feature buttons (merge-not-replace; capabilities only change when a hello
-    // actually carries them).
+    // Merge, never replace: a hello that omits a field must not blank the tab's feature buttons.
     internal static class KmhDashboardState
     {
         private static readonly HashSet<string> _disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -14,8 +12,7 @@ namespace KMHPatch.UI
 
         public static bool HaveCapabilities => _haveCapabilities;
 
-        // True once a KMH server was confirmed on the current RWT connection; stays true across KMH re-handshakes so the
-        // feature buttons don't vanish mid-session. Cleared only on a real disconnect or a version mismatch.
+        // Survives a re-handshake, so feature buttons do not vanish mid-session.
         public static bool KmhConfirmed => _confirmedThisConnection;
 
         public static void MarkConfirmed() => _confirmedThisConnection = true;

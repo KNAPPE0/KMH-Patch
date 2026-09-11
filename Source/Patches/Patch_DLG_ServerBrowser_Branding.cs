@@ -1,17 +1,9 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using UnityEngine;
 using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Brand RWT's stock server-browser dialog with a small KMH footer so players see at a glance that the patch is
-    // loaded while they're picking a server. Non-intrusive, no behavior change
-    //
-    // We Postfix DoWindowContents so RWT draws its full UI first and our label lands on top of an already-stable
-    // layout. The label goes in the bottom-LEFT corner so it doesn't overlap RWT's bottom-center Close button
-    //
-    // (Once the sub-protocol round-trips with the server, this same patch is the natural place to add per-row KMH
-    // badges next to detected KMH-enabled servers. For now it's pure branding.)
     [HarmonyPatch(typeof(DLG_ServerBrowser), nameof(DLG_ServerBrowser.DoWindowContents))]
     internal static class Patch_DLG_ServerBrowser_Branding
     {
@@ -30,7 +22,7 @@ namespace KMHPatch.Patches
             const float height  = 22f;
             const float padding = 6f;
 
-            // Bottom-LEFT corner of the dialog content rect.
+            // Bottom left: RWT's Close button owns the bottom centre.
             Rect labelRect = new Rect(
                 padding,
                 rect.height - height - padding,

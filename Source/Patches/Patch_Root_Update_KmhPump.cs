@@ -1,3 +1,4 @@
+﻿using System;
 using HarmonyLib;
 using KMHPatch.Diagnostics;
 using Verse;
@@ -8,11 +9,29 @@ namespace KMHPatch.Patches
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     internal static class Patch_Root_Update_KmhPump
     {
-        [HarmonyPostfix]
-        private static void Postfix()
+        private static readonly string[] Names =
         {
-            KmhMainThread.Pump();
-            KmhDebugUplink.Pump();
-        }
+            "main-thread pump",
+            "chat images",        // polls at most one in-flight image request
+            "chat video",         // and at most one video preparing to stream
+            "watch links",        // and at most one watch link being resolved
+            "activity",           // watches for a chair nobody is sitting in
+            "debug uplink",
+            "debug consent",      // main thread: the prompt touches the window stack
+        };
+
+        private static readonly Action[] Steps =
+        {
+            KmhMainThread.Pump,
+            Features.Chat.ChatImageCache.Tick,
+            Features.Chat.ChatVideoPlayer.Tick,
+            Features.Chat.ChatYouTube.Tick,
+            Features.PlayerStats.KmhActivity.Tick,
+            KmhDebugUplink.Pump,
+            KmhDebugConsent.PumpPrompt,
+        };
+
+        [HarmonyPostfix]
+        private static void Postfix() => KmhFrameSteps.Run(Names, Steps);
     }
 }

@@ -89,13 +89,11 @@ namespace KMHPatch.Features.World
             return delta < 0 ? 0 : delta;
         }
 
-        // Structures of the target built since this quest first appeared (baseline = standing count at first sight),
-        // so things the player already had placed never count - only new builds after the quest went live do.
+        // Structures built since this quest first appeared (baseline = standing count at first sight), so pre-existing ones never count.
         private int BuildContribution(ServerQuestDto q)
         {
             if (string.IsNullOrEmpty(q.TargetDefName)) return -1;
-            // Exact match first; fall back to a case-insensitive scan so a "sandbags" vs "Sandbags" typo in the
-            // owner's quest command still tracks (the server has no def DB to validate the name at creation).
+            // Case-insensitive fallback: the server has no def DB, so a "sandbags" vs "Sandbags" typo in the quest command still tracks.
             ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(q.TargetDefName)
                         ?? DefDatabase<ThingDef>.AllDefsListForReading.Find(d => string.Equals(d.defName, q.TargetDefName, StringComparison.OrdinalIgnoreCase));
             if (def == null) return -1;

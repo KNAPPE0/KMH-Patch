@@ -1,14 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using KMHPatch.Diagnostics;
 using Verse;
 
 namespace KMHPatch.Items
 {
-    // Lossless Thing <-> XML round-trip via RimWorld's own Scribe system (the same one that saves your game), so
-    // comps, hediffs, minified contents, quality, taint, HP and modded state all survive. Everything is guarded: if
-    // Scribe is busy (a real save/load is running) or anything throws, we return null and the caller degrades to a
-    // metadata/legacy rebuild - a KMH item flow must never crash the game or corrupt the save pipeline.
+    // Borrows RimWorld's global Scribe, so every path must degrade rather than corrupt the save pipeline.
     internal static class KmhThingScribe
     {
         // True only when it's safe to borrow the global Scribe (no game save/load in progress).

@@ -18,5 +18,11 @@ namespace KMHPatch.Features.Seasons
             LastUpdatedUtc = DateTime.UtcNow;
             KmhCacheEvents.Raise(Updated, "Season archive");
         }
+
+        internal static void Clear()
+        {
+            Snapshot       = null;
+            LastUpdatedUtc = DateTime.MinValue;
+        }
     }
 }

@@ -4,8 +4,7 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Builds the hover tooltip for an item row: friendly name + (when blocked) the shared safety reason, so a greyed
-    // row always explains itself with the SAME wording everywhere.
+    // One wording everywhere, so a greyed row always explains itself the same way.
     internal static class KmhItemTooltipBuilder
     {
         public static string For(string defName, KmhItemDecision decision)

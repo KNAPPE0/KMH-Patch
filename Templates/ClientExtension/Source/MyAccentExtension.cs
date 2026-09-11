@@ -5,18 +5,7 @@ using KMH.Sdk.Client.Events;
 
 namespace MyAccent
 {
-    // Example KMH client-side extension. Shows a green toast whenever
-    // the player posts a new marketplace listing, with their current
-    // listing count.
-    //
-    // What this demonstrates:
-    //   1. Class implementing IKmhClientExtension with a parameterless ctor.
-    //   2. Capturing the host so handlers reach it later.
-    //   3. Subscribing to a cache-updated event.
-    //   4. Reading the local username via host.LocalUsername.
-    //   5. Iterating SDK record types (no internal DTOs).
-    //   6. Using INotifications.Positive for a toast.
-    //   7. Logging through IClientLog (auto-prefixed [ext:My KMH Accent]).
+    // Template: a toast on each new marketplace listing. The loader requires a parameterless constructor.
     public sealed class MyAccentExtension : IKmhClientExtension
     {
         public string Name    => "My KMH Accent";
@@ -53,14 +42,13 @@ namespace MyAccent
                     mine++;
             }
 
-            // First snapshot we see - just record + skip.
+            // The first snapshot is a baseline, not a change.
             if (_lastMyListingCount < 0)
             {
                 _lastMyListingCount = mine;
                 return;
             }
 
-            // Increase = we just posted (or someone else cancelled, etc.).
             if (mine > _lastMyListingCount)
             {
                 _host.Toast.Positive($"Nice - you now have {mine} active listing{(mine == 1 ? "" : "s")} on the market!");

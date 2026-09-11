@@ -7,8 +7,7 @@ using Verse;
 
 namespace KMHPatch
 {
-    // Version-agnostic bootstrap: KMH ships one payload per RWT generation in 1.6/KMHLib and this stub loads the
-    // one matching the installed RWT. Class name is kept so the settings file stays the same.
+    // The class name is load-bearing: renaming it orphans the player's existing settings file.
     public class KMHPatchMod : Mod
     {
         public static KMHPatchSettings Settings { get; private set; }
@@ -16,9 +15,15 @@ namespace KMHPatch
         // Set by the payload at Init; draws the full settings panel.
         public static Action<Rect> SettingsDrawer;
 
+        private static KMHPatchMod _instance;
+
+        // Persist settings changed outside the settings window (e.g. the comms mute toggle). No-op before the mod ctor.
+        public static void SaveSettings() { try { _instance?.WriteSettings(); } catch { } }
+
         public KMHPatchMod(ModContentPack content) : base(content)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
+            _instance = this;
             Settings = GetSettings<KMHPatchSettings>();
 
             string flavour = DetectRwtFlavour();
@@ -37,8 +42,7 @@ namespace KMHPatch
                     return;
                 }
                 Assembly payload = Assembly.LoadFile(dll);
-                // Register with RimWorld so defs, GenTypes, and StaticConstructorOnStartup all see the payload's
-                // types
+                // Registered so defs, GenTypes and StaticConstructorOnStartup all see the payload's types.
                 content.assemblies.loadedAssemblies.Add(payload);
                 payload.GetType("KMHPatch.KmhEntry")
                        .GetMethod("Init", BindingFlags.Public | BindingFlags.Static)
@@ -51,8 +55,7 @@ namespace KMHPatch
             }
         }
 
-        // 26.6.9.1 and 26.7.25.1 both ship an assembly called RTClient, so the name alone can't tell them apart.
-        // Probe for a type that moved instead of keeping a list of versions.
+        // Two RWT generations both ship an assembly named RTClient, so probe for a moved type, not the name.
         private static string DetectRwtFlavour()
         {
             var loaded = AppDomain.CurrentDomain.GetAssemblies();

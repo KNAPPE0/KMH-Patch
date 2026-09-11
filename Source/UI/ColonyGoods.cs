@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Verifies and moves goods for KMH ledger flows, removing deposits before server sends and materializing grants back.
     internal static class ColonyGoods
     {
         public static ThingDef Silver => ThingDefOf.Silver;
@@ -15,7 +14,6 @@ namespace KMHPatch.UI
         public static ThingDef Def(string defName)
             => string.IsNullOrWhiteSpace(defName) ? null : DefDatabase<ThingDef>.GetNamedSilentFail(defName);
 
-        // -- verify --
 
         public static int Count(Caravan caravan, ThingDef def)
         {
@@ -35,10 +33,8 @@ namespace KMHPatch.UI
         public static bool Has(Caravan caravan, ThingDef def, int qty)
             => def != null && qty > 0 && Count(caravan, def) >= qty;
 
-        // -- remove (deposit / list / sell) --
 
-        // Removes exactly qty across stacks; returns false (and removes nothing)
-        // if the caravan doesn't hold enough.
+        // All-or-nothing: too few and it removes nothing at all.
         public static bool TryRemove(Caravan caravan, ThingDef def, int qty)
         {
             if (caravan == null || def == null || qty <= 0) return false;
@@ -64,11 +60,11 @@ namespace KMHPatch.UI
 
         public static bool TryRemoveSilver(Caravan caravan, int amount) => TryRemove(caravan, Silver, amount);
 
-        // -- give (withdraw / purchase / reward) --
 
-        public static void Give(Caravan caravan, ThingDef def, int qty)
+        // Returns false if the give threw, so a grant caller can flag charged-but-undelivered goods.
+        public static bool Give(Caravan caravan, ThingDef def, int qty)
         {
-            if (caravan == null || def == null || qty <= 0) return;
+            if (caravan == null || def == null || qty <= 0) return false;
             try
             {
                 int remaining  = qty;
@@ -81,24 +77,42 @@ namespace KMHPatch.UI
                     CaravanInventoryUtility.GiveThing(caravan, t);
                     remaining -= take;
                 }
+                return true;
             }
-            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.Give failed for {def.defName} x{qty}: {ex.Message}"); }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.Give failed for {def.defName} x{qty}: {ex.Message}"); return false; }
         }
 
-        public static void GiveSilver(Caravan caravan, int amount) => Give(caravan, Silver, amount);
+        public static bool GiveSilver(Caravan caravan, int amount) => Give(caravan, Silver, amount);
 
-        // Deliver to selected caravan or drop pod home, so withdrawals, purchases, and rewards never need a caravan.
-        public static void Deliver(ThingDef def, int qty)
+        public static bool Deliver(ThingDef def, int qty)
         {
-            if (def == null || qty <= 0) return;
+            if (def == null || qty <= 0) return false;
             Caravan caravan = CaravanReader.GetSelectedCaravan();
-            if (caravan != null) { Give(caravan, def, qty); return; }
-            DropToHomeMap(def, qty);
+            if (caravan != null) return Give(caravan, def, qty);
+            return DropToHomeMap(def, qty);
         }
 
-        public static void DeliverSilver(int amount) => Deliver(Silver, amount);
+        public static bool DeliverSilver(int amount) => Deliver(Silver, amount);
 
-        // -- composed-key paths (def|stuff|quality) so material + quality survive every transfer --
+        // Mid-load the World is null and AnyPlayerHomeMap NREs via FactionManager, which is when a replay arrives.
+        internal static Map DeliveryMap()
+        {
+            try
+            {
+                if (Current.Game?.World == null) return null;
+                return Find.AnyPlayerHomeMap ?? Find.CurrentMap;
+            }
+            catch { return null; }
+        }
+
+        // Lets the retry hold an undeliverable grant until the player has somewhere to receive it.
+        public static bool CanDeliverNow()
+        {
+            try { if (CaravanReader.GetSelectedCaravan() != null) return true; }
+            catch { /* the world is not up either; the map check below is the real answer */ }
+            return DeliveryMap() != null;
+        }
+
 
         public static int CountKey(Caravan caravan, string key)
         {
@@ -114,7 +128,7 @@ namespace KMHPatch.UI
             return total;
         }
 
-        // Removes exactly qty of stacks matching the key's def + stuff + quality; all-or-nothing like TryRemove
+        // All-or-nothing, matching def + stuff + quality.
         public static bool TryRemoveKey(Caravan caravan, string key, int qty)
         {
             if (caravan == null || string.IsNullOrEmpty(key) || qty <= 0) return false;
@@ -139,18 +153,16 @@ namespace KMHPatch.UI
             return remaining <= 0;
         }
 
-        // Item-loss guard: a payload's blob (and the whole txn) must fit the ~64KB router frame, else the message can't
-        // send AFTER goods are removed = loss. Checked BEFORE any destruction so an oversized item fails with nothing removed.
+        // Checked BEFORE any destruction: a blob too big to send after removal is lost goods.
         public const int MaxPayloadBytesPerItem        = 40_000;
         public const int MaxPayloadBytesPerTransaction = 48_000;
 
-        // All-or-nothing complex-item capture. Splits the exact qty off the source (still recoverable), captures +
-        // validates EVERY piece (non-null, count == qty, within byte limits), and only then destroys them. If ANY
-        // capture fails or a payload is oversized, the split-off pieces are handed back (nothing is lost) and it
-        // returns false.
-        public static bool RemoveKeyCapturing(Caravan caravan, Map map, string key, int qty, out List<Items.KmhThingPayload> captured)
+        // Capture and validate EVERY piece before destroying any of them, or a partial failure loses goods.
+        public static bool RemoveKeyCapturing(Caravan caravan, Map map, string key, int qty,
+                                              out List<Items.KmhThingPayload> captured, out string refusal)
         {
             captured = new List<Items.KmhThingPayload>();
+            refusal = null;
             if (string.IsNullOrEmpty(key) || qty <= 0) return false;
             ItemKeys.Split(key, out string defName, out string stuff, out int q);
 
@@ -165,8 +177,7 @@ namespace KMHPatch.UI
 
             if (matches.Sum(t => t.stackCount) < qty) return false;
 
-            // take exactly qty. Whole stacks stay in place (still owned); partial takes are split off
-            // (detached) so they can be handed back on abort.
+            // Partial takes are split off detached, so an abort can hand them straight back.
             List<(Thing piece, bool split)> taken = new List<(Thing, bool)>();
             int remaining = qty;
             foreach (Thing t in matches)
@@ -178,7 +189,6 @@ namespace KMHPatch.UI
                 else                      taken.Add((t.SplitOff(take), true));
             }
 
-            // capture + validate all before destroying anything.
             List<Items.KmhThingPayload> caps = new List<Items.KmhThingPayload>();
             long totalBytes = 0; bool ok = true; string failReason = null; int capturedCount = 0;
             foreach ((Thing piece, bool _) in taken)
@@ -189,33 +199,39 @@ namespace KMHPatch.UI
                 if (p == null) { ok = false; failReason = failReason ?? "capture returned null"; break; }
                 int bytes = p.ScribeXml?.Length ?? 0;
                 if (bytes > MaxPayloadBytesPerItem) { ok = false; failReason = $"payload {bytes}B over per-item limit {MaxPayloadBytesPerItem}B"; break; }
+                capturedCount += Math.Max(1, p.StackCount);
+
+                // The server keeps only the first blob per fungible entry, so shipping the rest buys nothing.
+                if (Items.KmhThingCapture.TryFoldFungible(caps, p)) continue;
+
                 totalBytes += bytes;
                 if (totalBytes > MaxPayloadBytesPerTransaction) { ok = false; failReason = $"payloads total over per-transaction limit {MaxPayloadBytesPerTransaction}B"; break; }
-                caps.Add(p); capturedCount += Math.Max(1, p.StackCount);
+                caps.Add(p);
             }
             if (ok && capturedCount != qty) { ok = false; failReason = $"captured {capturedCount} != requested {qty}"; }
 
             if (!ok)
             {
                 foreach ((Thing piece, bool split) in taken) if (split) DeliverThing(piece);   // give the split pieces back
-                Diagnostics.KmhLog.Warn($"KMH capture ABORTED for {defName} x{qty} - {failReason}; items kept (nothing removed).");
+                // Payload count is the diagnosis: a fungible def should fold to one, so a large number means it did not.
+                Diagnostics.KmhLog.Warn($"KMH capture ABORTED for {defName} x{qty} - {failReason}; {caps.Count} payload(s) from {taken.Count} stack(s); items kept (nothing removed).");
+                refusal = totalBytes > MaxPayloadBytesPerTransaction
+                    ? $"Too much condition data in one deposit ({caps.Count} separate stacks). Deposit a smaller amount."
+                    : "Could not take those items - nothing was removed.";
                 captured = new List<Items.KmhThingPayload>();
                 return false;
             }
 
-            // everything captured + validated -> now destroy.
             foreach ((Thing piece, bool _) in taken) piece.Destroy(DestroyMode.Vanish);
             captured = caps;
             return true;
         }
 
-        // Materialize restored payloads (withdraw/grant/rollback). Falls back to a legacy key spawn per payload if a
-        // payload can't rebuild, so nothing is silently lost. A single payload may carry more than one stack's worth
-        // (e.g. once the server merges same-item deposits into one entry), so it's materialized in stackLimit-sized
-        // stacks - one restore per stack, so each keeps the payload's exact state - rather than capping at one stack.
-        public static void DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads)
+        // One restore per stack, so each keeps its own state; a payload that cannot rebuild falls back rather than vanishing.
+        public static bool DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads)
         {
-            if (payloads == null) return;
+            if (payloads == null) return true;
+            bool allOk = true;
             foreach (Items.KmhThingPayload p in payloads)
             {
                 if (p == null) continue;
@@ -228,42 +244,43 @@ namespace KMHPatch.UI
                     catch (Exception ex) { Diagnostics.KmhLog.Warn($"KMH restore threw for {p.DefName}: {ex.Message}"); }
                     if (t == null)
                     {
-                        DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), remaining);   // legacy path splits into stacks itself
+                        if (!DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), remaining)) allOk = false;   // legacy path splits into stacks itself
                         break;
                     }
                     int lim  = t.def != null && t.def.stackLimit > 0 ? t.def.stackLimit : remaining;
                     int give = Math.Min(remaining, lim);
                     t.stackCount = give;
-                    DeliverThing(t);
+                    if (!DeliverThing(t)) allOk = false;
                     remaining -= give;
                 }
             }
+            return allOk;
         }
 
-        // Deliver an already-built Thing to the selected caravan, else a drop pod to the best colony spot.
-        public static void DeliverThing(Thing t)
+        public static bool DeliverThing(Thing t)
         {
-            if (t == null) return;
+            if (t == null) return false;
             try
             {
                 Caravan caravan = CaravanReader.GetSelectedCaravan();
-                if (caravan != null) { CaravanInventoryUtility.GiveThing(caravan, t); return; }
-                Map map = Find.AnyPlayerHomeMap ?? Find.CurrentMap;
-                if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.DeliverThing: no map for a drop pod"); return; }
+                if (caravan != null) { CaravanInventoryUtility.GiveThing(caravan, t); return true; }
+                Map map = DeliveryMap();
+                if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.DeliverThing: no map for a drop pod"); return false; }
                 IntVec3 cell = BestDropCell(map, t, out string where);
                 DropPodUtility.DropThingsNear(cell, map, new List<Thing> { t }, forbid: false);
                 NotifyLanded(map, cell, $"{t.LabelCap}", where);
+                return true;
             }
-            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverThing failed for {t.def?.defName}: {ex.Message}"); }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverThing failed for {t.def?.defName}: {ex.Message}"); return false; }
         }
 
-        // Deliver a composed key: spawn with the right material and stamp the quality back on
-        public static void DeliverKey(string key, int qty)
+        // An unknown def - a removed mod - fails rather than spawning something else.
+        public static bool DeliverKey(string key, int qty)
         {
-            if (string.IsNullOrEmpty(key) || qty <= 0) return;
+            if (string.IsNullOrEmpty(key) || qty <= 0) return false;
             ItemKeys.Split(key, out string defName, out string stuffName, out int q);
             ThingDef def = Def(defName);
-            if (def == null) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: unknown def '{defName}'"); return; }
+            if (def == null) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: unknown def '{defName}'"); return false; }
             ThingDef stuff = string.IsNullOrEmpty(stuffName) ? null : Def(stuffName);
 
             Caravan caravan = CaravanReader.GetSelectedCaravan();
@@ -271,18 +288,22 @@ namespace KMHPatch.UI
             {
                 foreach (Thing t in MakeStacks(def, stuff, q, qty))
                     CaravanInventoryUtility.GiveThing(caravan, t);
-                return;
+                return true;
             }
-            DropToHomeMap(def, stuff, q, qty);
+            return DropToHomeMap(def, stuff, q, qty);
         }
 
-        // No-caravan deposits pull from base stockpiles, verifying and removing only stored, unforbidden items.
-        // Use the current map, or any home map if none is active.
+        // Only stored, unforbidden items count: anything else is not the player's to deposit.
         public static Map DepositMap()
         {
-            Map cur = Find.CurrentMap;
-            if (cur != null && cur.IsPlayerHome) return cur;
-            return Find.AnyPlayerHomeMap;
+            try
+            {
+                if (Current.Game?.World == null) return null;
+                Map cur = Find.CurrentMap;
+                if (cur != null && cur.IsPlayerHome) return cur;
+                return Find.AnyPlayerHomeMap;
+            }
+            catch { return null; }
         }
 
         private static IEnumerable<Thing> StoredOnMap(Map map, ThingDef def)
@@ -294,7 +315,7 @@ namespace KMHPatch.UI
 
         public static int CountSilverOnMap(Map map) => CountOnMap(map, Silver);
 
-        // Plain-def map count/remove (ignores material + quality), mirroring the caravan Count/TryRemove pair.
+        // Ignores material and quality on purpose; the composed-key pair below is what preserves them.
         public static int CountOnMap(Map map, ThingDef def)
         {
             int total = 0;
@@ -355,15 +376,13 @@ namespace KMHPatch.UI
             return remaining <= 0;
         }
 
-        // Composed-key inventory of the colony's stored goods, for the deposit picker when there's no caravan.
         public static Dictionary<string, int> ReadStoredInventory(Map map)
         {
             Dictionary<string, int> result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             if (map?.listerThings == null) return result;
             try
             {
-                // HaulableEver is the pre-indexed set of tradeable items - far cheaper than scanning AllThings
-                // (which includes filth, plants, buildings) on every picker open.
+                // HaulableEver is pre-indexed; AllThings would rescan filth, plants and buildings on every picker open.
                 foreach (Thing t in map.listerThings.ThingsInGroup(ThingRequestGroup.HaulableEver))
                 {
                     if (t?.def == null || !t.Spawned || !t.IsInValidStorage()) continue;
@@ -384,8 +403,6 @@ namespace KMHPatch.UI
             return ItemKeys.QualityIndexOf(t) == qualityIndex;
         }
 
-        private static List<Thing> MakeStacks(ThingDef def, int qty) => MakeStacks(def, null, 0, qty);
-
         private static List<Thing> MakeStacks(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
         {
             List<Thing> things = new List<Thing>();
@@ -402,34 +419,31 @@ namespace KMHPatch.UI
             return things;
         }
 
-        private static void DropToHomeMap(ThingDef def, int qty) => DropToHomeMap(def, null, 0, qty);
+        private static bool DropToHomeMap(ThingDef def, int qty) => DropToHomeMap(def, null, 0, qty);
 
-        private static void DropToHomeMap(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
+        private static bool DropToHomeMap(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
         {
             try
             {
-                Map map = Find.AnyPlayerHomeMap ?? Find.CurrentMap;
-                if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.Deliver: no map for a drop pod"); return; }
+                Map map = DeliveryMap();
+                if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.Deliver: no map for a drop pod"); return false; }
                 List<Thing> stacks = MakeStacks(def, stuff, qualityIndex, qty);
                 IntVec3 cell = BestDropCell(map, stacks.Count > 0 ? stacks[0] : null, out string where);
                 DropPodUtility.DropThingsNear(cell, map, stacks, forbid: false);
                 NotifyLanded(map, cell, $"{def.label} ×{qty}", where);
+                return true;
             }
-            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); }
+            catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); return false; }
         }
 
-        // Where returned goods land, in preference order: a player-designated "KMH" stockpile (put "KMH" anywhere in a
-        // stockpile's name, e.g. "KMH Depot", to pin every withdrawal there), then the best stockpile that ACCEPTS the
-        // item (dumping stockpiles included, highest priority first), the trade-beacon drop spot, a home-area cell, and
-        // only then the map center. DropThingsNear fine-tunes around the returned cell (avoids roofs/walls itself).
+        // Preference order: a "KMH" stockpile, one that accepts the item, the beacon spot, home area, then map centre.
         private static IntVec3 BestDropCell(Map map, Thing sample, out string where)
         {
             try
             {
                 if (map.zoneManager != null)
                 {
-                    // Designated landing zone: any stockpile named with "KMH" wins outright, so withdrawals land where
-                    // the player chose instead of scattering to whatever zone is oldest. Highest-priority one first.
+                    // A "KMH" stockpile wins outright, so withdrawals land where the player chose.
                     Zone_Stockpile kmhZone = null;
                     foreach (Zone z in map.zoneManager.AllZones)
                         if (z is Zone_Stockpile s && s.settings != null
@@ -469,8 +483,7 @@ namespace KMHPatch.UI
         private static bool ValidDropCell(Map map, IntVec3 c)
             => c.IsValid && c.InBounds(map) && c.Standable(map) && !c.Fogged(map);
 
-        // "Your items landed HERE" - clickable jump target; identical repeats within a few seconds collapse so a
-        // multi-stack withdrawal doesn't stack a message per pod.
+        // Repeats collapse, or a multi-stack withdrawal posts one message per pod.
         private static DateTime _lastLandedMsgUtc = DateTime.MinValue;
         private static string   _lastLandedWhere  = "";
         private static void NotifyLanded(Map map, IntVec3 cell, string what, string where)

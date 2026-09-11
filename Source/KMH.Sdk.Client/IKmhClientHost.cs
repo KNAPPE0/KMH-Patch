@@ -14,8 +14,6 @@ namespace KMH.Sdk.Client
     /// </remarks>
     public interface IKmhClientHost
     {
-        // -- Identity / diagnostics --
-
         /// <summary>Version of the KMHPatch assembly currently loaded.</summary>
         string KmhVersion { get; }
 
@@ -43,8 +41,6 @@ namespace KMH.Sdk.Client
         /// </summary>
         string LocalUsername { get; }
 
-        // -- Stable APIs --
-
         ITreasuryCache         Treasury        { get; }
         IMarketplaceCache      Marketplace     { get; }
         IQuestCache            Quests          { get; }
@@ -60,8 +56,6 @@ namespace KMH.Sdk.Client
         INotifications   Toast      { get; }
         IKmhClientEvents Events     { get; }
 
-        // -- Protocol surface --
-
         /// <summary>
         /// Send a typed payload to the server. Returns false if the
         /// session isn't on a KMH server. Same envelope shape KMH's
@@ -71,8 +65,10 @@ namespace KMH.Sdk.Client
 
         /// <summary>
         /// Register a handler for a wire kind pushed by the server.
-        /// Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>)
-        /// so they don't collide with KMH's own <c>kmh.*</c>.
+        /// Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>).
+        /// A kind under <c>kmh.*</c>, or one already claimed by KMH or
+        /// another extension, is refused and the handler is not
+        /// registered - the reason is logged.
         /// </summary>
         void RegisterHandler(string kind, Action<IKmhEnvelope> handler);
     }

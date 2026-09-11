@@ -5,11 +5,9 @@ using Verse;
 
 namespace KMHPatch.Items
 {
-    // Shared client-side item gate: every KMH item entry point routes through here so nothing unsafe can enter one
-    // system that another would reject. Block by default unless full round-trip support is proven.
+    // Blocks by default: an item is allowed only once full round-trip support is proven, never assumed.
     internal static class KmhItemSafety
     {
-        // Def-level decision for pickers/catalogs (only a defName, no live instance).
         public static KmhItemDecision EvaluateDef(ThingDef def)
         {
             if (def == null) return KmhItemDecision.Block(KmhItemReasonCode.MissingDef, "unknown item (def not loaded)");
@@ -24,7 +22,7 @@ namespace KMHPatch.Items
             return KmhItemDecision.Allow(iconFallback: IconMissing(def));
         }
 
-        // Thing-level decision for the real capture path. Everything EvaluateDef checks, plus instance state.
+        // Everything EvaluateDef checks, plus the instance state a defName cannot show.
         public static KmhItemDecision Evaluate(Thing thing, KmhItemContext context)
         {
             if (thing == null) return KmhItemDecision.Block(KmhItemReasonCode.NullOrDestroyed, "item no longer exists");
@@ -41,7 +39,6 @@ namespace KMHPatch.Items
             return KmhItemDecision.Allow(iconFallback: IconMissing(thing.def));
         }
 
-        // --- bool/out-string wrappers (existing call sites) ---
 
         public static bool IsSafeDef(ThingDef def, out string reason)
         { KmhItemDecision d = EvaluateDef(def); reason = d.Reason; return d.Allowed; }

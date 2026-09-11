@@ -4,8 +4,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Keeps a SAFE mod's config out of enforcement. RimWorld names settings files "Mod_<FolderName>_<Handle>.xml"
-    // (FolderName = Workshop id for Steam mods), so we match the "Mod_<FolderName>_" prefix against each safe mod
+    // RimWorld names settings files "Mod_<FolderName>_<Handle>.xml", and FolderName is the Workshop id for Steam mods.
     internal static class EnforcementMods
     {
         public static bool IsSafeModConfigFile(string fileName)

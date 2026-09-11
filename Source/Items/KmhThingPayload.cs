@@ -3,8 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Items
 {
-    // Mirror of the addon's KMHServerAddon.Items.KmhThingPayload - same JSON property names + semantics. The client
-    // fills this from a real Thing (KmhThingCapture) and rebuilds a Thing from it on withdraw/grant.
+    // Mirror of the addon's KmhThingPayload; a property renamed here has to be renamed there too.
     public class KmhThingPayload
     {
         public const int CurrentSchema = 1;
@@ -32,10 +31,11 @@ namespace KMHPatch.Items
         [JsonProperty("legacy")]         public bool   Legacy        { get; set; } = false;
         [JsonProperty("warnings")]       public List<string> Warnings { get; set; } = new List<string>();
 
-        // Fungible-stacking (additive/back-compatible). Mergeable = this is a fungible food/resource the server may
-        // stack with an equal one (wear weight-averaged); RotProgressTicks (-1 = not rottable) is the rot the client
-        // re-applies on withdraw, so the server-averaged freshness survives the round-trip and nothing is refreshed.
+        // RotProgressTicks is -1 when not rottable, and is re-applied on withdraw so freshness survives the trip.
         [JsonProperty("mergeable")]          public bool Mergeable        { get; set; } = false;
+
+        // Separate from Mergeable: a modded x75 stack usually splits but must not merge with another.
+        [JsonProperty("splittable")]         public bool Splittable       { get; set; } = false;
         [JsonProperty("rot_progress_ticks")] public long RotProgressTicks { get; set; } = -1;
     }
 }

@@ -3,8 +3,7 @@ using KMHPatch.Features.Guilds.Dto;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Client cache for the cross-guild leaderboard snapshot. Separate from GuildCache (which holds the caller's own
-    // guild) so the in-game guild leaderboard dialog has a place to observe-without-mutating-the-other- cache
+    // Separate from GuildCache, which holds only the caller's own guild.
     public static class GuildLeaderboardCache
     {
         public static GuildLeaderboardSnapshot Snapshot       { get; private set; }
