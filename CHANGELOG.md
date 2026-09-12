@@ -66,6 +66,10 @@ server offers them. Nothing in your save needs converting.
 
 ### Fixed
 
+- **A config download cut off by a dropped connection no longer lingers.** If the server stopped sending part-way
+  through an enforced config profile, the pieces already received were held until a later download replaced them.
+  They are now released when the download is abandoned and when you connect again, so a reconnect starts clean.
+
 - **Animated pictures posted as links now animate.** A gif or animated WebP shared in Discord as a *link* arrived in
   chat as a flattened still, while the same picture posted as an *attachment* animated correctly. Discord attaches a
   link's preview by editing the message a moment later, and that second path skipped the conversion the first one

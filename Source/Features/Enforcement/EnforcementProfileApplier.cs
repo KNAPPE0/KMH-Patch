@@ -102,10 +102,20 @@ namespace KMHPatch.Features.Enforcement
         {
             lock (_rxLock)
             {
-                if (hash != _rxHash) return; // stale chunk from a superseded push
+                // Empty _rxHash means no push is in flight, and two nulls would otherwise compare equal.
+                if (string.IsNullOrEmpty(_rxHash) || hash != _rxHash) return;
                 try { _rxChunks[index] = Convert.FromBase64String(base64 ?? ""); }
                 catch (Exception ex) { KmhLog.Warn($"Enforcement: bad chunk {index}: {ex.Message}"); }
             }
+        }
+
+        // A push cut off mid-flight never reaches an End, so without this the partial buffer is held until one arrives.
+        public static void ResetReceive() { lock (_rxLock) ResetReceiveLocked(); }
+
+        private static void ResetReceiveLocked()
+        {
+            _rxChunks.Clear();
+            _rxHash = null; _rxChunkCount = 0; _rxTotalBytes = 0;
         }
 
         public static void OnProfileEnd(string hash)
@@ -113,10 +123,11 @@ namespace KMHPatch.Features.Enforcement
             byte[] zip;
             lock (_rxLock)
             {
-                if (hash != _rxHash) return;
+                if (string.IsNullOrEmpty(_rxHash) || hash != _rxHash) return;
                 if (_rxChunks.Count != _rxChunkCount)
                 {
                     KmhLog.Warn($"Enforcement: profile incomplete ({_rxChunks.Count}/{_rxChunkCount} chunks) - ignoring.");
+                    ResetReceiveLocked();
                     return;
                 }
                 zip = new byte[_rxTotalBytes];

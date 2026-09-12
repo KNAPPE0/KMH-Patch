@@ -12,7 +12,7 @@
         public const string DisplayVersion = "1.3.0";
 
         // Lets a player confirm which client DLL is loaded, since a stale install is the usual "fix not showing" cause.
-        public const string UiBuildTag = "rel-212";
+        public const string UiBuildTag = "rel-213";
 
         // The zero-width-space prefix is collision-proof: no player name can start with a non-printable control character.
         public const string SystemUsername = "​[KMH-SYS]"; // server -> client

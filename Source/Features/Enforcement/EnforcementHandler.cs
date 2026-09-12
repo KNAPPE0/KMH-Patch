@@ -55,11 +55,14 @@ namespace KMHPatch.Features.Enforcement
                         new { hash, chunk_count = chunks.Count, total_bytes = zip.Length }))
                 { summary = "Not connected to a KMH server."; return false; }
 
+                // Unchecked, a publish that lost the connection on chunk one still reported success to the admin.
                 for (int i = 0; i < chunks.Count; i++)
-                    KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadChunk,
-                        new { hash, index = i, data = Convert.ToBase64String(chunks[i]) });
+                    if (!KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadChunk,
+                            new { hash, index = i, data = Convert.ToBase64String(chunks[i]) }))
+                    { summary = $"Publish stopped after {i}/{chunks.Count} chunk(s) - the connection dropped. Try again."; return false; }
 
-                KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadEnd, new { hash });
+                if (!KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadEnd, new { hash }))
+                { summary = "Publish could not be completed - the connection dropped. Try again."; return false; }
 
                 summary = $"Uploaded config profile: {zip.Length / 1024} KB in {chunks.Count} chunk(s), hash {Short(hash)}.";
                 return true;
