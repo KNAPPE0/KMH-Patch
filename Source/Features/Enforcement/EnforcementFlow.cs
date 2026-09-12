@@ -19,6 +19,7 @@ namespace KMHPatch.Features.Enforcement
         public static void ResetForNewConnection()
         {
             PendingHash = ""; _awaitingApply = false; _reassertedHash = "";
+            EnforcementProfileApplier.ResetReceive();
         }
 
         // Called after the cache is updated with a fresh snapshot.
