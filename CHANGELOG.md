@@ -8,6 +8,10 @@ KMH build number shared with the Colony Nexus Server Addon.
 **This client needs a v1.3.1 server.** The protocol is v3, and a v1.2.x or v1.3.0 server refuses it, naming both
 version numbers rather than leaving you waiting. Nothing in your save needs converting.
 
+### rel-283
+
+- No change to the mod. Rebuilt alongside the server addon's rel-283, so both report the same build.
+
 ### rel-279 (in progress)
 
 - **Your own mod list comes back, including after the playtest builds.** Colony Nexus kept a copy of your mod list
