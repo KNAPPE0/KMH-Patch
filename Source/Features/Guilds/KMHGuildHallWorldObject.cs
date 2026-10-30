@@ -12,7 +12,7 @@ namespace KMHPatch.Features.Guilds
         public string GuildName   = "";
         public int    RadiusTiles;
 
-        public override string Label => string.IsNullOrEmpty(GuildName) ? "Guild Hall" : $"Guild Hall - {GuildName}";
+        public override string Label => string.IsNullOrEmpty(GuildName) ? "Guild Hall" : $"Guild Hall - {KmhDisplayText.GuildName(GuildName)}";
 
         // White like the sites: the hall's own art stays readable and ownership rides on the halo behind it.
         public override Color ExpandingIconColor => Color.white;
@@ -50,8 +50,8 @@ namespace KMHPatch.Features.Guilds
 
         public override string GetInspectString()
         {
-            string s = "KMH Guild Hall";
-            if (!string.IsNullOrEmpty(GuildName)) s += $"\nGuild: {GuildName}";
+            string s = "Guild Hall";
+            if (!string.IsNullOrEmpty(GuildName)) s += $"\nGuild: {KmhDisplayText.GuildName(GuildName)}";
             if (RadiusTiles > 0) s += $"\nAccess radius: {RadiusTiles} tile(s)";
             return s;
         }
@@ -61,7 +61,7 @@ namespace KMHPatch.Features.Guilds
             yield return new Command_Action
             {
                 defaultLabel = "Open Guild Hall",
-                defaultDesc  = "Open the KMH Guild Hall dialog (members, vault, perks, diplomacy).",
+                defaultDesc  = "Open the Guild Hall dialog (members, vault, perks, diplomacy).",
                 icon         = KMHTextures.Guild ?? BaseContent.BadTex,
                 action       = () => Find.WindowStack.Add(new Dialog_KMHGuildHall())
             };

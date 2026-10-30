@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Buildings on one site; slots are scarce, so placed buildings and slot cost lead the layout.
     public class Dialog_KMHSiteBuildings : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(620f, 500f);
@@ -30,6 +29,11 @@ namespace KMHPatch.Features.Sites
             return null;
         }
 
+        // One site, already in hand, so the outpost test costs nothing per frame.
+        protected override Features.Discord.KmhActivity PresenceActivity
+            => SiteLabels.IsOutpost(Site()) ? Features.Discord.KmhActivity.Frontier
+                                            : Features.Discord.KmhActivity.Sites;
+
         protected override void DrawContents(Rect rect)
         {
             float y = DialogLayout.DrawTitle(rect, "Site buildings");
@@ -43,15 +47,15 @@ namespace KMHPatch.Features.Sites
             int slots = SlotsForTier(site.OutputTier);
             int used  = site.Buildings?.Count ?? 0;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                $"<color=grey>Tile {site.Tile} · Tier {site.OutputTier} · {used}/{slots} slot(s) used</color>");
+                $"<color=#A9AFB9>Tile {site.Tile} · Tier {site.OutputTier} · {used}/{slots} slot(s) used</color>");
             y += 26f;
 
             if (site.Stability < 100)
             {
                 int repair = Mathf.Max(0, 100 - site.Stability) * Econ.RepairCostPerPoint;
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width - 130f, 22f),
-                    $"<color=#ffcf59>Condition: {site.Stability}% - output is reduced.</color> "
-                    + $"<color=grey>Repair costs {repair} silver ({Econ.RepairCostPerPoint}/point).</color>");
+                    $"<color=#f0c04f>Condition: {site.Stability}% - output is reduced.</color> "
+                    + $"<color=#A9AFB9>Repair costs {repair} silver ({Econ.RepairCostPerPoint}/point).</color>");
                 if (Widgets.ButtonText(new Rect(rect.width - 126f, y - 2f, 126f, 24f), $"Repair {repair}s"))
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Repair this site from {site.Stability}% to full condition for {repair} silver?",
@@ -61,13 +65,13 @@ namespace KMHPatch.Features.Sites
 
             int cap  = StorageCapacity(site);
             int held = StoredUnits(site);
-            // Storage only fills when the destination is Storage; nothing else on screen would say a warehouse is inert.
+            // Storage fills only when the destination is Storage; nothing else on screen says a warehouse is inert.
             bool storesHere = site.OwnerRewardDestination == SiteEntry.DestStorage;
             string storageNote = cap == 0
-                ? "  <color=grey>- none built, output is delivered every cycle</color>"
-                : (storesHere ? "" : "  <color=#ffcf59>- unused: this site's reward destination is not Storage</color>");
+                ? "  <color=#A9AFB9>- none built, output is delivered every cycle</color>"
+                : (storesHere ? "" : "  <color=#f0c04f>- unused: this site's reward destination is not Storage</color>");
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width - 130f, 22f),
-                $"<color=#79b8ff>Storage:</color> {held}/{cap} held{storageNote}");
+                $"<color=#82acff>Storage:</color> {held}/{cap} held{storageNote}");
             if (held > 0 && Widgets.ButtonText(new Rect(rect.width - 126f, y - 2f, 126f, 24f), "Collect all"))
                 SiteHandler.CollectStorage(_tile);
             y += 22f;
@@ -75,19 +79,19 @@ namespace KMHPatch.Features.Sites
             int housing = CountOf(site, SiteBuilding.KindHousing) * Econ.WorkersPerHousing;
             if (housing > Econ.MaxHousingBonus) housing = Econ.MaxHousingBonus;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                $"<color=#79b8ff>Workers:</color> {site.Workers?.Count ?? 0}/{site.MaxWorkers} working"
-                + (housing > 0 ? $"  <color=grey>(+{housing} of that from housing)</color>" : ""));
+                $"<color=#82acff>Workers:</color> {site.Workers?.Count ?? 0}/{site.MaxWorkers} working"
+                + (housing > 0 ? $"  <color=#A9AFB9>(+{housing} of that from housing)</color>" : ""));
             y += 22f;
 
             int outBonus = HasProduction(site) ? Mathf.Min(Econ.MaxProductionPct, Econ.ProductionBonusPct) : 0;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                $"<color=#79b8ff>Output:</color> "
-                + (outBonus > 0 ? $"+{outBonus}% from the production building" : "<color=grey>no production building built</color>"));
+                $"<color=#82acff>Output:</color> "
+                + (outBonus > 0 ? $"+{outBonus}% from the production building" : "<color=#A9AFB9>no production building built</color>"));
             y += 24f;
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (used == 0)
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=grey>Nothing built here yet.</color>");
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=#A9AFB9>Nothing built here yet.</color>");
 
             const float rowH = 34f;
             Rect view = new Rect(0f, y, rect.width, Mathf.Max(rowH, rect.height - y - 96f));
@@ -101,7 +105,7 @@ namespace KMHPatch.Features.Sites
                 int lvl = Mathf.Max(1, b?.Level ?? 1);
                 string lvlTag = lvl > 1 ? $" · level {lvl}" : "";
                 DialogLayout.LabelTrunc(new Rect(r.x, r.y + 4f, r.width - 110f, 22f),
-                    $"{KindLabel(b?.Kind)} <color=grey>· {EffectOf(b?.Kind)}{lvlTag} · {StateLabel(b?.State)}</color>");
+                    $"{KindLabel(b?.Kind)} <color=#A9AFB9>· {EffectOf(b?.Kind)}{lvlTag} · {StateLabel(b?.State)}</color>");
                 int idx = i;
                 string bKind = b?.Kind, bState = b?.State;
                 if (Widgets.ButtonText(new Rect(r.xMax - 104f, r.y, 104f, 24f), "Demolish"))
@@ -116,7 +120,7 @@ namespace KMHPatch.Features.Sites
             DialogLayout.LabelTrunc(new Rect(0f, by, rect.width, 20f), SlotHint(slots, used));
             by += 20f;
             DialogLayout.LabelTrunc(new Rect(0f, by, rect.width, 20f),
-                $"<color=grey>Each costs {Econ.BuildingCostSilver} silver from your treasury and takes one slot. Demolishing refunds nothing.</color>");
+                $"<color=#A9AFB9>Each costs {Econ.BuildingCostSilver} silver from your treasury and takes one slot. Demolishing refunds nothing.</color>");
             by += 24f;
 
             float gap = 6f;
@@ -135,10 +139,9 @@ namespace KMHPatch.Features.Sites
 
         private static string SlotHint(int slots, int used)
             => used >= slots
-                ? "<color=#ffce4d>Every building slot on this site is used. A higher site tier grants more.</color>"
-                : $"<color=grey>{slots - used} free slot(s). A tier 1 site has 2, tier 2 has 3, tier 3 has 4.</color>";
+                ? "<color=#f0c04f>Every building slot on this site is used. A higher site tier grants more.</color>"
+                : $"<color=#A9AFB9>{slots - used} free slot(s). A tier 1 site has 2, tier 2 has 3, tier 3 has 4.</color>";
 
-        // What the building does, in the units the server actually applies.
         private static string EffectOf(string kind)
         {
             switch (kind)
@@ -173,7 +176,7 @@ namespace KMHPatch.Features.Sites
             return body + $"\n\nCost: {Econ.BuildingCostSilver} silver.";
         }
 
-        // The server's own numbers, sent with the snapshot. Defaults only apply before the first snapshot lands.
+        // The server's own numbers; defaults apply only before the first snapshot lands.
         private static SiteSnapshot Econ => SiteCache.Snapshot ?? new SiteSnapshot();
 
         private static int CountOf(SiteEntry s, string kind)
@@ -223,8 +226,8 @@ namespace KMHPatch.Features.Sites
         {
             switch (state)
             {
-                case SiteBuilding.StateDamaged: return "<color=#ffcf59>damaged</color>";
-                case SiteBuilding.StateRuined:  return "<color=#ff7676>ruined</color>";
+                case SiteBuilding.StateDamaged: return "<color=#f0c04f>damaged</color>";
+                case SiteBuilding.StateRuined:  return "<color=#f07167>ruined</color>";
                 default:                        return "operational";
             }
         }

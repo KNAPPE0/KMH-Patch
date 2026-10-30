@@ -20,7 +20,6 @@ namespace KMHPatch.Features.PlayerStats
         private static float _credit;
         private static Vector3 _mouseWas;
 
-        // The rule itself, kept pure: paused or not, how long since the player last touched anything.
         internal static bool IsActive(bool paused, float sinceInput)
             => sinceInput <= (paused ? IdlePausedSeconds : IdleRunningSeconds);
 
@@ -32,7 +31,6 @@ namespace KMHPatch.Features.PlayerStats
             _countedAt = _reportedAt = 0f;
         }
 
-        // Polled from the KMH update pump, like everything else that has to watch the game rather than be called by it.
         public static void Tick()
         {
             float now = Time.realtimeSinceStartup;

@@ -5,7 +5,7 @@ using KMHPatch.UI;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Goods parked in the player's own listing escrow, at market value: asking price is deliberately NOT used, so mispricing cannot move raid pressure.
+    // Own listing escrow at market value, never the asking price, so mispricing cannot move raid pressure.
     internal sealed class MarketplaceWealthSource : IKmhWealthSource
     {
         public string Name => "Marketplace";

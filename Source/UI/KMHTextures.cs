@@ -4,11 +4,10 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.UI
 {
-    // Lazy icon cache for KMH buttons. Missing 64x64 UI PNGs return null, so buttons fall back to text.
+    // A missing PNG loads as null, so its button falls back to text.
     [StaticConstructorOnStartup]
     internal static class KMHTextures
     {
-        // Main tab feature buttons - one per first-class destination.
         public static readonly Texture2D Guild       = Load("KMHPatch/UI/Guild");
         public static readonly Texture2D Quests      = Load("KMHPatch/UI/Quests");
         public static readonly Texture2D Marketplace = Load("KMHPatch/UI/Marketplace");
@@ -22,7 +21,6 @@ namespace KMHPatch.UI
         public static readonly Texture2D Log         = Load("KMHPatch/UI/Log");
         public static readonly Texture2D About       = Load("KMHPatch/UI/About");
 
-        // Action buttons in feature dialogs.
         public static readonly Texture2D Buy         = Load("KMHPatch/UI/Buy");
         public static readonly Texture2D Post        = Load("KMHPatch/UI/Post");
         public static readonly Texture2D Cancel      = Load("KMHPatch/UI/Cancel");
@@ -32,33 +30,19 @@ namespace KMHPatch.UI
         public static readonly Texture2D Deposit     = Load("KMHPatch/UI/Deposit");
         public static readonly Texture2D Withdraw    = Load("KMHPatch/UI/Withdraw");
 
-        // Startup check for KMH UI icons, so admins can see how many PNG slots loaded without opening every dialog.
+        // Logged at startup, so an admin sees how many icons loaded without opening every dialog.
         public static int LoadedCount { get; private set; }
         public static int TotalSlots  => 20;
 
         static KMHTextures()
         {
+            Texture2D[] all =
+            {
+                Guild, Quests, Marketplace, Treasury, Sites, Roadworks, Comms, World, Leaderboard, Ping, Log, About,
+                Buy, Post, Cancel, Claim, Submit, Approve, Deposit, Withdraw,
+            };
             int n = 0;
-            if (Guild       != null) n++;
-            if (Quests      != null) n++;
-            if (Marketplace != null) n++;
-            if (Treasury    != null) n++;
-            if (Sites       != null) n++;
-            if (Roadworks   != null) n++;
-            if (Comms       != null) n++;
-            if (World       != null) n++;
-            if (Leaderboard != null) n++;
-            if (Ping        != null) n++;
-            if (Log         != null) n++;
-            if (About       != null) n++;
-            if (Buy         != null) n++;
-            if (Post        != null) n++;
-            if (Cancel      != null) n++;
-            if (Claim       != null) n++;
-            if (Submit      != null) n++;
-            if (Approve     != null) n++;
-            if (Deposit     != null) n++;
-            if (Withdraw    != null) n++;
+            foreach (Texture2D t in all) if (t != null) n++;
             LoadedCount = n;
             KmhLog.Info($"Textures: {n}/{TotalSlots} icons loaded from Textures/KMHPatch/UI/");
         }

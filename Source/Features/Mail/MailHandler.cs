@@ -24,30 +24,35 @@ namespace KMHPatch.Features.Mail
                 attach_silver      = attachSilver < 0 ? 0 : attachSilver,
                 attach_items       = attachItems ?? new Dictionary<string, int>(),
                 attach_payload_sel = attachPayloadSel ?? new Dictionary<string, int>(),
-            }, KmhOpId.For($"mail.send|{to}|{subject}|{body}|{attachSilver}"));
+            }, KmhOpId.For(SendKey(to, subject, body, attachSilver, attachItems, attachPayloadSel)));
             if (sent) KmhNotifications.Neutral("Sending mail…");
             else      KmhNotifications.NotConnected();
             return sent;
         }
 
-        public static bool TryAccept(long id)
+        // The goods are part of the action: without them two mails with different items shared one op id, and the
+        // server dropped the second as a repeat.
+        internal static string SendKey(string to, string subject, string body, long attachSilver,
+                                       Dictionary<string, int> items, Dictionary<string, int> payloads)
+            => $"mail.send|{to}|{subject}|{body}|{attachSilver}|{Sorted(items)}|{Sorted(payloads)}";
+
+        private static string Sorted(Dictionary<string, int> d)
         {
-            bool sent = id > 0 && KmhDispatcher.Send(KmhProtocol.Kind.MailAccept, new { id });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
+            if (d == null || d.Count == 0) return "";
+            var keys = new List<string>(d.Keys);
+            keys.Sort(System.StringComparer.Ordinal);
+            var sb = new System.Text.StringBuilder();
+            foreach (string k in keys) sb.Append(k).Append('=').Append(d[k]).Append(',');
+            return sb.ToString();
         }
 
-        public static bool TryDecline(long id)
-        {
-            bool sent = id > 0 && KmhDispatcher.Send(KmhProtocol.Kind.MailDecline, new { id });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+        public static bool TryAccept(long id)  => SendForMessage(KmhProtocol.Kind.MailAccept, id);
+        public static bool TryDecline(long id) => SendForMessage(KmhProtocol.Kind.MailDecline, id);
+        public static bool TryRecall(long id)  => SendForMessage(KmhProtocol.Kind.MailRecall, id);
 
-        // Sender pulls their own still-unread attachment back out of escrow.
-        public static bool TryRecall(long id)
+        private static bool SendForMessage(string kind, long id)
         {
-            bool sent = id > 0 && KmhDispatcher.Send(KmhProtocol.Kind.MailRecall, new { id });
+            bool sent = id > 0 && KmhDispatcher.Send(kind, new { id });
             if (!sent) KmhNotifications.NotConnected();
             return sent;
         }

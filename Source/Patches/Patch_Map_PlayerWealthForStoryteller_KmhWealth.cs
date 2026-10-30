@@ -4,7 +4,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Only the storyteller path, so wealth parked in KMH cannot sidestep raid points while the Wealth tab still shows on-map value.
+    // Storyteller path only: KMH-parked wealth cannot dodge raid points, and the Wealth tab keeps showing on-map value.
     [HarmonyPatch(typeof(Map), nameof(Map.PlayerWealthForStoryteller), MethodType.Getter)]
     internal static class Patch_Map_PlayerWealthForStoryteller_KmhWealth
     {

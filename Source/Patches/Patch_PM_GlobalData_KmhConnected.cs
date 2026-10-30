@@ -8,10 +8,10 @@ namespace KMHPatch.Patches
     [HarmonyPatch(typeof(PM_GlobalData), nameof(PM_GlobalData.Receive))]
     internal static class Patch_PM_GlobalData_KmhConnected
     {
-        [HarmonyPostfix]
-        private static void Postfix()
+        [HarmonyPrefix]
+        private static bool Prefix()
         {
-            KmhDispatcher.ResetSession();
+            if (!Features.Enforcement.EnforcementAdmission.ReceiveGlobalData()) return false;
 
             string endpoint = string.IsNullOrEmpty(Network.Ip)
                 ? "unknown"
@@ -23,6 +23,7 @@ namespace KMHPatch.Patches
             );
 
             // The API is dialled only from kmh.hello: dialling here would pin the wrong port when one host runs several servers.
+            return true;
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace KMH.Sdk.Client.Events
 {
-    /// <summary>Payloads for IKmhClientEvents; cache-updated events are tag-only, so read the matching cache.</summary>
+    // Payloads for IKmhClientEvents; the cache-updated events carry nothing, so read the matching cache.
 
     public sealed class KmhServerConnectedEvent
     {
@@ -30,8 +30,11 @@
     public sealed class ChatCacheUpdatedEvent              { }
     public sealed class ChatModerationCacheUpdatedEvent    { }
     public sealed class MailCacheUpdatedEvent              { }
+    public sealed class ConnectedTreasuryUpdatedEvent      { }
+    public sealed class ConnectedGuildUpdatedEvent         { }
+    public sealed class FederationUpdatedEvent             { }
 
-    /// <summary>Silver or items materialised for the local player, whether granted immediately or held and delivered later.</summary>
+    /// <summary>Silver or items landed for the local player, granted at once or held and delivered later.</summary>
     public sealed class KmhGrantReceivedEvent
     {
         public string Kind        { get; init; } = "";   // "silver" | "item" | "item_payloads"

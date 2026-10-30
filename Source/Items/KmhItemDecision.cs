@@ -5,8 +5,8 @@ namespace KMHPatch.Items
     {
         public readonly bool Allowed;
         public readonly KmhItemReasonCode Code;
-        public readonly string Reason;      // human-readable, tooltip-ready
-        public readonly bool IconFallback;  // safe item whose icon failed -> display a fallback, don't block
+        public readonly string Reason;
+        public readonly bool IconFallback;  // a safe item whose icon failed shows a fallback, never a block
 
         private KmhItemDecision(bool allowed, KmhItemReasonCode code, string reason, bool iconFallback)
         { Allowed = allowed; Code = code; Reason = reason ?? ""; IconFallback = iconFallback; }

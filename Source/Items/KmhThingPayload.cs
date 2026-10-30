@@ -31,11 +31,11 @@ namespace KMHPatch.Items
         [JsonProperty("legacy")]         public bool   Legacy        { get; set; } = false;
         [JsonProperty("warnings")]       public List<string> Warnings { get; set; } = new List<string>();
 
-        // RotProgressTicks is -1 when not rottable, and is re-applied on withdraw so freshness survives the trip.
         [JsonProperty("mergeable")]          public bool Mergeable        { get; set; } = false;
 
         // Separate from Mergeable: a modded x75 stack usually splits but must not merge with another.
         [JsonProperty("splittable")]         public bool Splittable       { get; set; } = false;
+        // -1 when not rottable; re-applied on withdraw so freshness survives the trip.
         [JsonProperty("rot_progress_ticks")] public long RotProgressTicks { get; set; } = -1;
     }
 }

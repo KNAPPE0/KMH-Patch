@@ -18,7 +18,7 @@ namespace KMHPatch.Features.Chat
             public float     DelaySeconds;
         }
 
-        // Split from the texture because building one needs a graphics device: everything hard stays checkable headless.
+        // Kept apart from Texture2D, which needs a graphics device, so decoding stays testable headless.
         internal sealed class RawFrame
         {
             public Color32[] Pixels;         // top-down, logical screen size
@@ -39,7 +39,6 @@ namespace KMHPatch.Features.Chat
 
             public bool IsAnimated => Frames.Count > 1;
 
-            // Constant-time enough for a per-frame call: the list is short and the scan stops at the first frame past t.
             public Texture2D FrameAt(float t)
             {
                 if (Frames.Count == 0) return null;
@@ -70,7 +69,7 @@ namespace KMHPatch.Features.Chat
             && data[0] == 'G' && data[1] == 'I' && data[2] == 'F' && data[3] == '8'
             && (data[4] == '7' || data[4] == '9') && data[5] == 'a';
 
-        // Returns null on anything malformed. Never throws - this is fed by the internet.
+        // Never throws: this is fed by the internet.
         public static Animation Decode(byte[] d)
         {
             try
@@ -96,7 +95,6 @@ namespace KMHPatch.Features.Chat
             }
         }
 
-        // The whole format, with no Unity object in sight. Never throws.
         internal static RawAnimation DecodeFrames(byte[] d)
         {
             try { return DecodeCore(d); }
@@ -166,6 +164,8 @@ namespace KMHPatch.Features.Chat
 
                 int fx = Read16(d, ref p), fy = Read16(d, ref p);
                 int fw = Read16(d, ref p), fh = Read16(d, ref p);
+                // A frame's own size sets its decode buffer, so it may be no larger than the image checked above.
+                if (fw <= 0 || fh <= 0 || fw > width || fh > height) return anim.Frames.Count > 0 ? anim : null;
                 byte imgPacked = d[p++];
 
                 Color32[] local = null;
@@ -192,13 +192,13 @@ namespace KMHPatch.Features.Chat
                     break;
                 }
 
-                // Copied, not referenced: the canvas keeps mutating, so sharing it would leave every frame showing the last.
+                // Copied: the canvas keeps mutating, so sharing it would leave every frame showing the last.
                 var snapshot = new Color32[canvas.Length];
                 Array.Copy(canvas, snapshot, canvas.Length);
                 anim.Frames.Add(new RawFrame
                 {
                     Pixels = snapshot,
-                    // 0 and 1 hundredths mean 'as fast as possible'; browsers clamp to 100ms and so do we.
+                    // 0 and 1 hundredths mean 'as fast as possible'; browsers clamp that to 100ms, and so does this.
                     DelaySeconds = (delayCs <= 1 ? 10 : delayCs) / 100f,
                 });
 
@@ -233,7 +233,7 @@ namespace KMHPatch.Features.Chat
                     int i = row * fw + col;
                     if (i >= idx.Length) return;
                     int ci = idx[i];
-                    if (ci == transparent) continue;          // transparent pixels leave the canvas as it was
+                    if (ci == transparent) continue;
                     if (ci < 0 || ci >= table.Length) continue;
 
                     canvas[destRow * cw + destCol] = table[ci];
@@ -269,7 +269,8 @@ namespace KMHPatch.Features.Chat
 
             var t = new Texture2D(w, h, TextureFormat.RGBA32, false);
             t.SetPixels32(flipped);
-            t.Apply(false, false);
+            // Uploaded once and never read back, so the CPU copy of every frame is let go.
+            t.Apply(false, true);
             return t;
         }
 
@@ -301,7 +302,7 @@ namespace KMHPatch.Features.Chat
             return v;
         }
 
-        // CONTRACT: p returns just past this image's sub-block chain - leaving the 0x00 makes every gif decode as one frame.
+        // Leaves p just past this image's sub-block chain; stopping on the 0x00 makes every gif decode as one frame.
         private static byte[] LzwDecode(byte[] d, ref int p, int expected)
         {
             if (p >= d.Length || expected <= 0) return null;
@@ -359,7 +360,7 @@ namespace KMHPatch.Features.Chat
                 int cur = code;
                 int sp  = 0;
 
-                // LZW's one special case: a code not yet in the dictionary can only mean the previous sequence plus its first byte.
+                // LZW's special case: a code not yet in the dictionary is the previous sequence plus its first byte.
                 if (code >= next)
                 {
                     if (prev < 0) return Drain(d, ref p, ref subLeft, outAt > 0 ? outBytes : null);
@@ -395,13 +396,12 @@ namespace KMHPatch.Features.Chat
                 }
                 prev = code;
             }
-            // Every way out of the loop is a Drain(...) return, which is what leaves p on a real block boundary.
         }
 
         // Walk to the end of the current sub-block chain so the caller resumes on a real block boundary.
         private static byte[] Drain(byte[] d, ref int p, ref int subLeft, byte[] result)
         {
-            p += subLeft;                       // rest of the sub-block we were mid-way through
+            p += subLeft;                       // rest of the current sub-block
             subLeft = 0;
             while (p < d.Length)
             {

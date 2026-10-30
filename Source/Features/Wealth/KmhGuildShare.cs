@@ -4,7 +4,7 @@ using KMHPatch.Features.Guilds.Dto;
 
 namespace KMHPatch.Features.Wealth
 {
-    // Guild-held value splits once across members (by contribution, else evenly): crediting each member the full amount would multiply server wealth by guild size.
+    // Guild value splits once across members; crediting each the full amount multiplies server wealth by guild size.
     internal static class KmhGuildShare
     {
         // 0 when the caller is not in this guild, so nothing credits wealth to someone who cannot reach it.

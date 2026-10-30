@@ -37,5 +37,28 @@ namespace KMHPatch.UI
         }
 
         public static bool IsEnabled(string feature) => !_disabled.Contains(feature);
+
+        internal static string DisabledList()
+        {
+            var list = new List<string>(_disabled);
+            list.Sort(StringComparer.OrdinalIgnoreCase);
+            return string.Join(",", list.ToArray());
+        }
+
+        // Lets a self-test drive the real gates and then put this session's switches back exactly as they were.
+        internal static (string[] Disabled, bool Have, bool Confirmed) SaveForTest()
+        {
+            string[] disabled = new string[_disabled.Count];
+            _disabled.CopyTo(disabled);
+            return (disabled, _haveCapabilities, _confirmedThisConnection);
+        }
+
+        internal static void RestoreForTest((string[] Disabled, bool Have, bool Confirmed) saved)
+        {
+            _disabled.Clear();
+            if (saved.Disabled != null) foreach (string d in saved.Disabled) _disabled.Add(d);
+            _haveCapabilities = saved.Have;
+            _confirmedThisConnection = saved.Confirmed;
+        }
     }
 }

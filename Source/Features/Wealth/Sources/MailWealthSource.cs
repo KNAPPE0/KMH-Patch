@@ -5,7 +5,7 @@ using Verse;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Unaccepted outgoing attachments left the treasury but are still the sender's until claimed or refunded, so they count here or mail shelters value from raid scaling.
+    // Unaccepted outgoing attachments stay the sender's until claimed or refunded; uncounted, mail shelters value.
     internal sealed class MailWealthSource : IKmhWealthSource
     {
         public string Name => "Mail";

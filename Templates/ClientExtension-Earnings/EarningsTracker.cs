@@ -44,7 +44,6 @@ namespace EarningsTracker
 
         private void OnWorldEvent(KmhWorldEventFiredEvent e)
         {
-            // React to economic events - nudge the player to trade during a favourable window.
             if (e.Type == "tax_holiday" || e.Type == "market_boom")
                 _host.Toast.Positive($"{e.Title} - good time to sell!");
         }

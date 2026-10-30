@@ -4,7 +4,7 @@ using KMHPatch.Features.Sites.Dto;
 
 namespace KMHPatch.Features.Sites
 {
-    // Built client-side because only the client resolves linked names, and a system outpost has no OwnerUsername at all.
+    // Client-side: only the client resolves linked names, and a system outpost has no OwnerUsername.
     internal static class SiteLabels
     {
         public static string Controller(SiteEntry s)
@@ -12,9 +12,9 @@ namespace KMHPatch.Features.Sites
             if (s == null) return "";
             switch (string.IsNullOrEmpty(s.OwnerKind) ? SiteEntry.OwnerPlayer : s.OwnerKind)
             {
-                case SiteEntry.OwnerGuildKind: return string.IsNullOrEmpty(s.ControllingGuild) ? "A guild" : s.ControllingGuild;
+                case SiteEntry.OwnerGuildKind: return string.IsNullOrEmpty(s.ControllingGuild) ? "A guild" : UI.KmhDisplayText.GuildName(s.ControllingGuild);
                 case SiteEntry.OwnerNeutral:   return "Unclaimed";
-                case SiteEntry.OwnerSystem:    return string.IsNullOrEmpty(s.ControllerFaction) ? "Hostile" : s.ControllerFaction;
+                case SiteEntry.OwnerSystem:    return string.IsNullOrEmpty(s.ControllerFaction) ? "Hostile" : UI.KmhDisplayText.Inert(s.ControllerFaction, 64);
                 default:                       return LinkedAccountsCache.Format(s.OwnerUsername);
             }
         }
@@ -23,26 +23,40 @@ namespace KMHPatch.Features.Sites
         public static string Name(SiteEntry s)
         {
             if (s == null) return "";
-            return !string.IsNullOrEmpty(s.SiteName) ? s.SiteName : $"Tile {s.Tile}";
+            return !string.IsNullOrEmpty(s.SiteName) ? UI.KmhDisplayText.Inert(s.SiteName, 64) : $"Tile {s.Tile}";
         }
 
         public static bool IsOutpost(SiteEntry s) => s != null && !string.IsNullOrEmpty(s.OutpostTemplate);
+
+        // Named as the build window names types; an older site with no type reads as Custom.
+        public static string Kind(SiteEntry s)
+        {
+            switch (s?.Archetype)
+            {
+                case SiteEntry.ArchetypeFarmland:  return "Farmland";
+                case SiteEntry.ArchetypeQuarry:    return "Quarry";
+                case SiteEntry.ArchetypeWoodland:  return "Woodland";
+                case SiteEntry.ArchetypeRanch:     return "Ranch";
+                case SiteEntry.ArchetypeRoadworks: return "Roadworks";
+                default:                           return "Custom site";
+            }
+        }
 
         public static string StateLabel(SiteEntry s)
         {
             switch (s?.OutpostState)
             {
-                case SiteEntry.OutpostDerelict:  return "<color=#ffcf59>derelict</color>";
-                case SiteEntry.OutpostHostile:   return "<color=#ff7676>hostile</color>";
-                case SiteEntry.OutpostDefeated:  return "<color=#cccccc>defeated</color>";
-                case SiteEntry.OutpostClaimable: return "<color=#80ff80>claimable</color>";
-                case SiteEntry.OutpostCaptured:  return "<color=grey>captured</color>";
-                case SiteEntry.OutpostDormant:   return "<color=grey>dormant</color>";
+                case SiteEntry.OutpostDerelict:  return "<color=#f0c04f>derelict</color>";
+                case SiteEntry.OutpostHostile:   return "<color=#f07167>hostile</color>";
+                case SiteEntry.OutpostDefeated:  return "<color=#c4cad6>defeated</color>";
+                case SiteEntry.OutpostClaimable: return "<color=#4cc38a>claimable</color>";
+                case SiteEntry.OutpostCaptured:  return "<color=#A9AFB9>captured</color>";
+                case SiteEntry.OutpostDormant:   return "<color=#A9AFB9>dormant</color>";
                 default:                         return "";
             }
         }
 
-        // Minutes left in a claim window, or -1 when there is no window. Presentation only; the server decides.
+        // Presentation only; the server decides.
         public static int ClaimMinutesLeft(SiteEntry s)
         {
             if (s == null || s.ClaimWindowEndsUtcTicks <= 0) return -1;
@@ -54,7 +68,7 @@ namespace KMHPatch.Features.Sites
         public static string HeritageLine(SiteEntry s)
         {
             if (!IsOutpost(s) || string.IsNullOrEmpty(s.CapturedBy)) return "";
-            return $"<color=grey>Reclaimed frontier infrastructure · claimed by {s.CapturedBy}</color>";
+            return $"<color=#A9AFB9>Reclaimed frontier infrastructure · claimed by {UI.KmhDisplayText.GuildName(s.CapturedBy)}</color>";
         }
     }
 }

@@ -43,25 +43,27 @@ namespace KMHPatch.Features.LinkedAccounts
                             return e.Username;
             }
             catch { }
-            return username;   // roster not loaded yet - show what we have rather than nothing
+            return username;   // roster not loaded yet: show the name as given rather than nothing
         }
 
         public static string Format(string username)
         {
-            if (string.IsNullOrEmpty(username)) return "<color=grey>(unknown)</color>";
+            if (string.IsNullOrEmpty(username)) return "<color=#A9AFB9>(unknown)</color>";
             username = Canonical(username);
             // Here rather than at each render site, so "who is staff" is answerable everywhere instead of only in chat.
             string badge = Identity.KmhStaff.Tag(username);
+            // Lookups take the name as it is; only the drawn copy is made inert, since every caller draws markup.
+            string shown = UI.KmhDisplayText.Inert(username);
             // From the theme, not a literal, or recolouring the Discord mark gives two blues for one idea on one screen.
             string name = IsLinked(username)
-                        ? $"<color={UI.KmhTheme.Hex(UI.KmhTheme.DiscordSrc)}>{username}</color>"
-                        : username;
+                        ? $"<color={UI.KmhTheme.Hex(UI.KmhTheme.DiscordSrc)}>{shown}</color>"
+                        : shown;
             return badge + name;
         }
 
         internal static void Apply(LinkedAccountsSnapshot snapshot)
         {
-            // Replace wholesale - server sends the full map on every push, never deltas, so we don't need to merge
+            // Replaced wholesale: the server sends the full map on every push, never deltas.
             _links = snapshot?.Links != null
                 ? new Dictionary<string, string>(snapshot.Links, StringComparer.OrdinalIgnoreCase)
                 : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

@@ -6,7 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Unsettled bounty escrow left the treasury but returns on cancel or expiry, so it is still the poster's and must count; settled states are already paid out or refunded.
+    // Unsettled bounty escrow returns on cancel or expiry, so it counts; settled states are already paid or refunded.
     internal sealed class QuestWealthSource : IKmhWealthSource
     {
         public string Name => "Quests";

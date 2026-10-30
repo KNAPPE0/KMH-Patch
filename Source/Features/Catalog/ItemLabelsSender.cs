@@ -17,6 +17,7 @@ namespace KMHPatch.Features.Catalog
 
         public static bool PushOnce()
         {
+            var __clock = System.Diagnostics.Stopwatch.StartNew();
             if (!KmhDispatcher.IsKmhServer) return false;
 
             string endpoint = CatalogPushGuard.CurrentEndpoint();
@@ -34,18 +35,18 @@ namespace KMHPatch.Features.Catalog
             }
 
             if (!SendChunkedComplete(KmhProtocol.Kind.ItemLabels, labels, forValues: false, fungible)) return false;
-            KmhLog.Debug($"ItemLabels: pushed {labels.Count} labels (of {discovered} discovered).");
+            KmhLog.Debug($"ItemLabels: pushed {labels.Count} labels (of {discovered} discovered) in {__clock.ElapsedMilliseconds}ms.");
 
             // Values decide site pricing on the server, so a half-sent set is worse than none - it must not latch.
             if (values.Count > 0 && !SendChunkedComplete(KmhProtocol.Kind.ItemValues, ToStr(values), forValues: true))
                 return false;
             if (!PushConditionDefs()) return false;
 
-            CatalogPushGuard.MarkSent(GuardKind, endpoint);   // only after a COMPLETE push, so a partial one retries
+            CatalogPushGuard.MarkSent(GuardKind, endpoint);
             return true;
         }
 
-        // True only when EVERY chunk went: "at least one chunk" latched a half-Unknown catalog as complete.
+        // True only when EVERY chunk went, or a half-sent catalog latches as complete.
         private static bool SendChunkedComplete(string kind, Dictionary<string, string> map, bool forValues,
                                                 HashSet<string> fungibleSet = null)
         {
@@ -123,7 +124,6 @@ namespace KMHPatch.Features.Catalog
                     if (string.IsNullOrEmpty(label)) continue;
                     if (string.Equals(label, defName, System.StringComparison.Ordinal)) continue;
                     result[defName] = label;
-                    // Include RimWorld's canonical price when the def has a positive market value.
                     ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
                     if (def != null && def.BaseMarketValue > 0f)
                         values[defName] = (long)System.Math.Round(def.BaseMarketValue);

@@ -12,7 +12,7 @@ namespace KMHPatch.Features.Roadworks
         public const string TierRoad    = "road";
         public const string TierHighway = "highway";
 
-        // Ancient defs are omitted (they read as ruins), and vanilla roads share movementCostMultiplier, so the ladder buys look and draw priority, not speed.
+        // No ancient defs (they read as ruins); vanilla roads share movementCostMultiplier, so tiers buy look, not speed.
         private static readonly Dictionary<string, string[]> Candidates = new Dictionary<string, string[]>
         {
             { TierTrail,   new[] { "DirtPath", "DirtRoad", "StoneRoad" } },

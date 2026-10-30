@@ -16,7 +16,7 @@ namespace KMHPatch.Features.Sites
             return k == SiteEntry.OwnerPlayer || k == SiteEntry.OwnerGuildKind;
         }
 
-        // Mirrors SiteOwnership.CanManage: a guild site has NO OwnerUsername, so testing that field hides every control.
+        // Mirrors SiteOwnership.CanManage: a guild site has no OwnerUsername, so testing it hides every control.
         public static bool CanManage(SiteEntry s, string username)
         {
             if (s == null || string.IsNullOrEmpty(username)) return false;

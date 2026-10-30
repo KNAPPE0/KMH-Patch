@@ -11,7 +11,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Browse and manage custom sites; every production stat comes straight from the server snapshot.
+    // Every production stat comes straight from the server snapshot.
     public class Dialog_KMHSites : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(820f, 600f);
@@ -21,13 +21,15 @@ namespace KMHPatch.Features.Sites
         public Dialog_KMHSites()
         {
             doCloseX = true; absorbInputAroundWindow = true; draggable = true; resizeable = true;
-            // The base ticks this once per frame; a timer counted down from the draw ran twice as fast and polled the server every 6s.
+            // The base ticks this once per frame; a countdown in the draw runs twice a frame and over-polls.
             EnableAutoRefresh(() => SiteHandler.RequestSnapshot());
         }
 
+        protected override Features.Discord.KmhActivity PresenceActivity => Features.Discord.KmhActivity.Sites;
+
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "Custom sites");
+            float y = DialogLayout.DrawTitle(rect, "Sites");
 
             float tbW = Mathf.Max(IconButton.WidthFor("Refresh", false), IconButton.WidthFor("Build site here", true));
             if (IconButton.Draw(new Rect(rect.width - tbW, y, tbW - 4f, 28f), KMHTextures.Post, "Build site here"))
@@ -40,19 +42,21 @@ namespace KMHPatch.Features.Sites
             SiteSnapshot snap = SiteCache.Snapshot;
             if (snap == null) { DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 24f), "Loading sites…"); return; }
             if (!snap.AllowCustomSites)
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=#ffce4d>Custom sites are disabled on this server.</color>");
+            {
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=#f0c04f>Custom sites are disabled on this server.</color>");
+                y += 22f;
+            }
             else
             {
-                // Two lines: one sentence is wider than the window and loses its ending.
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                    "<color=grey>Send a caravan to the site tile, then Assign a colonist: they work inside the site "
-                    + "(away from home, not usable) and earn real skill XP.</color>");
-                y += 20f;
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                    "<color=grey>Recall brings them back to a caravan at the tile. Buildings adds production, housing "
-                    + "or storage to a site you own.</color>");
+                // Wrapped and measured: fixed one-line labels cut the sentence off in a normal-sized window.
+                string intro = "<color=#A9AFB9>Send a caravan to a site's tile and assign a colonist: they work there, away from "
+                             + "your colony, and earn real skill XP. Recall brings them back to a caravan at the tile. "
+                             + "Buildings add production, housing or storage to a site you own.</color>";
+                Text.Font = GameFont.Small;
+                float introH = Text.CalcHeight(intro, rect.width);
+                Widgets.Label(new Rect(0f, y, rect.width, introH), intro);
+                y += introH + 2f;
             }
-            y += 22f;
 
             if (snap.Sites.Count == 0)
             {
@@ -61,17 +65,32 @@ namespace KMHPatch.Features.Sites
             }
 
             string mine = KmhSession.Me;
+            List<SiteEntry> sites = Ordered(snap, mine);
             // Five text lines, floored at the button stack so a small font cannot shrink the row under its buttons.
             float rowH = Mathf.Max(DialogLayout.TextRowsH(5, 10f), ButtonStackH);
             Rect view = new Rect(0f, y, rect.width, Mathf.Max(DialogLayout.MinBodyHeight, rect.height - y - 6f));
-            Rect content = new Rect(0f, 0f, Mathf.Max(1f, view.width - DialogLayout.ScrollbarReserveWidth), snap.Sites.Count * rowH);
+            Rect content = new Rect(0f, 0f, Mathf.Max(1f, view.width - DialogLayout.ScrollbarReserveWidth), sites.Count * rowH);
             Widgets.BeginScrollView(view, ref _scroll, content);
-            DialogLayout.VisibleRange(_scroll, view.height, rowH, snap.Sites.Count, out int first, out int last);
+            DialogLayout.VisibleRange(_scroll, view.height, rowH, sites.Count, out int first, out int last);
             for (int i = first; i < last; i++)
             {
-                DrawRow(new Rect(0f, i * rowH, content.width, rowH - 4f), snap.Sites[i], mine);
+                DrawRow(new Rect(0f, i * rowH, content.width, rowH - 4f), sites[i], mine);
             }
             Widgets.EndScrollView();
+        }
+
+        private List<SiteEntry> _ordered;
+        private SiteSnapshot _orderedFor;
+        private string _orderedMine;
+
+        private List<SiteEntry> Ordered(SiteSnapshot snap, string mine)
+        {
+            if (_ordered != null && ReferenceEquals(snap, _orderedFor) && _orderedMine == mine) return _ordered;
+            _orderedFor = snap; _orderedMine = mine;
+            _ordered = snap.Sites.Select((s, i) => (s, i))
+                .OrderBy(t => string.Equals(t.s.OwnerUsername, mine, StringComparison.OrdinalIgnoreCase) ? 0 : SiteWorkerKey.Works(t.s, mine) ? 1 : 2)
+                .ThenBy(t => t.i).Select(t => t.s).ToList();
+            return _ordered;
         }
 
         private void DrawRow(Rect r, SiteEntry s, string mine)
@@ -80,14 +99,13 @@ namespace KMHPatch.Features.Sites
             Rect inner = r.ContractedBy(8f);
 
             bool isOwner  = SiteOwnershipClient.CanManage(s, mine);
-            // Priority order, held-pawn first: tile-authoritative, so it survives a reload or a username mismatch.
+            // Held pawn first: tile-authoritative, so it survives a reload or a username mismatch.
             bool heldHere      = WorkerHolding?.IsHoldingAtTile(s.Tile) == true;
-            WorkerProgressDto myWp = null;
-            s.WorkerProgress?.TryGetValue(mine, out myWp);
+            WorkerProgressDto myWp = SiteWorkerKey.Any(s, mine);
             bool wpHasPawn     = myWp != null && myWp.PawnLoadId > 0 && !myWp.Legacy;
-            bool serverListsMe = s.Workers != null && s.Workers.Contains(mine, StringComparer.OrdinalIgnoreCase);
-            bool hasPawnLink   = heldHere || wpHasPawn;                 // a real pawn is (or should be) inside
-            bool isWorker      = hasPawnLink || serverListsMe;          // any claim of mine → show Recall/Clear
+            bool serverListsMe = SiteWorkerKey.Works(s, mine);
+            bool hasPawnLink   = heldHere || wpHasPawn;
+            bool isWorker      = hasPawnLink || serverListsMe;
 
             if (SiteLabels.IsOutpost(s) && !SiteOwnershipClient.IsPlayerControlled(s))
             { DrawOutpostRow(inner, s); return; }
@@ -101,18 +119,21 @@ namespace KMHPatch.Features.Sites
 
             string owner = SiteLabels.Controller(s);
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, DialogLayout.TextRowH),
-                $"<b>{ItemLabels.ResolveLabel(s.ItemDefName)} site</b> <color=grey>· T{s.OutputTier} · tile {s.Tile} · by</color> {owner}  {AccessTag(s.AccessMode)}");
+                $"<b>{SiteLabels.Kind(s)}</b> <color=#A9AFB9>·</color> {ItemLabels.ResolveLabel(s.ItemDefName)} <color=#A9AFB9>· T{s.OutputTier} · tile {s.Tile} · by</color> {owner}  {AccessTag(s.AccessMode)}");
             string heritage = SiteLabels.HeritageLine(s);
             if (!string.IsNullOrEmpty(heritage))
                 DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 4f, textW, DialogLayout.TextRowH), heritage);
 
-            // Paused sites (no workers) never show a bogus cycle time - clear "Paused" text + the caravan->assign hint.
+            // Paused sites never show a bogus cycle time.
+            string pausedHint = s.IsProducing ? null
+                : KmhText.Get("KMH_Sites_PausedHint", "Send a caravan to tile {0} and assign a colonist.", s.Tile);
             string prodLine = !s.IsProducing
-                ? $"<color=#ffcf59>Paused, no workers</color> <color=grey>· {s.BaseAmountPerCycle}/cycle · {s.Workers.Count}/{s.MaxWorkers} workers · send a caravan to tile {s.Tile} and assign a colonist</color>"
-                : $"<color=#cccccc>{s.BaseAmountPerCycle}/cycle × {s.ProductionMultiplier:0.00}{OutputCapTag(s)} · ~{s.EffectiveCycleMinutes:0} min/cycle · {s.Workers.Count}/{s.MaxWorkers} workers</color>";
+                ? $"<color=#f0c04f>Paused, no workers</color> <color=#A9AFB9>· {s.BaseAmountPerCycle}/cycle · {s.Workers?.Count ?? 0}/{s.MaxWorkers} workers</color>"
+                : $"<color=#c4cad6>{s.BaseAmountPerCycle}/cycle × {s.ProductionMultiplier:0.00}{OutputCapTag(s)} · ~{s.EffectiveCycleMinutes:0} min/cycle · {s.Workers?.Count ?? 0}/{s.MaxWorkers} workers</color>";
             Rect prodRect = new Rect(inner.x, inner.y + DialogLayout.TextRowH, textW, DialogLayout.TextRowH);
             DialogLayout.LabelTrunc(prodRect, prodLine);
             if (s.IsProducing && Mouse.IsOver(prodRect)) TooltipHandler.TipRegion(prodRect, OutputTip(s));   // build on hover only
+            else if (pausedHint != null) TooltipHandler.TipRegion(prodRect, pausedHint);
 
             string myPawn = WorkerPawn(s, mine);
             if (string.IsNullOrEmpty(myPawn) && heldHere) myPawn = WorkerHolding.HeldPawnAtTile(s.Tile)?.Name?.ToStringShort ?? "";
@@ -121,19 +142,21 @@ namespace KMHPatch.Features.Sites
             string roleLine;
             if (hasPawnLink)
                 roleLine = paused
-                    ? $"<color=#ffcf59>{who} is away at this site (paused) · {DestLabel(WorkerDest(s, mine))}</color>"
-                    : $"<color=#79b8ff>{who} is working at this site (away from home) · lvl {WorkerLevel(s, mine)} · {DestLabel(WorkerDest(s, mine))}</color>";
+                    ? $"<color=#f0c04f>{who} is away at this site (paused) · {DestLabel(WorkerDest(s, mine))}</color>"
+                    : $"<color=#82acff>{who} is working at this site (away from home) · lvl {WorkerLevel(s, mine)} · {DestLabel(WorkerDest(s, mine))}</color>";
             else if (serverListsMe)
-                roleLine = "<color=#ffcf59>Worker claim needs cleanup - no pawn is here. Use Clear claim.</color>";
+                roleLine = "<color=#f0c04f>Worker claim needs cleanup - no pawn is here. Use Clear claim.</color>";
             else
-                roleLine = isOwner ? "<color=#80ff80>You own this</color>" : "";
+                roleLine = isOwner ? "<color=#4cc38a>You own this</color>" : "";
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, textW, DialogLayout.TextRowH), roleLine);
 
-            // Worker roster by pawn name (falls back to the account name for legacy workers).
             string roster = WorkerRoster(s);
+            Rect rosterRect = new Rect(inner.x, inner.y + DialogLayout.TextRowH * 3f, textW, DialogLayout.TextRowH);
             if (!string.IsNullOrEmpty(roster))
-                DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 3f, textW, DialogLayout.TextRowH),
-                    $"<color=grey>Workers: {roster}</color>");
+                DialogLayout.LabelTrunc(rosterRect, $"<color=#A9AFB9>Workers: {roster}</color>");
+            // Its own line when the roster leaves it free, rather than the cut-off tail of the production line.
+            else if (pausedHint != null)
+                DialogLayout.LabelTrunc(rosterRect, $"<color=#A9AFB9>{pausedHint}</color>");
 
             // Four slots: an owner working their own site needs Recall, Reward, Buildings and Remove at once.
             float bx = inner.xMax - BtnW;
@@ -160,7 +183,7 @@ namespace KMHPatch.Features.Sites
                 if (IconButton.Draw(r1, KMHTextures.Post, "Buildings")) OpenBuildings(s.Tile);
                 if (IconButton.Draw(r2, KMHTextures.Cancel, "Remove site")) ConfirmRemoveSite(s.Tile);
             }
-            else if (s.AccessMode != SiteEntry.AccessPrivate && s.Workers.Count < s.MaxWorkers)
+            else if (s.AccessMode != SiteEntry.AccessPrivate && (s.Workers?.Count ?? 0) < s.MaxWorkers)
             {
                 if (IconButton.Draw(r0, KMHTextures.Claim, "Assign pawn")) PickWorkerPawn(s);
             }
@@ -205,10 +228,38 @@ namespace KMHPatch.Features.Sites
                 Notifications.KmhNotifications.Positive($"Your colonist returned to {where}.");
         }
 
+        // One colonist or all of them: recalling the whole crew by accident is not recoverable in one click.
         private static void RecallWorker(SiteEntry s)
         {
-            RecallMineAt(s.Tile);
-            SiteHandler.TryLeave(s.Tile);
+            string mine = KmhSession.Me;
+            List<KeyValuePair<string, WorkerProgressDto>> rows = SiteWorkerKey.Mine(s, mine);
+            if (rows.Count <= 1)
+            {
+                RecallMineAt(s.Tile);
+                SiteHandler.TryLeave(s.Tile);
+                return;
+            }
+
+            var opts = new List<FloatMenuOption>();
+            foreach (KeyValuePair<string, WorkerProgressDto> kv in rows)
+            {
+                WorkerProgressDto wp = kv.Value;
+                string who = string.IsNullOrEmpty(wp.PawnName) ? "Unnamed colonist" : PawnName(wp);
+                int loadId = wp.PawnLoadId;
+                opts.Add(new FloatMenuOption($"Recall {who}", () => RecallOne(s, mine, loadId)));
+            }
+            opts.Add(new FloatMenuOption($"Recall all {rows.Count}", () => { RecallMineAt(s.Tile); SiteHandler.TryLeave(s.Tile); }));
+            Find.WindowStack.Add(new FloatMenu(opts));
+        }
+
+        private static void RecallOne(SiteEntry s, string mine, int pawnLoadId)
+        {
+            Pawn pawn = null;
+            foreach (Pawn p in WorkerHolding?.HeldPawnsFor(s.Tile, mine) ?? new List<Pawn>())
+                if (p != null && p.thingIDNumber == pawnLoadId) { pawn = p; break; }
+            if (pawn != null && WorkerHolding?.Recall(s.Tile, mine, out string where, pawn) == true && !string.IsNullOrEmpty(where))
+                Notifications.KmhNotifications.Positive($"{pawn.Name?.ToStringShort ?? "Your colonist"} returned to {where}.");
+            SiteHandler.TryLeave(s.Tile, pawnLoadId);
         }
 
         // No account-level fallback: a site needs a real pawn that arrived by caravan.
@@ -236,12 +287,11 @@ namespace KMHPatch.Features.Sites
         private static void AssignWorker(SiteEntry s, Pawn pawn, int level, string name)
         {
             string mine = KmhSession.Me;
-            // One worker per account per site: a second colonist would overwrite the first, who stays trapped inside.
-            Pawn already = WorkerHolding?.HeldPawnFor(s.Tile, mine);
-            if (already != null && already != pawn)
+            // The server owns both caps; this only saves a pointless round trip.
+            if (s.Workers != null && s.MaxWorkers > 0 && s.Workers.Count >= s.MaxWorkers
+                && !SiteWorkerKey.Works(s, mine))
             {
-                Notifications.KmhNotifications.Rejected(
-                    $"{already.Name?.ToStringShort ?? "A colonist"} is already working this site for you - recall them first.");
+                Notifications.KmhNotifications.Rejected($"This site is full ({s.Workers.Count}/{s.MaxWorkers} workers).");
                 return;
             }
 
@@ -252,7 +302,6 @@ namespace KMHPatch.Features.Sites
                 : $"{name} assigned - keep a caravan on tile {s.Tile} so they keep working (couldn't move them inside).");
         }
 
-        // Colonists in a player caravan sitting on the site's world tile (physical caravan-arrival requirement).
         private static List<Pawn> PawnsAtSiteTile(int tile)
         {
             List<Pawn> outList = new List<Pawn>();
@@ -269,49 +318,57 @@ namespace KMHPatch.Features.Sites
             return outList;
         }
 
-        // Pawn name for a given worker username (empty if legacy/none).
         private static string WorkerPawn(SiteEntry s, string user)
         {
-            if (s?.WorkerProgress == null || string.IsNullOrEmpty(user)) return "";
-            return s.WorkerProgress.TryGetValue(user, out WorkerProgressDto wp) && wp != null ? (wp.PawnName ?? "") : "";
+            var names = new List<string>();
+            foreach (KeyValuePair<string, WorkerProgressDto> kv in SiteWorkerKey.Mine(s, user))
+                if (!string.IsNullOrEmpty(kv.Value.PawnName)) names.Add(PawnName(kv.Value));
+            return string.Join(", ", names);
         }
 
-        // Worker names by pawn; legacy/blocked account-workers show disabled + reason (server-reported).
+        // Named by the worker's own client and shown to everyone looking at the site.
+        internal static string PawnName(WorkerProgressDto wp) => UI.KmhDisplayText.Inert(wp?.PawnName ?? "", 48);
+
         private static string WorkerRoster(SiteEntry s)
         {
             if (s?.Workers == null || s.Workers.Count == 0) return "";
             List<string> names = new List<string>();
             foreach (string u in s.Workers)
             {
-                s.WorkerProgress.TryGetValue(u, out WorkerProgressDto wp);
+                WorkerProgressDto wp = null;
+                s.WorkerProgress?.TryGetValue(u, out wp);
                 if (wp != null && (wp.Legacy || !string.IsNullOrEmpty(wp.BlockedReason)))
                 {
                     string why = wp.Legacy ? "legacy - reassign a pawn" : wp.BlockedReason;
-                    names.Add($"<color=#ffcf59>{LinkedAccountsCache.Format(u)} (disabled: {why})</color>");
+                    string who = string.IsNullOrEmpty(wp.PawnName) ? LinkedAccountsCache.Format(SiteWorkerKey.AccountOf(u)) : PawnName(wp);
+                    names.Add($"<color=#f0c04f>{who} (disabled: {why})</color>");
                     continue;
                 }
-                string pawn = WorkerPawn(s, u);
-                names.Add(string.IsNullOrEmpty(pawn) ? LinkedAccountsCache.Format(u) : $"{pawn} <color=grey>({LinkedAccountsCache.Format(u)})</color>");
+                string acct = LinkedAccountsCache.Format(SiteWorkerKey.AccountOf(u));
+                string pawn = PawnName(wp);
+                names.Add(string.IsNullOrEmpty(pawn) ? acct : $"{pawn} <color=#A9AFB9>({acct})</color>");
             }
             return string.Join(", ", names);
         }
 
-        // An owner who also works the site needs both scopes, or the worker branch wins and site output can never be redirected.
+        // An owner-worker needs both scopes, or the worker branch wins and site output can never be redirected.
         private static void ShowDestMenu(int tile, SiteEntry s, string mine)
         {
-            bool isWorker = s?.WorkerProgress != null && s.WorkerProgress.ContainsKey(mine);
+            bool isWorker = SiteWorkerKey.Any(s, mine) != null;
             bool canDirectSite = SiteOwnershipClient.CanManage(s, mine);
             bool hasStorage = StorageSlots(s) > 0;
 
+            bool guildSite = SiteOwnershipClient.KindOf(s) == SiteEntry.OwnerGuildKind;
             var opts = new List<FloatMenuOption>();
             if (isWorker && canDirectSite)
             {
-                AddDestOptions(opts, tile, "My share", SiteStore_ScopeMine, hasStorage);
-                AddDestOptions(opts, tile, "Site output", SiteStore_ScopeSite, hasStorage);
+                AddDestOptions(opts, tile, "My share", SiteStore_ScopeMine, hasStorage, false);
+                AddDestOptions(opts, tile, "Site output", SiteStore_ScopeSite, hasStorage, guildSite);
             }
             else
             {
-                AddDestOptions(opts, tile, null, isWorker ? SiteStore_ScopeMine : SiteStore_ScopeSite, hasStorage);
+                bool site = !isWorker;
+                AddDestOptions(opts, tile, null, site ? SiteStore_ScopeSite : SiteStore_ScopeMine, hasStorage, site && guildSite);
             }
             Find.WindowStack.Add(new FloatMenu(opts));
         }
@@ -319,19 +376,32 @@ namespace KMHPatch.Features.Sites
         private const string SiteStore_ScopeMine = "mine";
         private const string SiteStore_ScopeSite = "site";
 
-        private static void AddDestOptions(List<FloatMenuOption> opts, int tile, string prefix, string scope, bool hasStorage)
+        // Guild output may only go somewhere the guild owns (server-enforced); other choices only get refused.
+        internal static List<(string Label, string Dest)> DestChoices(bool guildOutput, bool hasStorage)
+        {
+            var outp = new List<(string, string)>();
+            if (guildOutput) outp.Add(("Guild vault", SiteEntry.DestTreasury));
+            else
+            {
+                outp.Add(("Treasury", SiteEntry.DestTreasury));
+                outp.Add(("Colony (delivered in-game)", SiteEntry.DestCaravan));
+                outp.Add(("Marketplace (auto-list)", SiteEntry.DestMarketplace));
+            }
+            outp.Add((hasStorage ? "Site storage (collect it there later)" : "Site storage - build a storage building first",
+                      SiteEntry.DestStorage));
+            return outp;
+        }
+
+        private static void AddDestOptions(List<FloatMenuOption> opts, int tile, string prefix, string scope, bool hasStorage, bool guildOutput)
         {
             string p = string.IsNullOrEmpty(prefix) ? "" : prefix + " → ";
-            opts.Add(new FloatMenuOption($"{p}Treasury",
-                () => SiteHandler.TrySetDestination(tile, SiteEntry.DestTreasury, scope)));
-            opts.Add(new FloatMenuOption($"{p}Colony (delivered in-game)",
-                () => SiteHandler.TrySetDestination(tile, SiteEntry.DestCaravan, scope)));
-            opts.Add(new FloatMenuOption($"{p}Marketplace (auto-list)",
-                () => SiteHandler.TrySetDestination(tile, SiteEntry.DestMarketplace, scope)));
-            opts.Add(new FloatMenuOption(
-                hasStorage ? $"{p}Site storage (collect it there later)"
-                           : $"{p}Site storage - build a storage building first",
-                hasStorage ? (Action)(() => SiteHandler.TrySetDestination(tile, SiteEntry.DestStorage, scope)) : null));
+            foreach ((string label, string dest) in DestChoices(guildOutput, hasStorage))
+            {
+                string d = dest;
+                bool open = d != SiteEntry.DestStorage || hasStorage;
+                opts.Add(new FloatMenuOption(p + label,
+                    open ? (Action)(() => SiteHandler.TrySetDestination(tile, d, scope)) : null));
+            }
         }
 
         private static int StorageSlots(SiteEntry s)
@@ -343,10 +413,18 @@ namespace KMHPatch.Features.Sites
             return n;
         }
 
+        // Highest of that player's colonists: the row has room for one number.
         private static int WorkerLevel(SiteEntry s, string user)
-            => s?.WorkerProgress != null && s.WorkerProgress.TryGetValue(user, out WorkerProgressDto wp) ? wp.CurrentLevel : 0;
+        {
+            int best = 0;
+            foreach (KeyValuePair<string, WorkerProgressDto> kv in SiteWorkerKey.Mine(s, user))
+                if (kv.Value.CurrentLevel > best) best = kv.Value.CurrentLevel;
+            return best;
+        }
+
+        // The server keeps every row of a player's on one destination, so the first is it.
         private static string WorkerDest(SiteEntry s, string user)
-            => s?.WorkerProgress != null && s.WorkerProgress.TryGetValue(user, out WorkerProgressDto wp) ? wp.Destination : SiteEntry.DestTreasury;
+            => SiteWorkerKey.Any(s, user)?.Destination ?? SiteEntry.DestTreasury;
 
         // 0 means an older addon did not report a cap (a real one is always >= 1.0), so the tier rule is inferred.
         private static double OutputCap(SiteEntry s)
@@ -364,7 +442,7 @@ namespace KMHPatch.Features.Sites
         }
 
         private static string OutputCapTag(SiteEntry s)
-            => OutputCapped(s) ? " <color=grey>(T" + s.OutputTier + " cap)</color>" : "";
+            => OutputCapped(s) ? " <color=#A9AFB9>(T" + s.OutputTier + " cap)</color>" : "";
 
         private static string OutputTip(SiteEntry s)
         {
@@ -382,54 +460,52 @@ namespace KMHPatch.Features.Sites
             {
                 case SiteEntry.OutpostClaimable:
                 {
-                    if (claimMinutesLeft <= 0) return "<color=#ffcf59>The claim window has closed.</color>";
+                    if (claimMinutesLeft <= 0) return "<color=#f0c04f>The claim window has closed.</color>";
                     // Naming the winner up front beats letting someone find out by clicking Claim and being refused.
                     string earned = string.IsNullOrEmpty(s.ClaimEligibleUsername)
-                        ? "" : $" <color=grey>· earned by {LinkedAccountsCache.Format(s.ClaimEligibleUsername)}</color>";
-                    return $"<color=#80ff80>Restored and unclaimed</color> <color=grey>· closes in ~{claimMinutesLeft} min</color>{earned}";
+                        ? "" : $" <color=#A9AFB9>· earned by {LinkedAccountsCache.Format(s.ClaimEligibleUsername)}</color>";
+                    return $"<color=#4cc38a>Restored and unclaimed</color> <color=#A9AFB9>· closes in ~{claimMinutesLeft} min</color>{earned}";
                 }
                 case SiteEntry.OutpostHostile:
                     return "<color=#ff9c6b>Held against you. It must be defeated before it can be restored.</color>";
                 case SiteEntry.OutpostDefeated:
-                    return "<color=grey>Cleared. A Frontier Operation must restore it before it can be claimed.</color>";
+                    return "<color=#A9AFB9>Cleared. A Frontier Operation must restore it before it can be claimed.</color>";
                 case SiteEntry.OutpostCaptured:
                     return string.IsNullOrEmpty(s.ItemDefName)
-                        ? "<color=#ffcf59>Captured and not yet set up</color> <color=grey>· choose what it produces</color>"
-                        : "<color=grey>Captured and in production.</color>";
+                        ? "<color=#f0c04f>Captured and not yet set up</color> <color=#A9AFB9>· choose what it produces</color>"
+                        : "<color=#A9AFB9>Captured and in production.</color>";
                 case SiteEntry.OutpostDormant:
-                    return "<color=grey>Dormant. Nobody claimed it in time - it may be reactivated later.</color>";
+                    return "<color=#A9AFB9>Dormant. Nobody claimed it in time - it may be reactivated later.</color>";
                 default:
-                    return "<color=grey>Derelict. A Frontier Operation must restore it before it can be claimed.</color>";
+                    return "<color=#A9AFB9>Derelict. A Frontier Operation must restore it before it can be claimed.</color>";
             }
         }
 
-        // Won, but not yet anything. The one action that matters here is choosing what it makes.
         private void DrawCapturedSetupRow(Rect inner, SiteEntry s, bool isOwner)
         {
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, inner.width - 120f, DialogLayout.TextRowH),
-                $"<b>{SiteLabels.Name(s)}</b> <color=grey>· tile {s.Tile} · held by {SiteLabels.Controller(s)}</color>");
+                $"<b>{SiteLabels.Name(s)}</b> <color=#A9AFB9>· tile {s.Tile} · held by {SiteLabels.Controller(s)}</color>");
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, inner.width - 120f, DialogLayout.TextRowH),
                 OutpostLine(s, 0));
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, inner.width - 120f, DialogLayout.TextRowH),
-                $"<color=#cccccc>Condition {s.Stability}%</color>");
+                $"<color=#c4cad6>Condition {s.Stability}%</color>");
 
             if (!isOwner) return;
             if (Widgets.ButtonText(new Rect(inner.xMax - 110f, inner.y, 110f, 22f), "Set up site"))
                 Find.WindowStack.Add(new Dialog_KMHBuildSite(s.Tile));
         }
 
-        // A contested location: what it is, where it stands, and - only for whoever earned it - a way to take it.
         private void DrawOutpostRow(Rect inner, SiteEntry s)
         {
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, inner.width - 220f, DialogLayout.TextRowH),
-                $"<b>{SiteLabels.Name(s)}</b> <color=grey>· tile {s.Tile} · {s.OutpostTemplate} · held by {SiteLabels.Controller(s)} · </color>{SiteLabels.StateLabel(s)}");
+                $"<b>{SiteLabels.Name(s)}</b> <color=#A9AFB9>· tile {s.Tile} · {s.OutpostTemplate} · held by {SiteLabels.Controller(s)} · </color>{SiteLabels.StateLabel(s)}");
 
             int mins = SiteLabels.ClaimMinutesLeft(s);
             string line = OutpostLine(s, mins);
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH, inner.width - 220f, DialogLayout.TextRowH), line);
 
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f, inner.width - 220f, DialogLayout.TextRowH),
-                $"<color=#cccccc>Condition {s.Stability}%</color>");
+                $"<color=#c4cad6>Condition {s.Stability}%</color>");
 
             // The server decides who may claim and says so in the snapshot; this only draws what it was told.
             if (!s.CanClaim) return;
@@ -441,7 +517,7 @@ namespace KMHPatch.Features.Sites
                 };
                 // Cosmetic gate only; the server checks membership and rank regardless.
                 if (GuildCache.InGuild && !string.IsNullOrEmpty(GuildCache.Guild?.Name))
-                    opts.Add(new FloatMenuOption($"Claim for {GuildCache.Guild.Name}", () => SiteHandler.ClaimOutpost(s.Tile, true)));
+                    opts.Add(new FloatMenuOption($"Claim for {KmhDisplayText.GuildName(GuildCache.Guild.Name)}", () => SiteHandler.ClaimOutpost(s.Tile, true)));
                 else
                     opts.Add(new FloatMenuOption("Claim for my guild (you're not in a guild)", null));
                 Find.WindowStack.Add(new FloatMenu(opts));
@@ -449,9 +525,9 @@ namespace KMHPatch.Features.Sites
         }
 
         private static string AccessTag(string a)
-            => a == SiteEntry.AccessPublic ? "<color=#80ff80>[public]</color>"
-             : a == SiteEntry.AccessPrivate ? "<color=grey>[private]</color>"
-             : "<color=#ffce4d>[guild]</color>";
+            => a == SiteEntry.AccessPublic ? "<color=#4cc38a>[public]</color>"
+             : a == SiteEntry.AccessPrivate ? "<color=#A9AFB9>[private]</color>"
+             : "<color=#f0c04f>[guild]</color>";
         private static string DestLabel(string d)
             => d == SiteEntry.DestMarketplace ? "→ marketplace"
              : d == SiteEntry.DestCaravan ? "→ colony"

@@ -14,7 +14,7 @@ namespace KMHPatch.Patches
             if (KmhDispatcher.IsKmhServer)
             {
                 KmhLog.Info($"Disconnected from KMH server (was on protocol v{KmhDispatcher.ServerProtocolVersion})");
-                // Notify extensions before session state is wiped below.
+                // Raised before the reset so extensions can still read the old session's caches.
                 Extensibility.KmhClientEventBus.Instance.RaiseKmhServerDisconnected(
                     new KMH.Sdk.Client.Events.KmhServerDisconnectedEvent());
             }
@@ -23,7 +23,7 @@ namespace KMHPatch.Patches
                 KmhLog.Info("Disconnected from server");
             }
             KmhDispatcher.ResetSession();
-            KmhClientCaches.ClearAll();   // server switch: drop the old server's cached snapshots
+            KmhClientCaches.ClearAll();
             KmhDebugUplink.ResetForNewServer();   // session consent never follows the player to the next server
             KmhDebugConsent.Reset();
 

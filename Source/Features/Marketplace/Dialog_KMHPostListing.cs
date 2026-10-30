@@ -6,7 +6,6 @@ using Verse;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // Post composer: item, qty, unit price, visibility, expiry. Lists from your treasury, not the caravan.
     public class Dialog_KMHPostListing : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(580f, 440f);
@@ -17,12 +16,12 @@ namespace KMHPatch.Features.Marketplace
         private bool _subscribed;
 
         private string _itemDefName    = "";
-        private string _fingerprint    = "";     // non-empty => full-state payload listing
-        private int    _itemAvailable  = 0;     // capped maxHint for qty prompt
+        private string _fingerprint    = "";
+        private int    _itemAvailable  = 0;
         private string _qty            = "";
         private string _unitPriceSilver = "";
         private string _visibility     = MarketplaceHandler.VisibilityPublic;
-        // Auto-cancel after this many hours; 0 / blank = never expires.
+        // Auto-cancel after this many hours; 0 / blank = the longest the server allows (it has no "never").
         private string _expiresHours   = "0";
 
         private Dialog_KMHPostListing(Dictionary<string, int> treasuryItems, List<KMHPatch.Items.KmhThingPayload> payloads)
@@ -43,9 +42,11 @@ namespace KMHPatch.Features.Marketplace
             bool hasPayload = snap?.ItemPayloads != null && snap.ItemPayloads.Count > 0;
             if (!hasSimple && !hasPayload)
             {
-                Notifications.KmhNotifications.Rejected(Treasury.TreasuryCache.HasPendingItems()
-                    ? $"You have {Treasury.TreasuryCache.PendingItemUnits()} item(s) pending in your treasury - save your game to finalize them before listing"
-                    : "Your treasury has no items to list - deposit some to your vault first");
+                int pending = Treasury.TreasuryCache.PendingItemUnits();
+                Notifications.KmhNotifications.Rejected(
+                    pending == 1 ? KmhText.Get("KMH_PostListing_PendingOne", "You have 1 item pending in your treasury - save your game to finalize it before listing")
+                  : pending > 1  ? KmhText.Get("KMH_PostListing_PendingMany", "You have {0} items pending in your treasury - save your game to finalize them before listing", pending)
+                  : KmhText.Get("KMH_PostListing_NoItems", "Your treasury has no items to list - deposit some to your vault first"));
                 return false;
             }
             Find.WindowStack.Add(new Dialog_KMHPostListing(
@@ -56,21 +57,21 @@ namespace KMHPatch.Features.Marketplace
 
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "Post listing - from your treasury");
+            float y = DialogLayout.DrawTitle(rect, KmhText.Get("KMH_PostListing_Title", "Post listing - from your treasury"));
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             const float labelW = 180f;
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Item");
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), KmhText.Get("KMH_Market_ColItem", "Item"));
             string itemDisplay = string.IsNullOrEmpty(_itemDefName)
-                ? "<color=grey>(pick from treasury)</color>"
-                : $"{ItemKeys.LabelForKey(_itemDefName)}  <color=grey>(available x{_itemAvailable})</color>";
+                ? "<color=#A9AFB9>" + KmhText.Get("KMH_PostListing_PickFromTreasury", "(pick from treasury)") + "</color>"
+                : ItemKeys.LabelForKey(_itemDefName) + "  <color=#A9AFB9>"
+                  + KmhText.Get("KMH_PostListing_Available", "(available x{0})", _itemAvailable) + "</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
-                // Same picker the Treasury uses; full-state stacks keep their exact state through escrow.
                 UI.KmhItemPickerService.Open(
-                    title:           "Pick item to list",
-                    pickActionLabel: "Select",
+                    title:           KmhText.Get("KMH_PostListing_PickTitle", "Pick item to list"),
+                    pickActionLabel: KmhText.Get("KMH_PostListing_Select", "Select"),
                     source:          _treasuryItems,
                     onPick:          (defName, qty) =>
                     {
@@ -93,21 +94,21 @@ namespace KMHPatch.Features.Marketplace
             }
             y += 30f;
 
-            y = DrawTextRow(rect, y, "Quantity",          ref _qty);
-            y = DrawTextRow(rect, y, "Unit price (silver, e.g. 0.55)", ref _unitPriceSilver);
-            y = DrawTextRow(rect, y, "Expires in (hours, 0=never)", ref _expiresHours);
+            y = DrawTextRow(rect, y, KmhText.Get("KMH_PostListing_Quantity", "Quantity"), ref _qty);
+            y = DrawTextRow(rect, y, KmhText.Get("KMH_PostListing_UnitPrice", "Unit price (silver, e.g. 0.55)"), ref _unitPriceSilver);
+            y = DrawTextRow(rect, y, KmhText.Get("KMH_PostListing_ExpiresHours", "Expires in (hours, 0 = longest allowed)"), ref _expiresHours);
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
-            string visLabel = _visibility == MarketplaceHandler.VisibilityGuildOnly
-                ? "Guild + allies only"
-                : "Public (all servers)";
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), KmhText.Get("KMH_PostListing_Visibility", "Visibility"));
+            string visPublic = KmhText.Get("KMH_PostListing_VisPublic", "Public (all servers)");
+            string visGuild  = KmhText.Get("KMH_PostListing_VisGuild", "Guild + allies only");
+            string visLabel = _visibility == MarketplaceHandler.VisibilityGuildOnly ? visGuild : visPublic;
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), visLabel))
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>
                 {
-                    new FloatMenuOption("Public (all servers)",
+                    new FloatMenuOption(visPublic,
                         () => _visibility = MarketplaceHandler.VisibilityPublic),
-                    new FloatMenuOption("Guild + allies only",
+                    new FloatMenuOption(visGuild,
                         () => _visibility = MarketplaceHandler.VisibilityGuildOnly),
                 };
                 Find.WindowStack.Add(new FloatMenu(opts));
@@ -123,7 +124,8 @@ namespace KMHPatch.Features.Marketplace
                 long gross = (long)System.Math.Round((long)pvMilli * (double)pvQty / 1000.0);   // rounded whole silver, like the sale
                 long net   = gross - (long)System.Math.Round(gross * (pct / 100.0));
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                    $"<color=grey>If it fully sells: buyer pays <b>{SilverFmt.Format(gross)}</b>, you receive ~<b>{SilverFmt.Format(net)}</b> after the {pct}% server tax.</color>");
+                    "<color=#A9AFB9>" + KmhText.Get("KMH_PostListing_Payout", "If it fully sells: buyer pays {0}, you receive ~{1} after the {2}% server tax.",
+                        "<b>" + SilverFmt.Format(gross) + "</b>", "<b>" + SilverFmt.Format(net) + "</b>", pct) + "</color>");
                 y += 24f;
             }
 
@@ -131,61 +133,65 @@ namespace KMHPatch.Features.Marketplace
             const float btnH = 32f;
             float btnY = rect.height - btnH - 4f;
 
-            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, "Cancel"))
+            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, KmhText.Get("KMH_Common_Cancel", "Cancel")))
             {
                 Close();
             }
-            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, "Post"))
+            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, KmhText.Get("KMH_PostListing_Post", "Post")))
             {
                 Submit();
             }
         }
 
+        // The label wraps and the row grows with it: "Expires in (hours, 0 = longest allowed)" does not fit 180px.
         private static float DrawTextRow(Rect rect, float y, string label, ref string value)
         {
             const float labelW = 180f;
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
+            float labelH = DialogLayout.LabelWrapped(0f, y + 4f, labelW - 4f, label);
             value = Widgets.TextField(new Rect(labelW, y, rect.width - labelW, 26f), value ?? "");
-            return y + 30f;
+            return y + Mathf.Max(30f, labelH + 8f);
         }
 
         private void Submit()
         {
             if (string.IsNullOrEmpty(_itemDefName))
             {
-                Notifications.KmhNotifications.Rejected("Pick an item first");
+                Notifications.KmhNotifications.Rejected(KmhText.Get("KMH_PostListing_PickItemFirst", "Pick an item first"));
                 return;
             }
             if (!int.TryParse((_qty ?? "").Trim(), out int qty) || qty <= 0)
             {
-                Notifications.KmhNotifications.Rejected("Quantity: enter a positive whole number");
+                Notifications.KmhNotifications.Rejected(KmhText.Get("KMH_PostListing_BadQty", "Quantity: enter a positive whole number"));
                 return;
             }
             // Re-read: the vault can change between the draw and Post.
             _itemAvailable = CurrentAvailable();
             if (_itemAvailable <= 0)
             {
-                Notifications.KmhNotifications.Rejected($"{ItemKeys.LabelForKey(_itemDefName)} is no longer in your treasury");
+                Notifications.KmhNotifications.Rejected(KmhText.Get("KMH_PostListing_NoLongerHeld", "{0} is no longer in your treasury",
+                    ItemKeys.LabelForKey(_itemDefName)));
                 return;
             }
             if (qty > _itemAvailable)
             {
-                Notifications.KmhNotifications.Rejected($"You only have {_itemAvailable} of that to list");
+                Notifications.KmhNotifications.Rejected(KmhText.Get("KMH_PostListing_OnlyHave", "You only have {0} of that to list", _itemAvailable));
                 return;
             }
-            if (!TryParseMilli(_unitPriceSilver, out int priceMilli))
+            if (!TryParseMilli(_unitPriceSilver, out int priceMilli, out bool ambiguous))
             {
-                Notifications.KmhNotifications.Rejected("Unit price: enter a positive amount (e.g. 0.55 or 12)");
+                Notifications.KmhNotifications.Rejected(ambiguous ? KmhNumberInput.AmbiguousText()
+                    : KmhText.Get("KMH_PostListing_BadPrice", "Unit price: enter a positive amount (e.g. 0.55 or 12)"));
                 return;
             }
-            // Blank, "0" and omitted all mean never; a negative is rejected rather than silently zeroed.
+            // Blank, "0" and omitted all mean the server maximum; a negative is rejected rather than silently zeroed.
             string expRaw = (_expiresHours ?? "").Trim();
             int expHours = 0;
             if (expRaw.Length > 0)
             {
                 if (!int.TryParse(expRaw, out expHours) || expHours < 0)
                 {
-                    Notifications.KmhNotifications.Rejected("Expires in: enter 0 (never) or a positive whole number of hours");
+                    Notifications.KmhNotifications.Rejected(KmhText.Get("KMH_PostListing_BadExpires",
+                        "Expires in: enter 0 (the longest allowed) or a positive whole number of hours"));
                     return;
                 }
             }
@@ -234,12 +240,12 @@ namespace KMHPatch.Features.Marketplace
         }
 
         // decimal, not double: 0.55 is exact in decimal, so the typed price cannot drift on the way to the wire.
-        private static bool TryParseMilli(string s, out int milli)
+        private static bool TryParseMilli(string s, out int milli) => TryParseMilli(s, out milli, out _);
+
+        private static bool TryParseMilli(string s, out int milli, out bool ambiguous)
         {
             milli = 0;
-            string t = (s ?? "").Trim().Replace(',', '.');
-            if (!decimal.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal silver))
-                return false;
+            if (!KmhNumberInput.TryParse(s, out decimal silver, out ambiguous)) return false;
             return Extensibility.KmhSilver.TryToMilli(silver, out milli);
         }
     }

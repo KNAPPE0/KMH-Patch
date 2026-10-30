@@ -8,7 +8,6 @@ using KMHPatch.Features.Reputation;
 
 namespace KMHPatch.Features.Standings
 {
-    // One guild's aggregated standing - summed from its members' player rows, joined with the guild snapshot for member count + treasury.
     internal sealed class GuildAgg
     {
         public string Name = "";
@@ -28,13 +27,16 @@ namespace KMHPatch.Features.Standings
         public int  RepAvg      => RepCount > 0 ? RepSum / RepCount : 0;
     }
 
-    // Read-only derivations over the cached snapshots that feed every standings board.
     internal static class StandingsData
     {
+        // Simulated playtest accounts rank only when the server allows it, like the published boards.
         public static List<PlayerLeaderboardEntry> Players()
-            => PlayerStatsCache.Entries ?? new List<PlayerLeaderboardEntry>();
+        {
+            List<PlayerLeaderboardEntry> all = PlayerStatsCache.Entries ?? new List<PlayerLeaderboardEntry>();
+            if (Identity.KmhStaff.SimulatedRanked) return all;
+            return all.FindAll(e => e != null && e.StaffRole != "sim");
+        }
 
-        // Group player rows by guild, summing member stats; join member count + treasury from the guild snapshot.
         public static List<GuildAgg> GuildAggs()
         {
             Dictionary<string, GuildAgg> map = new Dictionary<string, GuildAgg>(StringComparer.OrdinalIgnoreCase);
@@ -42,7 +44,7 @@ namespace KMHPatch.Features.Standings
             {
                 if (string.IsNullOrEmpty(e.GuildName)) continue;
                 if (!map.TryGetValue(e.GuildName, out GuildAgg g)) { g = new GuildAgg { Name = e.GuildName }; map[e.GuildName] = g; }
-                // Map wealth only: each member's KMH figure already carries a share of the vault this board adds as Treasury.
+                // Map wealth only: each member's KMH figure already holds a share of the vault added here as Treasury.
                 g.Wealth         += e.Wealth;
                 g.Kills          += e.Kills;
                 g.SiteSilver     += e.SiteSilverProduced;
@@ -54,7 +56,7 @@ namespace KMHPatch.Features.Standings
                 g.RepSum += rep; g.RepCount++;
             }
 
-            // Members + treasury come from the guild leaderboard snapshot (covers guilds with no reporting members too).
+            // From the guild snapshot, so guilds with no reporting members still appear.
             GuildLeaderboardSnapshot gl = GuildLeaderboardCache.HasSnapshot ? GuildLeaderboardCache.Snapshot : null;
             if (gl?.Guilds != null)
                 foreach (GuildLeaderboardEntry ge in gl.Guilds)

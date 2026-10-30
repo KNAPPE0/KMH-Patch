@@ -6,7 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.World
 {
-    // Applies active world_weather events as GameConditions on player maps; the server's end time is the only authority.
+    // Applies world_weather events as GameConditions on player maps; the server's end time is the only authority.
     public class GameComponent_KMHWorldWeather : GameComponent
     {
         private const int SyncEveryTicks       = 250;
@@ -59,6 +59,18 @@ namespace KMHPatch.Features.World
             catch (Exception ex) { Diagnostics.KmhLog.Debug($"World weather sync: {ex.Message}"); }
         }
 
+        // Everything this component applied ends now: what told it to was not the server.
+        internal static void EndAllFromThisSession()
+        {
+            try
+            {
+                GameComponent_KMHWorldWeather c = Current.Game?.GetComponent<GameComponent_KMHWorldWeather>();
+                if (c == null || Find.Maps == null) return;
+                c.Retire(Find.Maps, new List<WorldEventDto>(), haveSnapshot: true, DateTime.UtcNow.Ticks);
+            }
+            catch (Exception ex) { Diagnostics.KmhLog.Debug($"World weather: could not end applied conditions: {ex.Message}"); }
+        }
+
         private void Sync()
         {
             List<Map> maps = Find.Maps;
@@ -97,7 +109,6 @@ namespace KMHPatch.Features.World
             Retire(maps, active, snap != null, nowUtc);
         }
 
-        // Drive one (map, event, def) through Pending -> Applied -> EndedNaturally. Logs only on a real transition.
         private void Step(Map map, WorldEventDto e, GameConditionDef def)
         {
             Managed m = Track(map.uniqueID, e.Id, def.defName);
@@ -147,7 +158,7 @@ namespace KMHPatch.Features.World
                 if (now < m.CooldownUntilTick) return;
             }
 
-            if (m.Attempts >= MaxApplyAttempts) return;   // gave up on this window; logged once below
+            if (m.Attempts >= MaxApplyAttempts) return;
 
             map.gameConditionManager.RegisterCondition(GameConditionMaker.MakeCondition(def, OpenEndedTicks));
             m.St = State.Applied;
@@ -155,7 +166,7 @@ namespace KMHPatch.Features.World
             Diagnostics.KmhLog.Debug($"World weather: {def.defName} applied (ends {RemainingReal(m.EndsUtcTicks)})");
         }
 
-        // Ends ONLY what we applied; with no snapshot it falls back to the last known end so a dropped link never cancels early.
+        // Ends only what we applied; with no snapshot the last known end applies, so a dropped link never cancels early.
         private void Retire(List<Map> maps, List<WorldEventDto> active, bool haveSnapshot, long nowUtc)
         {
             for (int i = _managed.Count - 1; i >= 0; i--)
@@ -211,7 +222,7 @@ namespace KMHPatch.Features.World
         private static void EndOurs(Map map, GameConditionDef def)
             => map.gameConditionManager.GetActiveCondition(def)?.End();
 
-        // Aurora only reads as one at night and RimWorld ends it at dawn; applying it in daylight made it thrash.
+        // Aurora only reads as one at night and RimWorld ends it at dawn, so daylight applies would thrash.
         private static bool IsNightGated(GameConditionDef def)
             => string.Equals(def.defName, "Aurora", StringComparison.OrdinalIgnoreCase);
 

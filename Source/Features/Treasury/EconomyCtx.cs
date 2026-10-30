@@ -9,7 +9,6 @@ namespace KMHPatch.Features.Treasury
     // Game state the standalone server can't see; every probe fails open rather than locking the player out.
     internal static class EconomyCtx
     {
-        // Adds the ctx_* fields to an envelope's data dict.
         public static void AddContext(Dictionary<string, object> data)
         {
             if (data == null) return;
@@ -24,7 +23,6 @@ namespace KMHPatch.Features.Treasury
             data["ctx_near_treasury_site"] = false;
         }
 
-        // Starts a data dict from the action fields and stamps context onto it.
         public static Dictionary<string, object> With(Dictionary<string, object> fields)
         {
             Dictionary<string, object> d = fields ?? new Dictionary<string, object>();
@@ -37,7 +35,6 @@ namespace KMHPatch.Features.Treasury
             try { return Find.AnyPlayerHomeMap != null; } catch { return false; }
         }
 
-        // "Here" for hall placement: selected caravan, else the home colony, else -1.
         public static int CurrentTile()
         {
             try
@@ -50,13 +47,13 @@ namespace KMHPatch.Features.Treasury
             catch { return -1; }
         }
 
-        // TRUE when the guild has no hall - nothing to be near isn't a restriction, so pre-P8 guilds keep working.
+        // True when the guild has no hall: nothing to be near isn't a restriction, so hall-less guilds keep working.
         private static bool NearGuildHall()
         {
             try
             {
                 Features.Guilds.Dto.GuildHallDto hall = Features.Guilds.GuildCache.Guild?.Hall;
-                if (hall == null || !hall.HasHall || hall.Tile < 0) return true;   // no hall -> unrestricted
+                if (hall == null || !hall.HasHall || hall.Tile < 0) return true;
                 RimWorld.Planet.WorldGrid grid = Find.WorldGrid;
                 if (grid == null) return true;
                 int radius = System.Math.Max(0, hall.RadiusTiles);
@@ -70,16 +67,16 @@ namespace KMHPatch.Features.Treasury
                         if (m != null && m.IsPlayerHome && Within(grid, m.Tile.tileId, hall.Tile, radius)) return true;
                 return false;
             }
-            catch { return true; }   // fail open (don't lock the player out on an API hiccup)
+            catch { return true; }
         }
 
-        // Caravan only - NearGuildHall also counts a colony, which satisfied this with the caravan a world away.
+        // Caravan only: NearGuildHall also counts a colony, which would pass with the caravan a world away.
         private static bool CaravanNearGuildHall()
         {
             try
             {
                 Features.Guilds.Dto.GuildHallDto hall = Features.Guilds.GuildCache.Guild?.Hall;
-                if (hall == null || !hall.HasHall || hall.Tile < 0) return true;   // no hall -> unrestricted
+                if (hall == null || !hall.HasHall || hall.Tile < 0) return true;
                 RimWorld.Planet.WorldGrid grid = Find.WorldGrid;
                 if (grid == null) return true;
                 RimWorld.Planet.Caravan car = CaravanReader.GetSelectedCaravan();

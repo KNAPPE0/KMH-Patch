@@ -23,13 +23,13 @@ namespace KMHPatch.Features.Marketplace
         {
             if (qty <= 0)
             {
-                KmhNotifications.Rejected("Quantity must be greater than 0");
+                KmhNotifications.Rejected(KmhText.Get("KMH_Market_QtyAboveZero", "Quantity must be greater than 0"));
                 return false;
             }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplaceBuy,
                 new { listing_id = listingId, qty = qty },
                 KmhOpId.For($"mkt.buy|{listingId}|{qty}"));
-            if (sent) KmhNotifications.Positive($"Buying ×{qty} (request sent)");
+            if (sent) KmhNotifications.Positive(KmhText.Get("KMH_Market_Buying", "Buying ×{0} (request sent)", qty));
             else      KmhNotifications.NotConnected();
             return sent;
         }
@@ -38,16 +38,15 @@ namespace KMHPatch.Features.Marketplace
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplaceCancel,
                 new { listing_id = listingId });
-            if (sent) KmhNotifications.Positive("Cancel request sent");
+            if (sent) KmhNotifications.Positive(KmhText.Get("KMH_Market_CancelSent", "Cancel request sent"));
             else      KmhNotifications.NotConnected();
             return sent;
         }
 
-        // Visibility values for the visibility field on Post envelopes (snake_case wire strings).
         public const string VisibilityPublic    = "public";
         public const string VisibilityGuildOnly = "guild_only";
 
-        // expiresInHours 0 never expires; above 0 auto-cancels and refunds after that many hours, and negatives clamp to 0.
+        // expiresInHours 0 takes the server maximum; above 0 auto-cancels and refunds sooner, and negatives clamp to 0.
         public static bool TryPost(string itemDefName, int qty, int unitPriceMilli,
                                    string visibility = VisibilityPublic,
                                    int    expiresInHours = 0)
@@ -59,7 +58,7 @@ namespace KMHPatch.Features.Marketplace
             }
             if (qty <= 0)
             {
-                KmhNotifications.Rejected("Quantity must be greater than 0");
+                KmhNotifications.Rejected(KmhText.Get("KMH_Market_QtyAboveZero", "Quantity must be greater than 0"));
                 return false;
             }
             if (unitPriceMilli <= 0)
@@ -67,7 +66,7 @@ namespace KMHPatch.Features.Marketplace
                 KmhNotifications.Rejected("Unit price must be greater than 0");
                 return false;
             }
-            // the picker hands us a composed treasury key - send the parts so the listing keeps material + quality
+            // The picker hands over a composed treasury key; sending the parts keeps material and quality.
             UI.ItemKeys.Split(itemDefName, out string pureDef, out string stuffDef, out int qualityIdx);
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplacePost, new
             {
@@ -85,12 +84,11 @@ namespace KMHPatch.Features.Marketplace
             return sent;
         }
 
-        // Post a full-state item (complex) by its treasury payload fingerprint - state is preserved through escrow.
         public static bool TryPostPayload(string fingerprint, int qty, int unitPriceMilli,
                                           string visibility = VisibilityPublic, int expiresInHours = 0)
         {
             if (string.IsNullOrEmpty(fingerprint)) { KmhNotifications.Rejected("Item is missing"); return false; }
-            if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
+            if (qty <= 0) { KmhNotifications.Rejected(KmhText.Get("KMH_Market_QtyAboveZero", "Quantity must be greater than 0")); return false; }
             if (unitPriceMilli <= 0) { KmhNotifications.Rejected("Unit price must be greater than 0"); return false; }
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.MarketplacePost, new
             {

@@ -5,7 +5,6 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.Features.Chat
 {
-    // Pulled down once and kept: a repeat or a loop then costs the server nothing and cannot stutter.
     internal static class ChatVideoCache
     {
         private const int DefaultCacheGigabytes = 2;
@@ -26,7 +25,12 @@ namespace KMHPatch.Features.Chat
             internal volatile bool   Cancelled;
             internal volatile bool   WorkerDone;
             internal volatile string WorkerError;
+            internal volatile bool   TooLarge;
             internal long Read, Total;
+            // Bytes, not percentage, count as movement: a size-less or huge stream barely moves a percentage.
+            internal long SeenRead = -1;
+            // Fixed when the download starts, so a settings change mid-download cannot lift it.
+            internal long MaxBytes;
         }
 
         // Only a test sets this: a sweep run against the real folder would evict what a player is actually keeping.
@@ -59,6 +63,21 @@ namespace KMHPatch.Features.Chat
             => !string.IsNullOrEmpty(file) && File.Exists(file) && !File.Exists(file + ".part");
 
         internal static string PlayableUrl(string file) => "file://" + (file ?? "").Replace('\\', '/');
+
+        // The only file: url the player may open is one of this cache's own downloads.
+        internal static bool IsCachedPlayable(string url)
+        {
+            const string scheme = "file://";
+            if (string.IsNullOrEmpty(url) || !url.StartsWith(scheme, StringComparison.Ordinal)) return false;
+            try
+            {
+                string full = Path.GetFullPath(url.Substring(scheme.Length));
+                string root = Path.GetFullPath(Folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                            + Path.DirectorySeparatorChar;
+                return full.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
 
         // Eviction is by last USE, not by when it arrived, so what is being watched is the last thing thrown away.
         internal static void Touch(string file)
@@ -96,10 +115,20 @@ namespace KMHPatch.Features.Chat
 
         private static long CacheLimit => (long)Math.Max(1, CacheGigabytes) * 1024 * 1024 * 1024;
 
-        // Not UnityWebRequest: this Unity build refuses a plain-http url outright, and the relay speaks http.
-        public static Download Begin(string streamUrl, string videoId, int height)
+        // A generous ~10 Mbit/s at 1080p scaled by height, so only a relay sending far too much is stopped.
+        internal static long CeilingFor(int height, int maxSeconds)
         {
-            var d = new Download { File = PathFor(videoId, height) };
+            long limit = CacheLimit;
+            if (maxSeconds <= 0 || height <= 0) return limit;
+            long perSecond = Math.Max(360, height) * 1200L;
+            long ceiling = Math.Max(64L * 1024 * 1024, perSecond * maxSeconds);
+            return Math.Min(limit, ceiling);
+        }
+
+        // Not UnityWebRequest: this Unity build refuses a plain-http url outright, and the relay speaks http.
+        public static Download Begin(string streamUrl, string videoId, int height, int maxSeconds = 0)
+        {
+            var d = new Download { File = PathFor(videoId, height), MaxBytes = CeilingFor(height, maxSeconds) };
             if (Ready(d.File)) { d.Done = true; d.Progress = 1f; return d; }
 
             string part = d.File + ".part";
@@ -121,43 +150,63 @@ namespace KMHPatch.Features.Chat
             try
             {
                 var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(streamUrl);
+                // The relay answers 200, 206 or an error and never redirects; a redirect would aim this download anywhere.
+                req.AllowAutoRedirect = false;
                 req.Timeout = 30000;
                 req.ReadWriteTimeout = 30000;
                 using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
-                using (Stream net = resp.GetResponseStream())
-                using (var file = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    System.Threading.Interlocked.Exchange(ref d.Total, resp.ContentLength);
-                    byte[] buf = new byte[64 * 1024];
-                    int n;
-                    while (net != null && (n = net.Read(buf, 0, buf.Length)) > 0)
-                    {
-                        if (d.Cancelled) break;
-                        file.Write(buf, 0, n);
-                        System.Threading.Interlocked.Add(ref d.Read, n);
-                    }
+                    if ((int)resp.StatusCode >= 300) { d.WorkerError = $"the video relay answered {(int)resp.StatusCode}"; return; }
+                    Receive(d, resp.ContentLength, resp.GetResponseStream, part);
                 }
             }
             catch (Exception ex) { d.WorkerError = ex.Message; }
             finally
             {
                 // The stream is closed by here, so this is the one place a cancelled part-file can actually be removed.
-                if (d.Cancelled) { try { File.Delete(part); } catch { } }
+                if (d.Cancelled || d.TooLarge) { try { File.Delete(part); } catch { } }
                 d.WorkerDone = true;
             }
         }
 
-        // Polled from the same pump as everything else; true once the download has finished, one way or the other.
+        internal static void Receive(Download d, long declared, Func<Stream> open, string part)
+        {
+            if (declared > d.MaxBytes) { d.TooLarge = true; return; }
+            System.Threading.Interlocked.Exchange(ref d.Total, declared);
+            using (Stream net = open()) Copy(d, net, part);
+        }
+
+        // Stops at the ceiling whatever the headers said: the cache trim only runs once a download has finished.
+        internal static void Copy(Download d, Stream net, string part)
+        {
+            using (var file = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                long written = 0;
+                while (net != null && (n = net.Read(buf, 0, buf.Length)) > 0)
+                {
+                    if (d.Cancelled) break;
+                    if (written + n > d.MaxBytes) { d.TooLarge = true; break; }
+                    file.Write(buf, 0, n);
+                    written += n;
+                    System.Threading.Interlocked.Add(ref d.Read, n);
+                }
+            }
+        }
+
         public static bool Poll(Download d)
+            => d == null || d.Done || Poll(d, UnityEngine.Time.realtimeSinceStartup);
+
+        internal static bool Poll(Download d, float now)
         {
             if (d == null || d.Done) return true;
 
             long  read  = System.Threading.Interlocked.Read(ref d.Read);
             long  total = System.Threading.Interlocked.Read(ref d.Total);
-            float now   = UnityEngine.Time.realtimeSinceStartup;
 
             float progress = total > 0 ? Math.Min(1f, (float)((double)read / total)) : 0f;
-            if (progress > d.Progress || d.MovedAt <= 0f) d.MovedAt = now;
+            if (read != d.SeenRead || d.MovedAt <= 0f) { d.MovedAt = now; d.SeenRead = read; }
             d.Progress  = progress;
             d.Megabytes = read / (1024L * 1024L);
 
@@ -171,7 +220,9 @@ namespace KMHPatch.Features.Chat
             string part = d.File + ".part";
             try
             {
-                string err = d.Cancelled ? "the download stopped part way" : d.WorkerError;
+                string err = d.TooLarge
+                    ? UI.KmhText.Get("KMH_Video_TooLarge", "the download grew past the size limit for this video and was stopped")
+                    : d.Cancelled ? "the download stopped part way" : d.WorkerError;
                 if (!string.IsNullOrEmpty(err))
                 {
                     d.Error = err;
@@ -179,8 +230,7 @@ namespace KMHPatch.Features.Chat
                 }
                 else
                 {
-                    try { if (File.Exists(d.File)) File.Delete(d.File); } catch { }
-                    File.Move(part, d.File);
+                    Persistence.KmhAtomicFile.Promote(part, d.File);
                     d.Progress = 1f;
                     Trim();
                 }
@@ -197,7 +247,7 @@ namespace KMHPatch.Features.Chat
             d.Cancelled = true;
         }
 
-        // Age first, then size - and at startup too, or a cache left by an old session sits there for a fortnight.
+        // Also run at startup, or a cache left by an old session sits there for weeks.
         internal static void Trim()
         {
             Forget();

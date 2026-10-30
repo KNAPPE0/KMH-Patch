@@ -12,20 +12,22 @@ namespace KMHPatch.UI
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(640f, 600f);
 
         private readonly string                        _title;
-        private readonly string                        _pickActionLabel;   // e.g. "Deposit" / "Withdraw" / "List"
+        private readonly string                        _pickActionLabel;
         private Dictionary<string, int>                _source;
         private readonly Action<string, int>           _onPick;
-        private readonly Func<Dictionary<string, int>> _refreshSource;     // re-read live counts after each pick (optional)
+        private readonly Func<Dictionary<string, int>> _refreshSource;
 
-        private IList<KmhThingPayload>                 _payloads;          // full-state stacks shown alongside (optional)
+        private IList<KmhThingPayload>                 _payloads;
         private readonly Action<KmhThingPayload, int>  _onPickPayload;
+        // Withdrawing lands the item in this game, so what this game cannot load is shown greyed with the reason.
+        private readonly bool _intoThisGame;
         private readonly Func<IList<KmhThingPayload>>  _refreshPayloads;
-        private readonly bool                          _closeOnPick;       // composers pick one item then close; vaults stay open for repeats
+        private readonly bool                          _closeOnPick;
 
         private Vector2 _scroll;
         private string  _filter = "";
 
-        // Category dropdown, remembered across pickers for the run so a player does not re-pick it every time.
+        // Remembered across pickers for the run, so a player does not re-pick it every time.
         private static string _lastCategory = "All";
         private string _category = _lastCategory;
 
@@ -70,8 +72,10 @@ namespace KMHPatch.UI
             IList<KmhThingPayload>        payloads = null,
             Action<KmhThingPayload, int>  onPickPayload = null,
             Func<IList<KmhThingPayload>>  refreshPayloads = null,
-            bool                          closeOnPick = false)
+            bool                          closeOnPick = false,
+            bool                          intoThisGame = false)
         {
+            _intoThisGame    = intoThisGame;
             _title           = title;
             _pickActionLabel = pickActionLabel;
             _source          = source ?? new Dictionary<string, int>();
@@ -184,7 +188,13 @@ namespace KMHPatch.UI
                     KmhThingPayload pl = r.Payload;
                     KmhItemRow.DrawPayload(row, pl, btnW + KmhItemInfo.Size + 14f);
                     KmhItemInfo.ButtonForDef(viewRect.width - btnW - KmhItemInfo.Size - 10f, ly + 3f, pl.DefName, pl.StuffDefName);
-                    if (Widgets.ButtonText(btn, $"{_pickActionLabel}"))
+                    string cannot = _intoThisGame ? KmhItemDisplayService.MissingForPayload(pl) : null;
+                    if (cannot != null)
+                    {
+                        Widgets.ButtonText(btn, $"{_pickActionLabel}", true, false, false);
+                        TooltipHandler.TipRegion(btn, cannot);
+                    }
+                    else if (Widgets.ButtonText(btn, $"{_pickActionLabel}"))
                     {
                         Find.WindowStack.Add(new Dialog_KMHAmountInput(
                             title:        $"{_pickActionLabel} {KmhItemRow.PayloadLabel(pl)}",
@@ -205,6 +215,11 @@ namespace KMHPatch.UI
                 int    capturedMax     = r.Count > 0 ? r.Count : 0;
                 if (!decision.Allowed)
                 {
+                    if (_intoThisGame)
+                    {
+                        Widgets.ButtonText(btn, $"{_pickActionLabel}", true, false, false);
+                        if (decision.Reason.Length > 0) TooltipHandler.TipRegion(btn, decision.Reason);
+                    }
                 }
                 else if (Widgets.ButtonText(btn, $"{_pickActionLabel}"))
                 {
@@ -220,8 +235,8 @@ namespace KMHPatch.UI
             if (visible.Count == 0)
             {
                 string emptyMsg = _source.Count == 0 && (_payloads == null || _payloads.Count == 0)
-                    ? "<color=grey>No items available.</color>"
-                    : "<color=grey>No items match the filter.</color>";
+                    ? "<color=#A9AFB9>No items available.</color>"
+                    : "<color=#A9AFB9>No items match the filter.</color>";
                 DialogLayout.LabelTrunc(new Rect(8f, 8f, viewRect.width, 20f), emptyMsg);
             }
 

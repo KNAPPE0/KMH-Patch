@@ -14,12 +14,12 @@ namespace KMHPatch.UI
             KmhItemDecision d = KmhItemDisplayService.DecisionFor(defName);
 
             Color prev = GUI.color;
-            if (!d.Allowed) GUI.color = new Color(1f, 1f, 1f, 0.45f);   // grey blocked rows, keep them readable
+            if (!d.Allowed) GUI.color = new Color(1f, 1f, 1f, 0.45f);
 
             KmhIconResolver.Draw(new Rect(row.x + 6f, row.y + 4f, IconSize, IconSize), defName);
 
             string label = KmhItemDisplayService.Label(defName);
-            string countText = count > 0 ? $"   <color=grey>x{count}</color>" : "";
+            string countText = count > 0 ? $"   <color=#A9AFB9>x{count}</color>" : "";
             Rect labelRect = new Rect(row.x + 6f + IconSize + 8f, row.y + 6f, row.width - rightReserve - IconSize - 24f, row.height - 12f);
             DialogLayout.LabelTrunc(labelRect, $"{label}{countText}");
             GUI.color = prev;
@@ -33,7 +33,7 @@ namespace KMHPatch.UI
         {
             KmhIconResolver.Draw(new Rect(row.x + 6f, row.y + 4f, IconSize, IconSize), p.DefName);
             Rect labelRect = new Rect(row.x + 6f + IconSize + 8f, row.y + 6f, row.width - rightReserve - IconSize - 24f, row.height - 12f);
-            DialogLayout.LabelTrunc(labelRect, $"{PayloadLabel(p)}{PayloadSuffix(p)}   <color=grey>x{p.StackCount}</color>");
+            DialogLayout.LabelTrunc(labelRect, $"{PayloadLabel(p)}{PayloadSuffix(p)}   <color=#A9AFB9>x{p.StackCount}</color>");
         }
 
         public static string PayloadLabel(KmhThingPayload p)
@@ -48,7 +48,7 @@ namespace KMHPatch.UI
             if (p.Tainted) bits.Add("tainted");
             if (p.Legacy) bits.Add("legacy");
             else if (string.Equals(p.Fidelity, KmhThingPayload.FidelityMetadata, System.StringComparison.OrdinalIgnoreCase)) bits.Add("partial");
-            return bits.Count > 0 ? " <color=grey>(" + string.Join(", ", bits) + ")</color>" : "";
+            return bits.Count > 0 ? " <color=#A9AFB9>(" + string.Join(", ", bits) + ")</color>" : "";
         }
     }
 }

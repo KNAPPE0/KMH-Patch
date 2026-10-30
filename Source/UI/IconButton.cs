@@ -32,10 +32,29 @@ namespace KMHPatch.UI
             return Draw(rect, icon, label, tooltip);
         }
 
+        // Shown but not pressable, with the reason on hover, so a blocked action reads as "not here" rather than broken.
+        public static void DrawDisabled(Rect rect, Texture2D icon, string label, string reason)
+        {
+            Widgets.ButtonText(rect, string.Empty, true, false, false);
+            Color old = GUI.color;
+            GUI.color = new Color(old.r, old.g, old.b, old.a * 0.4f);
+            float textX = rect.x + IconPadding;
+            if (icon != null)
+            {
+                Rect iconRect = IconRectFor(rect);
+                GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+                textX = iconRect.xMax + IconPadding;
+            }
+            float textW = Mathf.Max(0f, rect.xMax - IconPadding - textX);
+            if (textW > 0f) DialogLayout.LabelTrunc(new Rect(textX, rect.y, textW, rect.height), label, TextAnchor.MiddleCenter);
+            GUI.color = old;
+            if (!string.IsNullOrEmpty(reason)) TooltipHandler.TipRegion(rect, reason);
+        }
+
         // The label rect EXCLUDES the icon: padding with spaces re-centres a long label over the icon as it narrows.
         public static bool Draw(Rect rect, Texture2D icon, string label, string tooltip = null)
         {
-            bool clicked = Widgets.ButtonText(rect, string.Empty);   // frame, hover and click only - no text
+            bool clicked = Widgets.ButtonText(rect, string.Empty);
 
             // The icon always draws; a button silently losing its picture reads as a bug rather than a tight fit.
             float labelW = 0f;
@@ -54,7 +73,6 @@ namespace KMHPatch.UI
             if (textW > 0f)
                 DialogLayout.LabelTrunc(new Rect(textX, rect.y, textW, rect.height), label, TextAnchor.MiddleCenter);
 
-            // Any button whose label still had to be shortened says the whole thing on hover.
             if (string.IsNullOrEmpty(tooltip) && labelW > textW) tooltip = label;
             if (!string.IsNullOrEmpty(tooltip))
             {

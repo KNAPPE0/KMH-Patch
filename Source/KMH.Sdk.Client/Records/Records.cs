@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace KMH.Sdk.Client.Records
 {
-    /// <summary>Records returned by client-side cache readers; shapes are kept aligned with the server SDK by hand.</summary>
+    // Records returned by the client cache readers; their shapes are kept aligned with the server SDK by hand.
 
     public sealed class TreasurySnapshotRecord
     {
@@ -37,7 +37,7 @@ namespace KMH.Sdk.Client.Records
         public string ItemDefName       { get; init; } = "";
         public int    RemainingQty      { get; init; }
         public int    OriginalQty       { get; init; }
-        /// <summary>Rounded to whole silver - a listing under 0.5 reads as 0. Use <see cref="UnitPrice"/> for the exact price.</summary>
+        /// <summary>Rounded to whole silver, so under 0.5 reads as 0; <see cref="UnitPrice"/> is exact.</summary>
         public int    UnitPriceSilver   { get; init; }
         /// <summary>Exact unit price in silver.</summary>
         public decimal UnitPrice        { get; init; }

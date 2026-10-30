@@ -5,7 +5,7 @@ using KMHPatch.UI;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Both escrow sides: commit moves the seller's item and the bidder's silver OUT of the treasury, so nothing else counts them; valued at market value, never the asking price.
+    // Both escrow sides leave the treasury, so nothing else counts them; market value, never the asking price.
     internal sealed class AuctionWealthSource : IKmhWealthSource
     {
         public string Name => "Auctions";

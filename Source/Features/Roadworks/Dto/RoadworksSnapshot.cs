@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Roadworks.Dto
 {
-    // Mirrors the server DTO, built per caller: segments go to everyone, projects and escrow only to the caller; tiers ride as KMH strings, never RimWorld RoadDef names.
+    // Per caller: segments go to all, projects and escrow only to the caller; tiers are KMH strings, not RoadDefs.
     public class RoadworksSnapshot
     {
         [JsonProperty("revision")]      public long Revision { get; set; } = 0;
@@ -13,7 +13,6 @@ namespace KMHPatch.Features.Roadworks.Dto
         // The caller's own unspent escrow, folded into raid/threat wealth so a road project cannot shelter silver.
         [JsonProperty("escrow_silver")] public long EscrowSilver { get; set; } = 0;
 
-        // Prices and limits the client needs to quote a route before sending it.
         [JsonProperty("silver_per_segment")]   public Dictionary<string, int> SilverPerSegment { get; set; } = new Dictionary<string, int>();
         [JsonProperty("max_route_segments")]   public int MaxRouteSegments { get; set; } = 64;
         [JsonProperty("allow_roadworks")]      public bool AllowRoadworks { get; set; } = true;
@@ -47,5 +46,9 @@ namespace KMHPatch.Features.Roadworks.Dto
         [JsonProperty("current_progress")] public double CurrentProgress { get; set; } = 0;
         [JsonProperty("escrow_silver")]    public long   EscrowSilver  { get; set; } = 0;
         [JsonProperty("escrow_unspent")]   public long   EscrowUnspent { get; set; } = 0;
+
+        // The planned route, so the unbuilt part can be drawn on the map; empty from an older server.
+        [JsonProperty("route_tiles")]      public List<int> RouteTiles  { get; set; } = new List<int>();
+        [JsonProperty("route_layers")]     public List<int> RouteLayers { get; set; } = new List<int>();
     }
 }

@@ -4,7 +4,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Roadworks
 {
-    // Wire handler for kmh.roadworks.*. Runs on the network thread, so nothing here touches Verse.
+    // Runs on the network thread, so nothing here touches Verse.
     internal static class RoadworksHandler
     {
         public static void Register()
@@ -16,7 +16,7 @@ namespace KMHPatch.Features.Roadworks
             if (snap != null) RoadworksCache.Apply(snap);
         }
 
-        // A pre-1.3.0 server has no roadworks handler; with no snapshot arriving the reconciler stays inert.
+        // An older server has no roadworks handler; with no snapshot arriving the reconciler stays inert.
         public static bool Available => KmhCapabilities.Has(KmhCapabilities.Roadworks);
 
         // The only way out: contract-check section 19 fails if a second Send appears in this file.

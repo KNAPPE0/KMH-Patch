@@ -46,7 +46,8 @@ namespace KMHPatch.Features.Catalog
         // Reported as host:port, or empty when RWT has not settled on one yet.
         internal static string CurrentEndpoint()
         {
-            try { return $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}"; }
+            // A join rerouted to this PC still names the address the player chose; tickets and presence key on it.
+            try { return Global.KmhLocalServer.ListedFor(TCPNetwork.Network.Ip, TCPNetwork.Network.Port) ?? $"{TCPNetwork.Network.Ip}:{TCPNetwork.Network.Port}"; }
             catch { return ""; }
         }
     }

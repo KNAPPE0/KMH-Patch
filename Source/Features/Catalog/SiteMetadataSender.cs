@@ -15,12 +15,12 @@ namespace KMHPatch.Features.Catalog
         // Smaller than the label chunk, since each entry carries several string lists.
         private const int ChunkSize = 250;
 
-        // Sent and applied are different facts: one latch for both left a refused push unretried and the server catalog-less all session.
+        // Sent and applied are separate facts, or a refused push is never retried and the server stays catalog-less.
         private static string _sentFingerprint  = "";
         private static bool   _serverConfirmed;
         private static bool   _serverRefused;
         private static int    _retries;
-        // A push is thousands of defs and a server still reporting none will refuse the next copy too; the next reconnect starts over.
+        // A push is thousands of defs, and a server still reporting none refuses the next copy too; reconnect starts over.
         internal const int MaxRetries = 3;
 
         // Shared with every other catalog pusher, so one of them cannot quietly lose the re-push throttle.
@@ -42,7 +42,7 @@ namespace KMHPatch.Features.Catalog
             _sentFingerprint = fingerprint; _serverConfirmed = false; _serverRefused = false;
         }
 
-        // Called for every catalog snapshot, so a push that never landed is repaired in-session rather than at the next reconnect.
+        // Called for every catalog snapshot, so a push that never landed is repaired in-session, not at reconnect.
         internal static void OnServerCatalog(string serverFingerprint)
         {
             if (string.IsNullOrEmpty(_sentFingerprint)) return;
@@ -52,7 +52,7 @@ namespace KMHPatch.Features.Catalog
 
             if (string.IsNullOrEmpty(serverFingerprint))
             {
-                // The server holds no catalog at all, so this push did not arrive. Retrying is the whole point.
+                // The server holds no catalog at all, so this push never arrived.
                 _serverConfirmed = false; _serverRefused = false;
                 if (_retries >= MaxRetries)
                 { KmhLog.Debug("SiteMeta: the server still reports no catalog after retrying - leaving it."); return; }
@@ -73,13 +73,14 @@ namespace KMHPatch.Features.Catalog
                 return;
             }
 
-            // A different established catalog is a deliberate refusal; re-sending the same thing would only be refused again.
+            // A different established catalog is a deliberate refusal; re-sending would only be refused again.
             _serverConfirmed = false; _serverRefused = true;
             KmhLog.Debug($"SiteMeta: the server uses catalog {serverFingerprint}, not this client's {_sentFingerprint}.");
         }
 
         public static bool PushOnce()
         {
+            var __clock = System.Diagnostics.Stopwatch.StartNew();
             if (!KmhDispatcher.IsKmhServer) return false;
             if (!KmhCapabilities.Has(KmhCapabilities.SiteMeta))
             {
@@ -122,8 +123,14 @@ namespace KMHPatch.Features.Catalog
             _sentFingerprint = fingerprint;
             _serverConfirmed = false;
             _serverRefused   = false;
-            if (sent == total) CatalogPushGuard.MarkSent(GuardKind, endpoint);   // a partial push must be sent again
-            KmhLog.Debug($"SiteMeta: pushed {all.Count} def(s) in {sent}/{total} chunk(s), fingerprint {fingerprint}.");
+            if (sent == total)
+            {
+                CatalogPushGuard.MarkSent(GuardKind, endpoint);
+                KmhLog.Debug($"SiteMeta: pushed {all.Count} def(s) in {total} chunk(s) in {__clock.ElapsedMilliseconds}ms, fingerprint {fingerprint}.");
+            }
+            else
+                KmhLog.Warn($"SiteMeta: only {sent} of {total} chunk(s) reached the server - the metadata is "
+                          + "incomplete and will be sent again rather than treated as pushed.");
             return sent == total;
         }
 
@@ -236,7 +243,6 @@ namespace KMHPatch.Features.Catalog
             return result;
         }
 
-        // One def -> raw facts. Every field is something RimWorld already asserts; nothing is inferred here.
         private static Features.Sites.Dto.SiteOutputMetadata Describe(ThingDef def, Reverse rev)
         {
             var m = new Features.Sites.Dto.SiteOutputMetadata

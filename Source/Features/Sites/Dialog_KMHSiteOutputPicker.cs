@@ -17,10 +17,10 @@ namespace KMHPatch.Features.Sites
         private readonly string _archetype;
         private Vector2 _scroll;
         private string  _filter = "";
-        private int     _tierFilter;      // 0 = all, 1..4 = that tier
-        private bool    _showBlocked;     // debug: also show blocked items + reasons
+        private int     _tierFilter;
+        private bool    _showBlocked;
         private static string _lastCategory = "All";
-        private string  _category = _lastCategory;   // works alongside the tier filter (both AND'd)
+        private string  _category = _lastCategory;
 
         public Dialog_KMHSiteOutputPicker(Action<SiteCatalogEntry> onPick, string archetype = "")
         {
@@ -71,12 +71,12 @@ namespace KMHPatch.Features.Sites
             // Gated on ArchetypesReady: before classification lands every item would look ineligible, i.e. broken.
             if (cat != null && cat.ArchetypesReady && !string.IsNullOrEmpty(_archetype))
             {
-                SiteArchetypeInfo info = FindArchetype(cat, _archetype);
+                SiteArchetypeInfo info = Dialog_KMHBuildSite.FindArchetype(cat, _archetype);
                 if (info != null)
                 {
                     DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                        $"<color=grey>Showing what a <b>{info.DisplayName}</b> can produce"
-                        + (info.IsCustom ? " - anything KMH has classified." : $" · workers use {info.WorkerSkill}.")
+                        $"<color=#A9AFB9>Showing what a <b>{info.DisplayName}</b> can produce"
+                        + (info.IsCustom ? " - anything Colony Nexus has classified." :$" · workers use {info.WorkerSkill}.")
                         + "</color>");
                     y += 22f;
                 }
@@ -84,9 +84,8 @@ namespace KMHPatch.Features.Sites
 
             if (cat != null && cat.CatalogSparse)
             {
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                    "<color=#E2C16B>Catalog still loading on this server - showing common resources. Reconnect or wait a few seconds for the full list.</color>");
-                y += 22f;
+                y += DialogLayout.LabelWrapped(0f, y, rect.width,
+                    "<color=#f0c04f>Catalog still loading on this server - showing common resources. Reconnect or wait a few seconds for the full list.</color>") + 2f;
             }
 
             Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
@@ -103,18 +102,19 @@ namespace KMHPatch.Features.Sites
             if (cat == null)
             {
                 DialogLayout.LabelTrunc(new Rect(inner.x + 4f, inner.y + 4f, inner.width, 22f),
-                    "<color=grey>Loading site outputs…</color>");
+                    "<color=#A9AFB9>Loading site outputs…</color>");
                 return;
             }
             if (_tierFilter == 4 && !cat.Tier4Enabled && !_showBlocked)
             {
-                DialogLayout.LabelTrunc(new Rect(inner.x + 4f, inner.y + 4f, inner.width - 8f, 40f),
-                    "<color=grey>Tier 4 (crafted / rare / tech) outputs are disabled on this server - a site can't print gear, tech, drugs, genes, or relics.</color>");
+                DialogLayout.LabelWrapped(inner.x + 4f, inner.y + 4f, inner.width - 8f,
+                    "<color=#A9AFB9>Tier 4 (crafted / rare / tech) outputs are disabled on this server - a site can't print gear, tech, drugs, genes, or relics.</color>");
                 return;
             }
 
             List<SiteCatalogEntry> rows = Filtered(cat);
-            const float rowH = 34f;
+            // Measured for two lines; a fixed 34px spilled the second line into the next row.
+            float rowH = DialogLayout.TextRowsH(2, 8f);
             float viewH = Mathf.Max(inner.height, rows.Count * rowH + 8f);
             Rect viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
 
@@ -129,37 +129,36 @@ namespace KMHPatch.Features.Sites
                 Widgets.DrawHighlightIfMouseover(row);
 
                 const float iconSize = 24f;
-                ItemLabels.DrawIcon(new Rect(6f, ly + 5f, iconSize, iconSize), e.DefName);
+                ItemLabels.DrawIcon(new Rect(6f, ly + (rowH - iconSize) / 2f, iconSize, iconSize), e.DefName);
 
                 bool eligible = Eligible(cat, e);
                 Color old = GUI.color;
                 if (!e.Allowed || !eligible) GUI.color = new Color(0.75f, 0.55f, 0.55f);
-                // Line 1: label + tier badge + skill.
-                DialogLayout.LabelTrunc(new Rect(38f, ly + 2f, viewRect.width - 150f, 18f),
-                    $"<b>{e.Label}</b>  <color=grey>· T{e.Tier} {e.TierName} · {e.RelevantSkill}</color>");
-                // Line 2: max / cost / cycle, or the block reason.
-                DialogLayout.LabelTrunc(new Rect(38f, ly + 18f, viewRect.width - 150f, 16f),
+                float lineH = DialogLayout.TextRowH;
+                DialogLayout.LabelTrunc(new Rect(38f, ly + 2f, viewRect.width - 150f, lineH),
+                    $"<b>{e.Label}</b>  <color=#A9AFB9>· T{e.Tier} {e.TierName} · {e.RelevantSkill}</color>");
+                DialogLayout.LabelTrunc(new Rect(38f, ly + 2f + lineH, viewRect.width - 150f, lineH),
                     !e.Allowed
-                        ? $"<color=#ff8080>blocked: {e.BlockReason}</color>"
+                        ? $"<color=#f07167>blocked: {e.BlockReason}</color>"
                         : eligible
-                            ? $"<color=grey>max {e.MaxAmount}/cycle · ~{SilverFmt.Format(e.EstBuildCost)} build · ~{e.EstCycleMinutes} min/cycle</color>"
-                            : $"<color=#ff8080>{IneligibleReason(e)}</color>");
+                            ? $"<color=#A9AFB9>max {e.MaxAmount}/cycle · ~{SilverFmt.Format(e.EstBuildCost)} build · ~{e.EstCycleMinutes} min/cycle</color>"
+                            : $"<color=#f07167>{IneligibleReason(e)}</color>");
                 GUI.color = old;
 
-                Rect btn = new Rect(viewRect.width - 96f, ly + 5f, 90f, rowH - 10f);
+                Rect btn = new Rect(viewRect.width - 96f, ly + (rowH - 26f) / 2f, 90f, 26f);
                 if (e.Allowed && eligible)
                 {
                     if (Widgets.ButtonText(btn, "Select")) { _onPick?.Invoke(e); Close(); }
                 }
                 else
                 {
-                    DialogLayout.LabelTrunc(new Rect(viewRect.width - 96f, ly + 9f, 90f, 18f),
-                        e.Allowed ? "<color=grey>n/a</color>" : "<color=grey>blocked</color>");
+                    DialogLayout.LabelTrunc(new Rect(viewRect.width - 96f, ly + (rowH - lineH) / 2f, 90f, lineH),
+                        e.Allowed ? "<color=#A9AFB9>n/a</color>" : "<color=#A9AFB9>blocked</color>");
                 }
             }
             if (rows.Count == 0)
                 DialogLayout.LabelTrunc(new Rect(8f, 8f, viewRect.width, 20f),
-                    "<color=grey>No matching outputs. Sites only produce curated resources - not weapons, apparel, tech, or rare items.</color>");
+                    "<color=#A9AFB9>No matching outputs. Sites only produce curated resources - not weapons, apparel, tech, or rare items.</color>");
             Widgets.EndScrollView();
         }
 
@@ -167,14 +166,15 @@ namespace KMHPatch.Features.Sites
         {
             string f = (_filter ?? "").Trim().ToLowerInvariant();
             List<SiteCatalogEntry> outList = new List<SiteCatalogEntry>();
+            bool showsIneligible = ShowsIneligible(cat);
             foreach (SiteCatalogEntry e in cat.Entries)
             {
                 if (e == null) continue;
                 if (!e.Allowed && !_showBlocked) continue;
                 // Unknown items must stay visible under Custom, or an owner never learns a family override is needed.
-                if (!Eligible(cat, e) && !ShowsIneligible(cat) && !_showBlocked) continue;
+                if (!Eligible(cat, e) && !showsIneligible && !_showBlocked) continue;
                 if (_tierFilter > 0 && e.Tier != _tierFilter) continue;
-                if (!KmhItemCategories.Matches(e.DefName, _category)) continue;   // category AND tier both apply
+                if (!KmhItemCategories.Matches(e.DefName, _category)) continue;
                 if (f.Length > 0 && (e.Label ?? "").ToLowerInvariant().IndexOf(f, StringComparison.Ordinal) < 0
                                  && (e.DefName ?? "").ToLowerInvariant().IndexOf(f, StringComparison.Ordinal) < 0) continue;
                 outList.Add(e);
@@ -194,25 +194,15 @@ namespace KMHPatch.Features.Sites
             return false;
         }
 
-        // Custom lists ineligible items (disabled, with a reason); a preset simply omits them.
         private bool ShowsIneligible(SiteCatalogSnapshot cat)
         {
-            SiteArchetypeInfo info = FindArchetype(cat, _archetype);
+            SiteArchetypeInfo info = Dialog_KMHBuildSite.FindArchetype(cat, _archetype);
             return info != null && info.IsCustom;
         }
 
         private string IneligibleReason(SiteCatalogEntry e)
             => string.Equals(e.Family, "unknown", StringComparison.OrdinalIgnoreCase)
-             ? "KMH has not classified this item - ask the server owner to set its family"
+             ? "Colony Nexus has not classified this item - ask the server owner to set its family"
              : "this site type cannot produce it";
-
-        private static SiteArchetypeInfo FindArchetype(SiteCatalogSnapshot cat, string id)
-        {
-            if (cat?.Archetypes == null || string.IsNullOrEmpty(id)) return null;
-            foreach (SiteArchetypeInfo a in cat.Archetypes)
-                if (a != null && string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase)) return a;
-            return null;
-        }
-
     }
 }

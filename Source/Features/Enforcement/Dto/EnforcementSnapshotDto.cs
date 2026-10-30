@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Enforcement.Dto
@@ -12,7 +12,11 @@ namespace KMHPatch.Features.Enforcement.Dto
         [JsonProperty("is_admin")]     public bool         IsAdmin     { get; set; }
         [JsonProperty("has_profile")]  public bool         HasProfile   { get; set; }
         [JsonProperty("profile_files")] public int        ProfileFiles { get; set; }
+        [JsonProperty("profile_revision")] public long   ProfileRevision { get; set; }
         [JsonProperty("profile_hash")] public string       ProfileHash  { get; set; } = "";
         [JsonProperty("safe_mods")]    public List<string> SafeMods    { get; set; } = new List<string>();
+        // Absent on a pre-ModSync server, meaning "no order to enforce", never an empty order.
+        [JsonProperty("mod_order")]      public List<string> ModOrder     { get; set; } = new List<string>();
+        [JsonProperty("mod_order_hash")] public string       ModOrderHash { get; set; } = "";
     }
 }

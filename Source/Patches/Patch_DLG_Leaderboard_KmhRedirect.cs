@@ -8,7 +8,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Patched manually, not by attribute: a removed or renamed leaderboard then skips cleanly instead of throwing during scanning.
+    // By hand, not by attribute: a removed or renamed leaderboard then skips cleanly instead of throwing at scan time.
     internal static class Patch_DLG_Leaderboard_KmhRedirect
     {
         public static void TryApply(Harmony harmony)
@@ -19,7 +19,7 @@ namespace KMHPatch.Patches
                 Type t = RwtCompat.ResolveType(ns, "DLG_Leaderboard", ns + ".DLG_Leaderboard");
                 if (t == null)
                 {
-                    KmhLog.Info("Standings redirect: DLG_Leaderboard not present in this RWT build - skipped (use the KMH tab's Server Standings).");
+                    KmhLog.Info("Standings redirect: DLG_Leaderboard not present in this RWT build - skipped (use the Colony Nexus tab's Server Standings).");
                     return;
                 }
 

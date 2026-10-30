@@ -8,9 +8,15 @@
     <AssemblyName>KMH.Sdk.Client</AssemblyName>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
-    <Version>1.3.0</Version>
-    <AssemblyVersion>1.3.0.0</AssemblyVersion>
-    <FileVersion>1.3.0.0</FileVersion>
+    <Version>1.3.1</Version>
+    <InformationalVersion>1.3.1+rel-282</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- Shipped binaries name no folder on the machine that built them. -->
+    <PathMap>$(MSBuildProjectDirectory)=/_/</PathMap>
+    <EnableSourceLink>false</EnableSourceLink>
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <AssemblyVersion>1.3.1.0</AssemblyVersion>
+    <FileVersion>1.3.1.0</FileVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
@@ -28,7 +34,7 @@
   <PropertyGroup>
     <PackageId>KMH.Sdk.Client</PackageId>
     <Title>KMH Client SDK</Title>
-    <Description>Public API for writing client-side (RimWorld-mod) extensions that plug into KMH-Patch for RimWorld Together. Stable contract that absorbs RWT release upgrades.</Description>
+    <Description>Public API for writing client-side (RimWorld-mod) extensions that plug into Colony Nexus for RimWorld Together. Stable contract that absorbs RWT release upgrades.</Description>
     <Authors>KNAPPE0</Authors>
     <Company>KMH Project</Company>
     <Product>KMH Client SDK</Product>
@@ -50,5 +56,16 @@
     <None Include="..\..\LICENSE"        Pack="true" PackagePath="\" Condition="Exists('..\..\LICENSE')" />
     <None Include="..\..\EXTENSIONS.md"  Pack="true" PackagePath="\" Condition="Exists('..\..\EXTENSIONS.md')" />
   </ItemGroup>
+
+
+  <!-- Stamped with the rel too, and nothing else would catch this copy drifting. -->
+  <Target Name="KmhVerifyBuildTag" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_TagText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\..\SubProtocol\KmhProtocol.cs'))</_TagText>
+      <_DeclaredTag>$([System.Text.RegularExpressions.Regex]::Match($(_TagText), 'UiBuildTag\s*=\s*"([^"]*)"').Groups[1].Value)</_DeclaredTag>
+      <_InfoTag>$([System.Text.RegularExpressions.Regex]::Match('$(InformationalVersion)', '\+(.*)$').Groups[1].Value)</_InfoTag>
+    </PropertyGroup>
+    <Error Condition="'$(_DeclaredTag)' != '$(_InfoTag)'" Text="KmhProtocol.UiBuildTag is &quot;$(_DeclaredTag)&quot; but InformationalVersion carries &quot;$(_InfoTag)&quot;. They are what tells two 1.3.1.0 builds apart - bump both together." />
+  </Target>
 
 </Project>

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using KMHPatch.SubProtocol;
+﻿using KMHPatch.SubProtocol;
 using KMHPatch.UI;
 using UnityEngine;
 using Verse;
@@ -16,9 +15,9 @@ namespace KMHPatch.Dialogs
         private static readonly (string Title, string Body)[] Sections =
         {
             ("Getting started",
-             "KMH adds cross-player systems to a RimWorld Together server: a shared economy, guilds, quests, a living " +
-             "world, and player standings. Everything is reached from the KMH tab at the bottom of the screen. Features " +
-             "only appear when you're connected to a server running the KMH Server Addon - a plain RWT server shows none " +
+             "Colony Nexus adds cross-player systems to a RimWorld Together server: a shared economy, guilds, quests, a living " +
+             "world, and player standings. Everything is reached from the Colony Nexus tab at the bottom of the screen. Features " +
+             "only appear when you're connected to a server running the Colony Nexus Server Addon - a plain RWT server shows none " +
              "of them. Opening the tab pulls fresh data automatically."),
 
             ("Treasury - your server bank",
@@ -26,7 +25,8 @@ namespace KMHPatch.Dialogs
              "selected caravan or straight from your colony; withdraw to drop it back home. Complex gear (weapons, " +
              "apparel, minified buildings, quality or modded items) keeps its exact state - damage, taint, quality, " +
              "material and comp data survive the round-trip, and different states never merge. Plain resources stay " +
-             "compact. Tip: put \"KMH\" in a stockpile's name (e.g. \"KMH Depot\") and withdrawals always land there. " +
+             "compact. Tip: put \"Nexus\" in a stockpile's name (e.g. \"Nexus Depot\") and deliveries go there; older " +
+             "\"KMH\" names still work. " +
              "It's the backbone of trading - you never travel to anyone; all transfers happen on the server ledger. In " +
              "a guild you can also contribute to the guild vault (silver)."),
 
@@ -72,10 +72,10 @@ namespace KMHPatch.Dialogs
              "price based on the damage. Nothing lowers condition on its own."),
 
             ("Roadworks - building roads",
-             "From a Roadworks site you can plan real roads on the world map. Pick a destination and KMH routes it, quotes " +
+             "From a Roadworks site you can plan real roads on the world map. Pick a destination and Colony Nexus routes it, quotes " +
              "the cost before you commit, and builds Trail, Road or Highway depending on your site's tier. Stretches that " +
              "already have road aren't charged for again, and cancelling returns the silver for anything still unbuilt. " +
-             "KMH only ever writes roads it planned and puts back whatever it replaced if one is removed, so roads from " +
+             "Colony Nexus only ever writes roads it planned and puts back whatever it replaced if one is removed, so roads from " +
              "worldgen or another mod are left alone."),
 
             ("Frontier outposts",
@@ -103,7 +103,7 @@ namespace KMHPatch.Dialogs
 
             ("Communications - chat & mail",
              "One window for talking to the server: a server-wide channel, your guild channel, and private DMs, plus your " +
-             "mailbox. The KMH tab shows an unread count and glows when something is waiting, and recent chat survives a " +
+             "mailbox. The Colony Nexus tab shows an unread count and glows when something is waiting, and recent chat survives a " +
              "reconnect. Mail reaches players whether they are online or not - pick the recipient from the roster, add a " +
              "subject and message, and reply straight from what you received."),
 
@@ -116,21 +116,25 @@ namespace KMHPatch.Dialogs
             ("Keeping it civil",
              "Click any chat message to block that player (you stop seeing their messages and their mail), or unblock them " +
              "later from the Communications window. Set how loud each channel is - silent, popup, or popup with sound - or " +
-             "mute everything, in the KMH mod settings or the button in the Communications window. Server staff can remove " +
+             "mute everything, in the Colony Nexus mod settings or the button in the Communications window. Server staff can remove " +
              "messages."),
 
             ("Discord linking",
-             "Link your in-game account to Discord (button in the KMH tab, or /kmh link) to trade and check status from the " +
+             "Link your in-game account to Discord (button in the Colony Nexus tab, or /kmh link) to trade and check status from the " +
              "server's Discord bot, and - on servers that enable it - get a guild role that mirrors your rank. Servers can " +
-             "also mirror KMH chat to a Discord channel; relayed messages are tagged so you know where they came from."),
+             "also mirror Colony Nexus chat to a Discord channel; relayed messages are tagged so you know where they came from."),
 
             ("Debug logging (for support)",
-             "If an owner is helping you with a problem they can ask for your KMH log. Nothing is sent unless you agree: " +
+             "If an owner is helping you with a problem they can ask for your Colony Nexus log. Nothing is sent unless you agree: " +
              "when a server asks, you get a one-time prompt with 'Share for this session' or 'Not now', and that choice " +
              "is dropped the moment you disconnect. There's also a standing opt-in in Mod Options if you'd rather share " +
-             "automatically. While sharing is on, the KMH tab says so, and 'Stop sharing my KMH log' under Advanced & " +
-             "tools ends it immediately. Only KMH log lines are sent - never chat, saves, or system information."),
+             "automatically. While sharing is on, the Colony Nexus tab says so, and 'Stop sharing my Colony Nexus log' under Advanced & " +
+             "tools ends it immediately. Only Colony Nexus log lines are sent - never chat, saves, or system information."),
         };
+
+        private static readonly string[] MeasureTexts = System.Array.ConvertAll(Sections, s => $"<b>{s.Title}</b>\n{s.Body}");
+        private static readonly string[] DrawTexts = System.Array.ConvertAll(Sections, s => $"<b><color=#F4B83C>{s.Title}</color></b>\n{s.Body}");
+        private readonly float[] _heights = new float[Sections.Length];
 
         public Dialog_KMHTutorial()
         {
@@ -143,7 +147,7 @@ namespace KMHPatch.Dialogs
 
         protected override void DrawContents(Rect rect)
         {
-            const string title = "KMH - How everything works";
+            const string title = "Colony Nexus - How everything works";
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperCenter;
             // Measured, not fixed: a wrapped title loses its lower line and offsets everything below it.
@@ -162,11 +166,11 @@ namespace KMHPatch.Dialogs
             float textW  = Mathf.Max(1f, innerW - 12f);
 
             float h = 0f;
-            List<float> heights = new List<float>(Sections.Length);
-            foreach ((string t, string body) in Sections)
+            float[] heights = _heights;
+            for (int i = 0; i < Sections.Length; i++)
             {
-                float bh = Text.CalcHeight($"<b>{t}</b>\n{body}", textW) + 14f;
-                heights.Add(bh);
+                float bh = Text.CalcHeight(MeasureTexts[i], textW) + 14f;
+                heights[i] = bh;
                 h += bh;
             }
 
@@ -174,18 +178,16 @@ namespace KMHPatch.Dialogs
             float y = 0f;
             for (int i = 0; i < Sections.Length; i++)
             {
-                (string t, string body) = Sections[i];
                 Rect card = new Rect(0f, y, innerW, heights[i] - 6f);
                 if (i % 2 == 0) Widgets.DrawLightHighlight(card);
-                Widgets.Label(new Rect(6f, y + 4f, textW, heights[i] - 12f),
-                    $"<b><color=#F4B83C>{t}</color></b>\n{body}");
+                Widgets.Label(new Rect(6f, y + 4f, textW, heights[i] - 12f), DrawTexts[i]);
                 y += heights[i];
             }
             Widgets.EndScrollView();
 
             float closeW = Mathf.Min(160f, rect.width - 16f);
             Rect close = new Rect((rect.width - closeW) / 2f, rect.height - 36f, closeW, 32f);
-            if (Widgets.ButtonText(close, "Got it")) Close();
+            if (Widgets.ButtonText(close, KmhText.Get("KMH_WhatsNew_GotIt", "Got it"))) Close();
         }
     }
 }

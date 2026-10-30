@@ -7,17 +7,16 @@ namespace KMHPatch.Features.Sites
     // Ownership is a halo around the marker, never a wash over it: the art has to stay readable as what it is.
     internal static class KmhMarkerColors
     {
-        internal static readonly Color FallbackMine   = new Color(0.42f, 0.92f, 0.40f);   // colony green
-        internal static readonly Color FallbackTheirs = new Color(0.40f, 0.66f, 1.00f);   // another player, cool blue
+        internal static readonly Color FallbackMine   = UI.KmhBrand.Accent;
+        internal static readonly Color FallbackTheirs = UI.KmhBrand.Info;
 
         // Fixed on purpose: a state a player could recolour into something calm is worse than no colour at all.
-        internal static readonly Color Claimable = new Color(1.00f, 0.82f, 0.25f);
-        internal static readonly Color Hostile   = new Color(1.00f, 0.30f, 0.24f);
-        internal static readonly Color Derelict  = new Color(0.66f, 0.62f, 0.52f);
-        internal static readonly Color Defeated  = new Color(0.55f, 0.55f, 0.55f);
-        internal static readonly Color Dormant   = new Color(0.70f, 0.70f, 0.70f);
+        internal static readonly Color Claimable = UI.KmhBrand.Ink;
+        internal static readonly Color Derelict  = UI.KmhBrand.Ring;
+        internal static readonly Color Hostile   = UI.KmhBrand.Bad;
+        internal static readonly Color Defeated  = UI.KmhBrand.Muted;
+        internal static readonly Color Dormant   = UI.KmhBrand.Muted;
 
-        // Server-suggested defaults for its players. Blank = the owner expressed no preference.
         internal static string ServerMine   { get; private set; } = "";
         internal static string ServerTheirs { get; private set; } = "";
 
@@ -38,7 +37,7 @@ namespace KMHPatch.Features.Sites
             return fallback;
         }
 
-        // Read once per marker per frame while the world draws, and TryHex trims and parses: resolve on change, not per read.
+        // Read per marker per frame and TryHex parses: resolve on change, not per read.
         private static string _cachedPlayerMine, _cachedPlayerTheirs, _cachedServerMine, _cachedServerTheirs;
         private static bool   _cachedUseServer;
         private static Color  _mine, _theirs;
@@ -66,7 +65,7 @@ namespace KMHPatch.Features.Sites
         // No thickness to offer: RimWorld's expanding-icon shader decides that, the same as for an owned settlement.
         internal static bool Enabled => S == null || S.MarkerShowRim;
 
-        // No halo at all for a place that is nobody's and in no state worth flagging, so the ones that matter carry weight.
+        // No halo for a place that is nobody's and in no notable state, so the halos that matter carry weight.
         internal static bool TryHaloFor(SiteEntry s, bool mine, out Color color)
         {
             color = Color.white;

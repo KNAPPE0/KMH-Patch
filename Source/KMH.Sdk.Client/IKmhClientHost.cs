@@ -3,42 +3,23 @@ using KMH.Sdk.Client.Apis;
 
 namespace KMH.Sdk.Client
 {
-    /// <summary>
-    /// Stable API surface handed to every loaded client extension.
-    /// Mirrors <c>KMH.Sdk.Server.IKmhServerHost</c> on the patch side.
-    /// </summary>
-    /// <remarks>
-    /// The SDK never exposes raw RWT or RimWorld types - extensions
-    /// get SDK-defined records / interfaces only. That insulates
-    /// extension code from API drift in either dependency.
-    /// </remarks>
+    /// <summary>The API handed to each extension. It exposes only SDK types, never RWT or RimWorld ones,
+    /// so extension code survives either of them changing.</summary>
     public interface IKmhClientHost
     {
-        /// <summary>Version of the KMHPatch assembly currently loaded.</summary>
+        /// <summary>Version of the loaded KMHPatch assembly.</summary>
         string KmhVersion { get; }
 
-        /// <summary>Version of the SDK assembly currently loaded.</summary>
+        /// <summary>Version of the loaded SDK assembly.</summary>
         string SdkVersion { get; }
 
-        /// <summary>
-        /// Harmony instance id KMH-Patch uses for its own patches.
-        /// If your extension installs Harmony patches, use a
-        /// DIFFERENT id (e.g.
-        /// <c>"yourname.kmhext.auctionsui"</c>) so the Harmony tracker
-        /// keeps the two patch sets distinguishable in logs.
-        /// </summary>
+        /// <summary>Colony Nexus's own Harmony id; patch under a different one, e.g. "yourname.kmhext.auctionsui".</summary>
         string KmhHarmonyId { get; }
 
-        /// <summary>
-        /// True once the current session has handshaken with a KMH-
-        /// enabled server. False on stock-RWT servers / not connected.
-        /// </summary>
+        /// <summary>True once this session has completed the KMH handshake; false on a stock RWT server or offline.</summary>
         bool IsKmhServer { get; }
 
-        /// <summary>
-        /// The in-game username for the current session, or empty
-        /// string when not connected.
-        /// </summary>
+        /// <summary>This session's in-game username, or empty when not connected.</summary>
         string LocalUsername { get; }
 
         ITreasuryCache         Treasury        { get; }
@@ -56,20 +37,11 @@ namespace KMH.Sdk.Client
         INotifications   Toast      { get; }
         IKmhClientEvents Events     { get; }
 
-        /// <summary>
-        /// Send a typed payload to the server. Returns false if the
-        /// session isn't on a KMH server. Same envelope shape KMH's
-        /// own features use.
-        /// </summary>
+        /// <summary>Sends a payload in KMH's own envelope; false when the session is not on a KMH server.</summary>
         bool Send(string kind, object data);
 
-        /// <summary>
-        /// Register a handler for a wire kind pushed by the server.
-        /// Namespace your kinds (e.g. <c>"yourname.auction.snapshot"</c>).
-        /// A kind under <c>kmh.*</c>, or one already claimed by KMH or
-        /// another extension, is refused and the handler is not
-        /// registered - the reason is logged.
-        /// </summary>
+        /// <summary>Handles a server-pushed kind, e.g. "yourname.auction.snapshot".
+        /// A kmh.* or already-claimed kind is refused and the reason logged.</summary>
         void RegisterHandler(string kind, Action<IKmhEnvelope> handler);
     }
 }

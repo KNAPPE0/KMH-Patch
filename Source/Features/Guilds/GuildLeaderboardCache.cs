@@ -3,7 +3,6 @@ using KMHPatch.Features.Guilds.Dto;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Separate from GuildCache, which holds only the caller's own guild.
     public static class GuildLeaderboardCache
     {
         public static GuildLeaderboardSnapshot Snapshot       { get; private set; }

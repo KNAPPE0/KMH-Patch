@@ -2,6 +2,14 @@
 <loadFolders>
   <v1.6>
     <li>/</li>
-    <li>1.6</li>
+    <!-- Code and Defs only beside RimWorld Together: without it the Defs name types that never load. -->
+    <li IfModActive="nova.rimworldtogether,nova.rimworldtogether_steam">1.6</li>
   </v1.6>
+  <!-- Same files on 1.7: the payload is version-agnostic, and 1.7's MessagePack fix lives in it. -->
+  <v1.7>
+    <li>/</li>
+    <li IfModActive="nova.rimworldtogether,nova.rimworldtogether_steam">1.6</li>
+    <!-- Native shaders and their ShaderDefs exist only on 1.7. -->
+    <li>1.7</li>
+  </v1.7>
 </loadFolders>

@@ -4,7 +4,7 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.SubProtocol
 {
-    // Nothing sends before the server's kmh.hello, or a patched client on a stock RWT server broadcasts KMH JSON as visible chat.
+    // Nothing sends before kmh.hello, or a patched client on a stock RWT server broadcasts KMH JSON as visible chat.
     public static class KmhDispatcher
     {
         private static readonly Dictionary<string, Action<KmhEnvelope>> Handlers
@@ -13,11 +13,27 @@ namespace KMHPatch.SubProtocol
         public static bool IsKmhServer { get; internal set; } = false;
         public static int  ServerProtocolVersion { get; internal set; } = 0;
 
-        // Empty on a pre-1.1.0 server, which does not advertise a build.
-        public static string ServerBuild { get; internal set; } = "";
+        // The far end's own words, shown in notifications and history, so they are made inert once, here.
+        internal const int MaxServerName = 80, MaxServerBuild = 64;
 
-        // Empty on a pre-1.2.0 server, which does not advertise a name.
-        public static string ServerName { get; internal set; } = "";
+        // Empty on an older server, which does not advertise a build.
+        public static string ServerBuild
+        {
+            get => _serverBuild;
+            internal set => _serverBuild = UI.KmhDisplayText.InertLine(value ?? "", MaxServerBuild);
+        }
+        private static string _serverBuild = "";
+
+        // Empty on an older server, which does not advertise a name.
+        public static string ServerName
+        {
+            get => _serverName;
+            internal set => _serverName = UI.KmhDisplayText.InertLine(value ?? "", MaxServerName);
+        }
+        private static string _serverName = "";
+
+        // Empty on an older server, so history keyed on it tolerates records without one.
+        public static string ServerId { get; internal set; } = "";
 
         public static bool ServerSupportsCurrentBuild
             => !string.IsNullOrEmpty(ServerBuild) && ServerBuild == KmhProtocol.BuildVersion;
@@ -26,9 +42,11 @@ namespace KMHPatch.SubProtocol
         public static DateTime LastReceivedAt   { get; private set; } = DateTime.MinValue;
         public static int      ReceivedCount    { get; private set; }
 
-        // Unknown inbound kinds already logged - once each, not once per packet.
         private static readonly System.Collections.Generic.HashSet<string> _unknownKindsLogged
             = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        internal const int MaxUnknownKindsLogged = 64;
+
+        private static string KmhLogSafe(string kind) => kind.Length > 64 ? kind.Substring(0, 64) + "…" : kind;
 
         public static void RegisterHandler(string kind, Action<KmhEnvelope> handler)
         {
@@ -65,15 +83,17 @@ namespace KMHPatch.SubProtocol
             LastReceivedKind = env.Kind;
             LastReceivedAt   = DateTime.UtcNow;
             ReceivedCount   += 1;
+            Features.Reports.KmhRequestLog.Live.Received(env);
 
             if (!Handlers.TryGetValue(env.Kind, out Action<KmhEnvelope> handler))
             {
-                // Not an error, usually a feature this patch has not ported yet, so log once per kind.
-                if (_unknownKindsLogged.Add(env.Kind))
-                    KmhLog.Info($"No handler for kind '{env.Kind}' (server v{env.Version}) - further packets of this kind are ignored silently");
+                // Once per kind, and bounded: the server chooses the kinds and each one is kept all session.
+                if (_unknownKindsLogged.Count < MaxUnknownKindsLogged && _unknownKindsLogged.Add(env.Kind))
+                    KmhLog.Info($"No handler for kind '{KmhLogSafe(env.Kind)}' (server v{env.Version}) - further packets of this kind are ignored silently");
                 return;
             }
 
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             try
             {
                 handler(env);
@@ -82,14 +102,16 @@ namespace KMHPatch.SubProtocol
             {
                 KmhLog.Error($"Handler '{env.Kind}' threw", ex);
             }
+            Diagnostics.KmhSlowWork.Note(env.Kind, System.Diagnostics.Stopwatch.GetTimestamp() - started);
         }
 
         // The server rejects a chat envelope past this, so the client has to split at the same ceiling.
         internal const int MaxChatEnvelopeBytes = 64 * 1024;
 
-        // The handshake always rides chat - it is how the API is discovered; the rest is feature traffic an owner may forbid there.
+        // The handshake always rides chat, since that is how the API is discovered; an owner may forbid the rest there.
         internal static bool IsTransportControlKind(string kind)
-            => kind == KmhProtocol.Kind.Hello || kind == KmhProtocol.Kind.HelloAck
+            => Features.Enforcement.EnforcementAdmission.IsControl(kind)
+            || kind == KmhProtocol.Kind.Hello || kind == KmhProtocol.Kind.HelloAck
             || kind == KmhProtocol.Kind.Ping  || kind == KmhProtocol.Kind.Pong;
 
         internal static bool ChatMayCarry(string kind)
@@ -103,10 +125,41 @@ namespace KMHPatch.SubProtocol
 
         public static bool Send(string kind, object data) => Send(kind, data, null);
 
+        // Self-test fixtures reach real paths that send, and a fixture Incompatible frame deadlocks an enforced join.
+        // Checked before the Incompatible exemption, which bypasses the IsKmhServer gate.
+        internal static bool SuppressSendForTest;
+
+        // Lets a test assert a self-test run is silent rather than merely believe it.
+        internal static int SuppressedSendCount;
+
         // opId names the logical action: pass the same one when re-sending the same action, never a fresh one.
         public static bool Send(string kind, object data, string opId)
         {
-            if (!IsKmhServer)
+            if (SuppressSendForTest)
+            {
+                SuppressedSendCount++;
+                KmhLog.Debug($"Self-test: '{kind}' was not transmitted - the suite never talks to a live server.");
+                return false;
+            }
+            bool sent = Transmit(kind, data, opId);
+            Features.Reports.KmhRequestLog.Live.Sent(kind, opId, sent);
+            return sent;
+        }
+
+        private static bool Transmit(string kind, object data, string opId)
+        {
+            if (Features.Enforcement.EnforcementAdmission.Pending)
+            {
+                // Logged: a silent drop here makes a failed catalog push look like a transport fault.
+                if (!Features.Enforcement.EnforcementAdmission.IsControl(kind))
+                {
+                    KmhLog.Debug($"Send '{kind}' held: admission is still pending, so only control messages go.");
+                    return false;
+                }
+                data = Features.Enforcement.EnforcementAdmission.Bind(data);
+            }
+            // Exempt: it says we are NOT treating the peer as KMH; gating it leaves an enforcing server on a timeout.
+            if (!IsKmhServer && kind != KmhProtocol.Kind.Incompatible)
             {
                 KmhLog.Warn($"Refusing to send '{kind}' - server has not announced KMH support yet");
                 return false;
@@ -114,7 +167,6 @@ namespace KMHPatch.SubProtocol
 
             KmhEnvelope env = new KmhEnvelope(kind, data, opId: opId);
 
-            // The API transport when it is up, chat otherwise.
             KmhSendResult api = KmhApiClient.Send(env);
             if (api == KmhSendResult.Sent) return true;
 
@@ -164,33 +216,49 @@ namespace KMHPatch.SubProtocol
             }
         }
 
-        // Bumped on every session end: a window or in-flight request from an older generation must not act on the next connection.
+        // Bumped on every session end: a window or request from an older generation must not act on the next connection.
         internal static int SessionGeneration { get; private set; }
+
+        // Set when this connection echoed the client's own envelope back as chat: a stock RWT server, so nothing it relays
+        // under the system name is the server's.
+        internal static bool StockServerSeen { get; private set; }
+
+        internal static void MarkStockServer() => StockServerSeen = true;
 
         internal static void ResetSession()
         {
+            Features.Enforcement.EnforcementAdmission.Reset();
+            StockServerSeen = false;
             SessionGeneration++;
             if (IsKmhServer || ServerProtocolVersion > 0)
             {
                 KmhLog.Info($"Resetting KMH session state (was IsKmhServer={IsKmhServer}, v={ServerProtocolVersion})");
             }
             IsKmhServer = false;
-            UI.KmhDashboardState.ResetForNewConnection();   // new connection: capabilities are unknown until the next hello
-            KmhCapabilities.Reset();                        // re-inferred from the next server's manifest (or its absence)
+            UI.KmhDashboardState.ResetForNewConnection();
+            KmhCapabilities.Reset();
             ServerProtocolVersion = 0;
             ServerBuild = "";
             ServerName = "";
-            KmhApiClient.Disconnect();   // drop the KMH API link too, if it was up
+            ServerId = "";
+            KmhApiClient.Disconnect();
             KmhTransport.Status = KmhTransportStatus.Offline;
-            KmhTransport.DegradedReason = null;   // scoped to one server, like everything else reset here
+            KmhTransport.DegradedReason = null;
             KmhOpId.Clear();             // held ids mean nothing to the next server, and must not gate its first clicks
             // Connect as well as disconnect, or a reconnect keeps the previous server's consent and its queued lines.
             Diagnostics.KmhDebugUplink.ResetForNewServer();
+            Features.Reports.KmhReportClient.ResetSession();
             Features.Delivery.GameComponent_KMHDeliveryReceipts.Instance?.ForgetAcksForNewSession();
 
             LastReceivedKind = null;
             LastReceivedAt   = DateTime.MinValue;
             ReceivedCount    = 0;
+
+            // Or Discord keeps naming the server just left. Field writes only: this runs on the network thread,
+            // so Steam's Join Game is withdrawn by the frame pump, never by calling Steamworks from here.
+            Features.Discord.KmhPresenceActivity.Clear();
+            Features.Discord.KmhRichPresence.InvalidateNow();
+            Features.Friends.KmhPresenceReporter.Invalidate();
         }
     }
 }

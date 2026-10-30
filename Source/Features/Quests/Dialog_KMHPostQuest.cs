@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.Quests
 {
-    // Quest Post composer for DeliverItem + Bounty kinds (Bounty hides delivery rows - it's manual poster sign-off).
     public class Dialog_KMHPostQuest : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(620f, 700f);
@@ -17,7 +16,7 @@ namespace KMHPatch.Features.Quests
         private string _title             = "";
         private string _description       = "";
         private string _bountySilver      = "0";
-        // Auto-cancel after this many hours; 0 / blank = never expires.
+        // Auto-cancel after this many hours; 0 / blank = the longest the server allows (it has no "never").
         private string _expiresHours      = "0";
         private string _targetItemDefName = "";
         private string _targetItemQty     = "1";
@@ -27,14 +26,14 @@ namespace KMHPatch.Features.Quests
         private string _escortDropoffTile = "";
         private string _escortTargetDesc  = "";
         private string _defendColonyTile  = "";
-        private string _defendDurationDays = "1";       // converted to game ticks on submit
+        private string _defendDurationDays = "1";
         private string _huntTargetKind     = QuestEntry.HuntAnimalSpecies;
         private string _huntTargetDefName  = "";
-        private string _huntTargetLabel    = "";   // friendly display for the picked target
+        private string _huntTargetLabel    = "";
         private string _huntTargetCount    = "1";
         private string _buildAtTile        = "";
         private string _buildStructureDef  = "";
-        private string _buildStructureLabel = ""; // friendly display for the picked structure
+        private string _buildStructureLabel = "";
         private string _buildCount         = "1";
 
         public Dialog_KMHPostQuest()
@@ -52,14 +51,12 @@ namespace KMHPatch.Features.Quests
 
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f),
-                "Bounty silver is escrowed from your treasury / personal vault at post time.");
+            y += DialogLayout.LabelWrapped(0f, y, rect.width,
+                "Bounty silver is escrowed from your treasury / personal vault at post time.") + 4f;
             GUI.color = oldCol;
-            y += 22f;
 
             const float labelW = 180f;
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Kind");
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), KindLabel(_kind)))
+            if (ButtonRow(rect, y, "Kind", KindLabel(_kind)))
             {
                 List<FloatMenuOption> opts = new List<FloatMenuOption>
                 {
@@ -75,17 +72,15 @@ namespace KMHPatch.Features.Quests
             }
             y += 30f;
 
-            // The snapshot never says whether an owner routed auto-verified kinds to review, so nothing may promise settlement.
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f),
-                "<color=grey>Auto-verified kinds settle without you acting - unless this server asks the poster to sign off first.</color>");
-            y += 20f;
+            // The snapshot never says if an owner routes auto-verified kinds to review, so nothing may promise settlement.
+            y += DialogLayout.LabelWrapped(0f, y, rect.width,
+                "<color=#A9AFB9>Auto-verified kinds settle without you acting - unless this server asks the poster to sign off first.</color>") + 2f;
 
             // The server forces a personal poster to public: there is no guild key to scope the quest against.
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
             string visLabel = _visibility == QuestHandler.QuestVisibilityGuildOnly
                 ? "Guild + allies only"
                 : "Public (all servers)";
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), visLabel))
+            if (ButtonRow(rect, y, "Visibility", visLabel))
             {
                 List<FloatMenuOption> visOpts = new List<FloatMenuOption>
                 {
@@ -101,10 +96,11 @@ namespace KMHPatch.Features.Quests
             y = DrawTextRow(rect, y, "Title", ref _title);
 
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Description");
+            // One line and inert: a line break would draw a second line, and markup would restyle the button.
             string descPreview = string.IsNullOrEmpty(_description)
-                ? "<color=grey>(click to edit)</color>"
-                : (_description.Length > 60 ? _description.Substring(0, 60) + "…" : _description);
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), descPreview))
+                ? "<color=#A9AFB9>(click to edit)</color>"
+                : KmhDisplayText.Inert(DialogLayout.OneLine(_description));
+            if (IconButton.Draw(new Rect(labelW, y, rect.width - labelW, 26f), null, descPreview))
             {
                 Find.WindowStack.Add(new Dialog_KMHMultilineTextInput(
                     title:        "Quest description",
@@ -124,8 +120,8 @@ namespace KMHPatch.Features.Quests
             y += 26f;
 
             y = DrawTextRow(rect, y, "Bounty silver", ref _bountySilver);
-            y = DrawTextRow(rect, y, "Expires in (hours, 0=never)", ref _expiresHours);
-            y = DrawPerKindFields(rect, y, labelW);
+            y = DrawTextRow(rect, y, "Expires in (hours, 0 = longest allowed)", ref _expiresHours);
+            y = DrawPerKindFields(rect, y);
 
             const float btnW = 120f;
             const float btnH = 32f;
@@ -141,26 +137,31 @@ namespace KMHPatch.Features.Quests
             }
         }
 
+        // The label wraps and the row grows with it: "Expires in (hours, 0 = longest allowed)" does not fit 180px.
         private static float DrawTextRow(Rect rect, float y, string label, ref string value)
         {
             const float labelW = 180f;
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
+            float labelH = DialogLayout.LabelWrapped(0f, y + 4f, labelW - 4f, label);
             value = Widgets.TextField(new Rect(labelW, y, rect.width - labelW, 26f), value ?? "");
-            return y + 30f;
+            return y + Mathf.Max(30f, labelH + 8f);
+        }
+
+        private static bool ButtonRow(Rect rect, float y, string label, string value)
+        {
+            const float labelW = 180f;
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
+            return Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), value);
         }
 
         private static float DrawPickRow(Rect rect, float y, string label, string currentLabel,
             string placeholder, List<Dialog_KMHDefPicker.Entry> source, Action<string, string> onPick)
         {
-            const float labelW = 180f;
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
-            string display = string.IsNullOrEmpty(currentLabel) ? $"<color=grey>{placeholder}</color>" : currentLabel;
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), display))
+            string display = string.IsNullOrEmpty(currentLabel) ? $"<color=#A9AFB9>{placeholder}</color>" : currentLabel;
+            if (ButtonRow(rect, y, label, display))
                 Find.WindowStack.Add(new Dialog_KMHDefPicker($"Pick {label.ToLower()}", source, onPick));
             return y + 30f;
         }
 
-        // Number field for a world-tile id with a "Current" button that fills the player's current map tile
         private static float DrawTileRow(Rect rect, float y, string label, ref string value)
         {
             const float labelW = 180f;
@@ -191,17 +192,15 @@ namespace KMHPatch.Features.Quests
             }
         }
 
-        // Draws the input rows specific to the selected kind.
-        private float DrawPerKindFields(Rect rect, float y, float labelW)
+        private float DrawPerKindFields(Rect rect, float y)
         {
             switch (_kind)
             {
                 case QuestEntry.KindDeliverItem:
-                    DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Target item");
                     string targetDisplay = string.IsNullOrEmpty(_targetItemDefName)
-                        ? "<color=grey>(pick an item)</color>"
+                        ? "<color=#A9AFB9>(pick an item)</color>"
                         : ItemLabels.ResolveLabel(_targetItemDefName);
-                    if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), targetDisplay))
+                    if (ButtonRow(rect, y, "Target item", targetDisplay))
                     {
                         UI.KmhItemPickerService.Open(
                             title:           "Pick target item",
@@ -213,10 +212,8 @@ namespace KMHPatch.Features.Quests
                     y += 30f;
                     y = DrawTextRow(rect, y, "Target item qty", ref _targetItemQty);
 
-                    // quality requirement - delivered items must match or beat it, Any skips the check
-                    DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Required quality");
                     string qLabel = _targetQualityIdx > 0 ? $"{ItemKeys.QualityName(_targetQualityIdx)} or better" : "Any";
-                    if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), qLabel))
+                    if (ButtonRow(rect, y, "Required quality", qLabel))
                     {
                         List<FloatMenuOption> qOpts = new List<FloatMenuOption>
                         {
@@ -242,8 +239,7 @@ namespace KMHPatch.Features.Quests
                     return DrawTextRow(rect, y, "Defense window (days)", ref _defendDurationDays);
 
                 case QuestEntry.KindHunt:
-                    DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Hunt target type");
-                    if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), HuntKindLabel(_huntTargetKind)))
+                    if (ButtonRow(rect, y, "Hunt target type", HuntKindLabel(_huntTargetKind)))
                     {
                         Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                         {
@@ -253,7 +249,6 @@ namespace KMHPatch.Features.Quests
                         }));
                     }
                     y += 30f;
-                    // Named raider is a free-text name; species / pawn-kind pick from a list.
                     if (_huntTargetKind == QuestEntry.HuntNamedRaider)
                         y = DrawTextRow(rect, y, "Raider name", ref _huntTargetDefName);
                     else
@@ -273,20 +268,20 @@ namespace KMHPatch.Features.Quests
                 {
                     Color old = GUI.color;
                     GUI.color = DialogLayout.MutedColor;
-                    Widgets.Label(new Rect(0f, y + 4f, rect.width, 36f),
+                    float h = DialogLayout.LabelWrapped(0f, y + 4f, rect.width,
                         "Custom quests are judged by you: the claimer submits proof and you approve or reject. Put clear instructions (20+ chars) in the description.");
                     GUI.color = old;
-                    return y + 40f;
+                    return y + h + 8f;
                 }
 
-                default: // Bounty
+                default:
                 {
                     Color old = GUI.color;
                     GUI.color = DialogLayout.MutedColor;
-                    DialogLayout.LabelTrunc(new Rect(0f, y + 4f, rect.width, 22f),
+                    float h = DialogLayout.LabelWrapped(0f, y + 4f, rect.width,
                         "Bounty quests have no automatic target - the claimer marks for your sign-off.");
                     GUI.color = old;
-                    return y + 30f;
+                    return y + Mathf.Max(30f, h + 8f);
                 }
             }
         }
@@ -318,12 +313,12 @@ namespace KMHPatch.Features.Quests
                 return;
             }
 
-            // Expiry: empty + "0" + omitted all mean "never expires".
+            // Expiry: empty, "0" and omitted all mean the server maximum.
             string expRaw = (_expiresHours ?? "").Trim();
             int expHours = 0;
             if (expRaw.Length > 0 && (!int.TryParse(expRaw, out expHours) || expHours < 0))
             {
-                Notifications.KmhNotifications.Rejected("Expires in: enter 0 (never) or a positive whole number of hours");
+                Notifications.KmhNotifications.Rejected("Expires in: enter 0 (the longest allowed) or a positive whole number of hours");
                 return;
             }
 
@@ -358,10 +353,10 @@ namespace KMHPatch.Features.Quests
                 case QuestEntry.KindDefend:
                     if (!TryTile(_defendColonyTile, out int dc))
                     { Notifications.KmhNotifications.Rejected("Colony tile must be a whole number"); return; }
-                    if (!double.TryParse((_defendDurationDays ?? "").Trim(), out double days) || days <= 0)
-                    { Notifications.KmhNotifications.Rejected("Defense window: enter days > 0"); return; }
+                    if (!UI.KmhNumberInput.TryParse(_defendDurationDays, out decimal days, out bool ambiguous) || days <= 0m)
+                    { Notifications.KmhNotifications.Rejected(ambiguous ? UI.KmhNumberInput.AmbiguousText() : "Defense window: enter days > 0"); return; }
                     draft.DefendColonyTile        = dc;
-                    draft.DefendDurationGameTicks = (long)(days * 60000L); // 60k ticks per in-game day
+                    draft.DefendDurationGameTicks = (long)(days * 60000m); // 60k ticks per in-game day
                     break;
 
                 case QuestEntry.KindHunt:

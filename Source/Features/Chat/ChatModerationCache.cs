@@ -27,13 +27,16 @@ namespace KMHPatch.Features.Chat
 
         internal static void Apply(IEnumerable<string> blocked, bool blockingEnabled)
         {
+            bool same;
             lock (_blocked)
             {
-                _blocked.Clear();
-                if (blocked != null) foreach (string b in blocked) if (!string.IsNullOrEmpty(b)) _blocked.Add(b);
+                var next = new HashSet<string>(_blocked.Comparer);
+                if (blocked != null) foreach (string b in blocked) if (!string.IsNullOrEmpty(b)) next.Add(b);
+                // Polled with the chat every 12 s; an unchanged list must not make every chat row rebuild.
+                same = blockingEnabled == BlockingEnabled && next.SetEquals(_blocked);
+                if (!same) { _blocked.Clear(); _blocked.UnionWith(next); }
             }
-            BlockingEnabled = blockingEnabled;
-            Version++;
+            if (!same) { BlockingEnabled = blockingEnabled; Version++; }
             KmhCacheEvents.Raise(Updated, "ChatModeration");
         }
 
@@ -44,7 +47,6 @@ namespace KMHPatch.Features.Chat
             Version++;
         }
 
-        // Bumped on every change, so a view caching rows knows to rebuild them.
         public static int Version { get; private set; }
     }
 }

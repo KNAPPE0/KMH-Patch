@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- UI-only: the light sweep over the Colony Nexus wordmark and mark. UI draws always alpha-blend. -->
+  <ShaderDef>
+    <defName>ColonyNexus_MaskSweep</defName>
+    <shaderProgram>
+      <fragmentShaderFileName>ColonyNexusMaskSweep.frag.glsl</fragmentShaderFileName>
+      <transparent>true</transparent>
+      <depthTest>false</depthTest>
+      <depthWrite>false</depthWrite>
+      <cullMode>None</cullMode>
+      <renderQueue>3000</renderQueue>
+    </shaderProgram>
+  </ShaderDef>
+
+</Defs>

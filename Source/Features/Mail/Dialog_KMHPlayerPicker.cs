@@ -31,7 +31,7 @@ namespace KMHPatch.Features.Mail
 
         public static void Open(string title, Action<string> onPick)
         {
-            try { PlayerStatsHandler.RequestSnapshot(); } catch { }   // freshen the roster on open
+            try { PlayerStatsHandler.RequestSnapshot(); } catch { }
             Find.WindowStack.Add(new Dialog_KMHPlayerPicker(title, onPick));
         }
 
@@ -50,8 +50,8 @@ namespace KMHPatch.Features.Mail
             Rect listBox = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
             Widgets.DrawMenuSection(listBox);
             string empty = Features.PlayerStats.PlayerStatsCache.Entries == null
-                ? "<color=grey>Loading players…</color>"
-                : (players.Count == 0 ? "<color=grey>No players match.</color>" : null);
+                ? "<color=#A9AFB9>Loading players…</color>"
+                : (players.Count == 0 ? "<color=#A9AFB9>No players match.</color>" : null);
             DialogLayout.ScrollList(listBox, ref _scroll, players.Count, 30f, (i, row) => DrawRow(row, players[i]), empty);
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
@@ -68,7 +68,6 @@ namespace KMHPatch.Features.Mail
             }
         }
 
-        // Distinct roster usernames minus yourself, filtered by username or linked Discord name, sorted alphabetically.
         private static List<string> Build(List<PlayerStats.Dto.PlayerLeaderboardEntry> entries, string flt)
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

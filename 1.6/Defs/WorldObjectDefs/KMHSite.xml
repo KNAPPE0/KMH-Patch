@@ -12,8 +12,8 @@
        what made KMH markers read wrong on the world map. -->
   <WorldObjectDef>
     <defName>KMHSite</defName>
-    <label>KMH site</label>
-    <description>A KMH custom production site.</description>
+    <label>Colony Nexus site</label>
+    <description>A Colony Nexus production site.</description>
     <worldObjectClass>KMHPatch.Features.Sites.KMHSiteWorldObject</worldObjectClass>
     <texture>KMHPatch/World/WorldObjects/Generic</texture>
     <expandingIconTexture>KMHPatch/World/WorldObjects/Expanding/Generic</expandingIconTexture>

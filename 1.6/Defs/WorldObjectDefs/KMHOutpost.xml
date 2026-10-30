@@ -8,7 +8,7 @@
   <WorldObjectDef>
     <defName>KMHOutpost</defName>
     <label>frontier outpost</label>
-    <description>A KMH Frontier outpost.</description>
+    <description>A Colony Nexus Frontier outpost.</description>
     <worldObjectClass>KMHPatch.Features.Sites.KMHSiteWorldObject</worldObjectClass>
     <texture>KMHPatch/World/WorldObjects/Outpost</texture>
     <expandingIconTexture>KMHPatch/World/WorldObjects/Expanding/Outpost</expandingIconTexture>

@@ -3,7 +3,6 @@ using Verse;
 
 namespace KMHPatch.Features.Chat
 {
-    // Borrows the one ChatVideoPlayer, absorbs no input and pauses nothing, so it can stay open during play.
     public class Dialog_KMHVideoWindow : Window_KMHBase
     {
         private const float MinW = KMHPatchSettings.VideoWindowMinW, MinH = KMHPatchSettings.VideoWindowMinH;
@@ -67,7 +66,6 @@ namespace KMHPatch.Features.Chat
             Rect view = new Rect(0f, 0f, rect.width, Mathf.Max(1f, rect.height - barH - 2f));
             Widgets.DrawBoxSolid(view, new Color(0f, 0f, 0f, 0.94f));
 
-            // Letterboxed to the video's own aspect, so a window the player resized freely never stretches the picture.
             Texture tex = ChatVideoPlayer.Frame;
             if (tex != null)
             {
@@ -77,7 +75,6 @@ namespace KMHPatch.Features.Chat
                                 tex, ScaleMode.ScaleToFit);
             }
 
-            // Only when there is room for it: the transport controls come first on a window this small.
             float defaultW = rect.width >= 300f ? 60f : 0f;
             if (defaultW > 0f)
             {
@@ -86,7 +83,6 @@ namespace KMHPatch.Features.Chat
                 TooltipHandler.TipRegion(defaultR, "Put this window back to its default size and position.");
             }
 
-            // Not fullscreen, so the bar keeps its Fullscreen button and this window simply stays where it is.
             float barW = Mathf.Max(80f, rect.width - defaultW - (defaultW > 0f ? 4f : 0f));
             ChatVideoControls.Draw(new Rect(0f, view.yMax + 2f, barW, barH), inFullscreen: false);
         }

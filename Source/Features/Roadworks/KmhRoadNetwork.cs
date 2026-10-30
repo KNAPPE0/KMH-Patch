@@ -3,7 +3,7 @@ using KMHPatch.Features.Roadworks.Dto;
 
 namespace KMHPatch.Features.Roadworks
 {
-    // Reconciler's view of the network. Derived from RoadworksCache - never a second copy.
+    // Derived from RoadworksCache, never a second copy.
     internal static class KmhRoadNetwork
     {
         public static bool HasSnapshot => RoadworksCache.HasSnapshot;

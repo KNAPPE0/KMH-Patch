@@ -11,7 +11,7 @@ using Verse;
 
 namespace KMHPatch.Features.Roadworks
 {
-    // Plan and track road projects; the route is quoted here before anything is sent, so the price is seen rather than discovered after paying.
+    // Routes are quoted before anything is sent, so the price is seen rather than discovered after paying.
     public class Dialog_KMHRoadworks : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(760f, 560f);
@@ -37,7 +37,7 @@ namespace KMHPatch.Features.Roadworks
             if (!RoadworksHandler.Available)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 24f),
-                    "<color=#ffce4d>This server does not support Roadworks.</color>");
+                    "<color=#f0c04f>This server does not support Roadworks.</color>");
                 return;
             }
 
@@ -47,18 +47,17 @@ namespace KMHPatch.Features.Roadworks
             if (!snap.AllowRoadworks)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                    "<color=#ffce4d>Roadworks is turned off on this server.</color>");
+                    "<color=#f0c04f>Roadworks is turned off on this server.</color>");
                 y += 24f;
             }
             else
             {
-                Help(rect, ref y, $"<color=grey>{Plural(snap.Segments.Count, "road segment")} built across the world.</color>");
-                // Nothing else on screen says roads are laid by a site's workers rather than by clicking.
+                Help(rect, ref y, $"<color=#A9AFB9>{Plural(snap.Segments.Count, "road segment")} built across the world.</color>");
                 Help(rect, ref y,
-                    "<color=grey>Roads are built by a Roadworks site's colonists: pick a route below, then assign workers "
+                    "<color=#A9AFB9>Roads are built by a Roadworks site's colonists: pick a route below, then assign workers "
                     + "to that site. Each production cycle they lay road.</color>");
                 Help(rect, ref y,
-                    "<color=grey>Finished roads speed up caravans for everyone. Silver is reserved when you start and "
+                    "<color=#A9AFB9>Finished roads speed up caravans for everyone. Silver is reserved when you start and "
                     + "spent per segment; cancelling refunds the rest.</color>");
                 y += 6f;
             }
@@ -72,12 +71,10 @@ namespace KMHPatch.Features.Roadworks
                 return;
             }
 
-            // The total belongs to the list, not to the header above the planner, where it read as a second per-project figure.
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, rect.width, 22f),
-                $"<b>Your projects</b> <color=grey>· {snap.EscrowSilver} silver reserved in total</color>");
+                $"<b>Your projects</b> <color=#A9AFB9>· {snap.EscrowSilver} silver reserved in total</color>");
             y += 26f;
 
-            // Measured, not guessed: at a fixed 62 the last line ran past the bottom of its own row.
             float rowH = DialogLayout.TextRowH * 3f + BarH + 24f;
             // Floored - this window is resizeable and BeginScrollView throws on a negative rect.
             Rect view = new Rect(0f, y, rect.width, Mathf.Max(DialogLayout.MinBodyHeight, rect.height - y - 6f));
@@ -97,11 +94,10 @@ namespace KMHPatch.Features.Roadworks
             if (site == null)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                    "<color=grey>Build a Roadworks site to start a road project.</color>");
+                    "<color=#A9AFB9>Build a Roadworks site to start a road project.</color>");
                 return y + 26f;
             }
 
-            // Only worth a chooser when there is a choice; one site selects itself.
             if (manageable.Count > 1)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, 220f, DialogLayout.TextRowH), "<b>Roadworks site</b>");
@@ -144,7 +140,7 @@ namespace KMHPatch.Features.Roadworks
                 snap.WorkPerSegment.TryGetValue(tier, out double workSeg);
                 bool allowed = KmhRoadDefs.AllowedAtSiteTier(tier, site.OutputTier);
                 string label = TierChoice(tier, per);
-                if (!allowed) label += " 🔒";
+                if (!allowed) label += " " + KmhText.Get("KMH_Road_TierLocked", "(locked)");
 
                 Rect tr = new Rect(TierCellX(rect.width, tierW, i), tierY, cellW, TierCellH);
                 if (DialogLayout.DrawSegment(tr, label, _tier == tier, allowed)) _tier = tier;
@@ -170,11 +166,11 @@ namespace KMHPatch.Features.Roadworks
                     : "Roadworks is turned off on this server.");
 
             DialogLayout.LabelTrunc(new Rect(206f, y + 3f, rect.width - 206f, 20f),
-                "<color=grey>Already-built stretches are not charged again.</color>");
+                "<color=#A9AFB9>Already-built stretches are not charged again.</color>");
             return y + 32f;
         }
 
-        // World targeting, then plan + quote + confirm. Nothing is sent until the player accepts the price.
+        // Nothing is sent until the player accepts the quoted price.
         private void BeginPick(SiteEntry site, RoadworksSnapshot snap, string tier)
         {
             Close();
@@ -182,12 +178,71 @@ namespace KMHPatch.Features.Roadworks
             CameraJumper.TryShowWorld();
             Messages.Message("Click a tile to route the road to. Right-click or Escape to cancel.",
                              MessageTypeDefOf.NeutralEvent, false);
+            KmhRoutePreview.Reset();
+            var from = new PlanetTile(site.Tile, Find.WorldGrid.Surface);
             Find.WorldTargeter.BeginTargeting(target =>
             {
                 if (!target.IsValid) return false;
+                KmhRoutePreview.Reset();
                 PlanAndConfirm(site, snap, target.Tile, tier);
                 return true;
-            }, canTargetTiles: true);
+            }, canTargetTiles: true,
+               onUpdate: () => KmhRoutePreview.Update(from, snap, tier),
+               extraLabelGetter: _ => KmhRoutePreview.Label);
+        }
+
+        // For the autopilot: destTile is a tile id, -1 for the colony, or -N for a land tile N steps from the site.
+        internal static void BeginPickForTest(int siteTile, string tier, int destTile)
+        {
+            RoadworksSnapshot snap = RoadworksCache.Snapshot;
+            SiteEntry site = SiteCache.Snapshot?.Sites?.Find(s => s.Tile == siteTile);
+            if (snap == null || site == null) { Messages.Message("No site or roadworks snapshot for that tile.", MessageTypeDefOf.RejectInput, false); return; }
+            new Dialog_KMHRoadworks().BeginPick(site, snap, tier ?? KmhRoadDefs.TierTrail);
+            KmhRoutePreview.PinnedTileIdForTest = destTile >= 0 ? destTile
+                : destTile == -1 ? Find.CurrentMap?.Tile.tileId ?? -1
+                : StepsAway(new PlanetTile(siteTile, Find.WorldGrid.Surface), -destTile);
+        }
+
+        private static int StepsAway(PlanetTile start, int steps)
+        {
+            WorldGrid grid = Find.WorldGrid;
+            Vector3 origin = grid.GetTileCenter(start);
+            PlanetTile at = start;
+            var near = new List<PlanetTile>();
+            for (int i = 0; i < steps; i++)
+            {
+                near.Clear();
+                grid.GetTileNeighbors(at, near);
+                PlanetTile best = at; float bestD = -1f;
+                foreach (PlanetTile n in near)
+                {
+                    if (grid[n].WaterCovered) continue;
+                    float d = Vector3.Distance(origin, grid.GetTileCenter(n));
+                    if (d > bestD) { bestD = d; best = n; }
+                }
+                if (best == at) break;
+                at = best;
+            }
+            return at.tileId;
+        }
+
+        internal static void StartPinnedForTest(int siteTile, string tier)
+        {
+            int dest = KmhRoutePreview.PinnedTileIdForTest;
+            if (dest < 0) { Messages.Message("No route to start: nothing pinned.", MessageTypeDefOf.RejectInput, false); return; }
+            var from = new PlanetTile(siteTile, Find.WorldGrid.Surface);
+            if (!KmhRoadRoutePlanner.TryPlan(from, new PlanetTile(dest, from.Layer), RoadworksCache.Snapshot?.MaxRouteSegments ?? 64, out List<PlanetTile> route, out string why))
+            { Messages.Message("No route to start: " + why, MessageTypeDefOf.RejectInput, false); return; }
+            var tiles = new List<int>(); var layers = new List<int>();
+            foreach ((int layer, int tile) in KmhRoadRoutePlanner.Flatten(route)) { tiles.Add(tile); layers.Add(layer); }
+            RoadworksHandler.StartProject(siteTile, tier ?? KmhRoadDefs.TierTrail, tiles, layers);
+        }
+
+        internal static void EndPickForTest()
+        {
+            KmhRoutePreview.PinnedTileIdForTest = -1;
+            KmhRoutePreview.Reset();
+            Find.WorldTargeter.StopTargeting();
         }
 
         private static void PlanAndConfirm(SiteEntry site, RoadworksSnapshot snap, PlanetTile dest, string tier)
@@ -225,19 +280,18 @@ namespace KMHPatch.Features.Roadworks
 
             float textW = Mathf.Max(0f, inner.width - 120f);
 
-            // Identity first, then progress, then why it is moving at the speed it is - one thing per line.
             SiteEntry from = SiteAt(p.SiteTile);
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y, textW, DialogLayout.TextRowH),
                 $"<b>{TierLabel(p.Tier)}</b> from {(from != null ? SiteWithTile(from) : $"tile {p.SiteTile}")} "
-                + $"<color=grey>· #{p.Id}</color> · {StateLabel(p.State)}");
+                + $"<color=#A9AFB9>· #{p.Id}</color> · {StateLabel(p.State)}");
 
             float pct = p.SegmentsTotal <= 0 ? 0f : Mathf.Clamp01((p.SegmentsDone + (float)p.CurrentProgress) / p.SegmentsTotal);
-            Widgets.FillableBar(new Rect(inner.x, inner.y + DialogLayout.TextRowH + 2f, textW, BarH), pct);
+            DialogLayout.DrawProgress(new Rect(inner.x, inner.y + DialogLayout.TextRowH + 6f, textW, BarH - 8f), pct);
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH + BarH + 6f, textW, DialogLayout.TextRowH),
-                $"<color=#cccccc>{p.SegmentsDone} of {Plural(p.SegmentsTotal, "segment")} laid</color>"
-                + $" <color=grey>· {p.EscrowUnspent} silver still reserved</color>");
+                $"<color=#c4cad6>{p.SegmentsDone} of {Plural(p.SegmentsTotal, "segment")} laid</color>"
+                + $" <color=#A9AFB9>· {p.EscrowUnspent} silver still reserved</color>");
             DialogLayout.LabelTrunc(new Rect(inner.x, inner.y + DialogLayout.TextRowH * 2f + BarH + 6f, textW, DialogLayout.TextRowH),
-                $"<color=grey>{RateLine(p)}</color>");
+                $"<color=#A9AFB9>{RateLine(p)}</color>");
 
             if (p.State != RoadProjectDto.StateBuilding) return;
             if (Widgets.ButtonText(new Rect(inner.xMax - 110f, inner.y + 8f, 110f, 24f), "Cancel"))
@@ -246,8 +300,6 @@ namespace KMHPatch.Features.Roadworks
                     () => RoadworksHandler.CancelProject(p.Id)));
         }
 
-
-        // Answers "why is this bar not moving" on the row itself: rate from the crew, ETA from the site's cycle.
         private static string RateLine(RoadProjectDto p)
         {
             RoadworksSnapshot snap = RoadworksCache.Snapshot;
@@ -259,7 +311,7 @@ namespace KMHPatch.Features.Roadworks
                 perSeg = w;
 
             double crew = CrewWork(site, snap);
-            if (crew <= 0) return "<color=#ffcf59>no workers - assign a colonist to the site</color>";
+            if (crew <= 0) return "<color=#f0c04f>no workers - assign a colonist to the site</color>";
 
             double segsPerCycle = crew / perSeg;
             int remaining = Mathf.Max(0, p.SegmentsTotal - p.SegmentsDone);
@@ -340,7 +392,7 @@ namespace KMHPatch.Features.Roadworks
         private List<SiteEntry> _manageable = new List<SiteEntry>();
         private string _manageableKey = "";
 
-        // Uses the site's own ownership rule (so guild sites count), cached because the planner draws every frame and this scans every visible site.
+        // The site's own ownership rule, so guild sites count; cached since the planner draws every frame.
         private List<SiteEntry> ManageableRoadworksSites()
         {
             string me = KmhSession.Me;
@@ -373,7 +425,7 @@ namespace KMHPatch.Features.Roadworks
         private static string SiteChoiceLabel(SiteEntry s)
             => $"{SiteWithTile(s)} · "
                + (SiteOwnershipClient.KindOf(s) == SiteEntry.OwnerGuildKind
-                    ? (string.IsNullOrEmpty(s.ControllingGuild) ? "guild" : s.ControllingGuild)
+                    ? (string.IsNullOrEmpty(s.ControllingGuild) ? "guild" : KmhDisplayText.GuildName(s.ControllingGuild))
                     : "personal");
 
         private static string TierLabel(string tier)
@@ -390,11 +442,10 @@ namespace KMHPatch.Features.Roadworks
         {
             switch (state)
             {
-                case RoadProjectDto.StateComplete:  return "<color=#80ff80>complete</color>";
-                case RoadProjectDto.StateCancelled: return "<color=grey>cancelled</color>";
-                default:                            return "<color=#79b8ff>building</color>";
+                case RoadProjectDto.StateComplete:  return "<color=#4cc38a>complete</color>";
+                case RoadProjectDto.StateCancelled: return "<color=#A9AFB9>cancelled</color>";
+                default:                            return "<color=#82acff>building</color>";
             }
         }
-
     }
 }

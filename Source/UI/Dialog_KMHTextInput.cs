@@ -69,15 +69,21 @@ namespace KMHPatch.UI
 
         private void Confirm()
         {
-            string val = _input ?? "";
-            if (_rejectEmpty && string.IsNullOrWhiteSpace(val))
+            if (TryConfirm(_input, _rejectEmpty, _onConfirm)) Close();
+        }
+
+        // False when an empty value is refused, so the dialog stays open.
+        internal static bool TryConfirm(string input, bool rejectEmpty, Action<string> onConfirm)
+        {
+            string val = input ?? "";
+            if (rejectEmpty && string.IsNullOrWhiteSpace(val))
             {
                 Notifications.KmhNotifications.Rejected("Value cannot be empty");
-                return;
+                return false;
             }
-            try   { _onConfirm?.Invoke(val); }
+            try   { onConfirm?.Invoke(val); }
             catch { /* handler logs through KmhLog */ }
-            Close();
+            return true;
         }
     }
 }

@@ -2,18 +2,14 @@
 
 namespace KMHPatch.Features.Chat
 {
-    // A body that is ONLY a media url becomes a short label: a signed CDN url runs 200 characters and buries the row.
     internal static class ChatMediaLabel
     {
-        // Before the bytes arrive only the url can say: calling a static webp "animated" would be a guess as fact.
         internal static string Kind(string url)
             => LooksLikeGif(url) ? "GIF" : "image";
 
-        // The name once the bytes are in hand, where "animated" is known rather than inferred.
         internal static string KindOf(string url, bool animated)
             => animated ? (LooksLikeGif(url) ? "GIF" : "animated image") : "image";
 
-        // The corner badge on a moving picture. An animated png is not a gif, and saying so on a sticker was wrong.
         internal static string Badge(string url) => LooksLikeGif(url) ? "GIF" : "ANIM";
 
         private static bool LooksLikeGif(string url)
@@ -27,14 +23,12 @@ namespace KMHPatch.Features.Chat
         // Below this a url does no harm, so it is left alone; the signed Discord links run past 200 characters.
         private const int LongUrlChars = 80;
 
-        // The original text, or a compact label when the body is only the media url the preview already shows.
         internal static string DisplayBody(string body, string mediaUrl, out bool compacted)
         {
             compacted = false;
             string text = (body ?? "").Trim();
             if (text.Length == 0 || string.IsNullOrEmpty(mediaUrl)) return body ?? "";
 
-            // The body has to be JUST the url. Any other word and it is someone talking.
             if (text.IndexOf(' ') >= 0 || text.IndexOf('\n') >= 0) return body ?? "";
             if (!text.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return body ?? "";
 
@@ -46,7 +40,7 @@ namespace KMHPatch.Features.Chat
             return Label(text);
         }
 
-        // "Shiroket-3.gif · media.discordapp.net" - a filename someone might recognise, and who they would be talking to.
+        // "file.gif · media.discordapp.net": a recognisable file name and the host a click would contact.
         internal static string Label(string url)
         {
             try
@@ -72,13 +66,15 @@ namespace KMHPatch.Features.Chat
             catch { return false; }
         }
 
-        // A path ending in a media extension is a CDN blob; anything else could be a link worth reading.
+        private static readonly string[] MediaExtensions =
+            { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".mp4", ".webm", ".mov", ".mkv", ".m4v" };
+
         internal static bool IsDirectMediaFile(string url)
         {
             try
             {
                 string path = new Uri(url).AbsolutePath.ToLowerInvariant();
-                foreach (string ext in new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".mp4", ".webm", ".mov", ".mkv", ".m4v" })
+                foreach (string ext in MediaExtensions)
                     if (path.EndsWith(ext, StringComparison.Ordinal)) return true;
                 return false;
             }

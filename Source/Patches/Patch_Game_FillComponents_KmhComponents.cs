@@ -1,58 +1,59 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using KMHPatch.Diagnostics;
-using KMHPatch.Features.Enforcement;
-using KMHPatch.Features.PlayerStats;
-using KMHPatch.Features.Quests;
-using KMHPatch.Features.World;
 using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Ensure KMH GameComponents exist after payload load, without replacing saved components or their data.
+    // RimWorld scanned component types before the payload loaded, so KMH's are added here; saved ones are never replaced.
     [HarmonyPatch(typeof(Game), nameof(Game.FinalizeInit))]
     internal static class Patch_Game_FillComponents_KmhComponents
     {
+        // Derived, never hand-listed: a hand list missed the delivery receipts, so owed deliveries landed again every join.
+        internal static Type[] GameComponentTypes() => ComponentTypes(typeof(GameComponent));
+        internal static Type[] WorldComponentTypes() => ComponentTypes(typeof(RimWorld.Planet.WorldComponent));
+
+        private static Type[] ComponentTypes(Type baseType)
+        {
+            Type[] all;
+            try { all = typeof(Patch_Game_FillComponents_KmhComponents).Assembly.GetTypes(); }
+            catch (ReflectionTypeLoadException ex) { all = ex.Types.Where(t => t != null).ToArray(); }
+            return all.Where(t => t.IsClass && !t.IsAbstract && baseType.IsAssignableFrom(t))
+                      .OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray();
+        }
+
         [HarmonyPostfix]
         private static void Postfix(Game __instance)
         {
-            Ensure<GameComponent_KMHColonyReporter>(__instance);
-            Ensure<Features.Treasury.GameComponent_KMHDepositLedger>(__instance);
-            Ensure<WorldQuestReporter>(__instance);
-            Ensure<QuestAutoVerify>(__instance);
-            Ensure<GameComponent_KMHKillTally>(__instance);
-            Ensure<GameComponent_KMHEnforcementPoll>(__instance);
-            Ensure<GameComponent_KMHWorldWeather>(__instance);
-            Ensure<Features.Sites.GameComponent_KMHSiteWorkerSync>(__instance);
-
+            foreach (Type t in GameComponentTypes()) Ensure(__instance, t);
             // RimWorld auto-instantiates WorldComponents only at world build, which the payload can load after.
-            EnsureWorld<Features.Sites.WorldComponent_KMHSiteMarkers>();
-            EnsureWorld<Features.Sites.WorldComponent_KMHSiteWorkers>();   // holds assigned pawns "inside" sites
-            EnsureWorld<Features.Roadworks.WorldComponent_KMHRoads>();     // remembers which world roads are KMH's
+            foreach (Type t in WorldComponentTypes()) EnsureWorld(t);
         }
 
-        private static void Ensure<T>(Game game) where T : GameComponent
+        private static void Ensure(Game game, Type t)
         {
             try
             {
-                if (game.GetComponent<T>() != null) return;
-                game.components.Add((GameComponent)Activator.CreateInstance(typeof(T), game));
-                KmhLog.Debug($"KMH: registered missing GameComponent {typeof(T).Name}.");
+                if (game.components.Any(c => c != null && c.GetType() == t)) return;
+                game.components.Add((GameComponent)Activator.CreateInstance(t, game));
+                KmhLog.Debug($"KMH: registered missing GameComponent {t.Name}.");
             }
-            catch (Exception ex) { KmhLog.Warn($"KMH: could not add {typeof(T).Name}: {ex.Message}"); }
+            catch (Exception ex) { KmhLog.Warn($"KMH: could not add {t.Name}: {ex.Message}"); }
         }
 
         // RimWorld.Planet.World fully qualified - the KMHPatch.Features.World namespace shadows the bare 'World' type.
-        private static void EnsureWorld<T>() where T : RimWorld.Planet.WorldComponent
+        private static void EnsureWorld(Type t)
         {
             try
             {
                 RimWorld.Planet.World world = Find.World;
-                if (world == null || world.GetComponent<T>() != null) return;
-                world.components.Add((RimWorld.Planet.WorldComponent)Activator.CreateInstance(typeof(T), world));
-                KmhLog.Debug($"KMH: registered missing WorldComponent {typeof(T).Name}.");
+                if (world == null || world.components.Any(c => c != null && c.GetType() == t)) return;
+                world.components.Add((RimWorld.Planet.WorldComponent)Activator.CreateInstance(t, world));
+                KmhLog.Debug($"KMH: registered missing WorldComponent {t.Name}.");
             }
-            catch (Exception ex) { KmhLog.Warn($"KMH: could not add {typeof(T).Name}: {ex.Message}"); }
+            catch (Exception ex) { KmhLog.Warn($"KMH: could not add {t.Name}: {ex.Message}"); }
         }
     }
 }

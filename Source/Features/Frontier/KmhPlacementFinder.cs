@@ -16,7 +16,8 @@ namespace KMHPatch.Features.Frontier
         public static bool TryFindCandidate(long nonce, ICollection<int> exclude, out int tile, out string why)
         {
             tile = -1; why = null;
-            WorldGrid grid = Find.WorldGrid;
+            // Find.WorldGrid itself throws with no world loaded, which is where a question can land between games.
+            WorldGrid grid = Current.ProgramState == ProgramState.Playing ? Find.World?.grid : null;
             if (grid == null) { why = "no world"; return false; }
 
             int count = grid.TilesCount;

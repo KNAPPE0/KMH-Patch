@@ -17,12 +17,13 @@ namespace KMHPatch.Diagnostics
         private static long _sessionBytes;
 
         private static readonly object _lock = new object();
+        private static volatile Features.Reports.KmhReportDiagnostics.Redactor _redact;
         private static readonly Queue<string> _queue = new Queue<string>();
         private static DateTime _nextFlushUtc = DateTime.MinValue;
         private static long     _sequence;   // lets the server spot a missing or out-of-order batch
         private static int  _dropped;
         private static bool _forcedDebug;
-        private static bool _sending;   // re-entry guard: our own sends log via KmhLog
+        private static bool _sending;   // re-entry guard: Send itself logs via KmhLog
 
         // A request only, never a grant.
         public static bool ServerRequested { get; set; }
@@ -32,7 +33,6 @@ namespace KMHPatch.Diagnostics
 
         private static bool _prompted;
 
-        // The three-way choice was written by the settings screens and read by nobody, so "Never" still got asked.
         private static int Mode
             => KMHPatchMod.Settings?.LogSharingMode ?? KMHPatchSettings.LogShareAsk;
 
@@ -58,7 +58,7 @@ namespace KMHPatch.Diagnostics
             KmhLog.Info("Debug uplink: declined for this server.");
         }
 
-        // The immediate stop from Advanced & tools. Also clears the standing opt-in, or the next pump would restart it.
+        // Also clears the standing opt-in, or the next pump would restart sharing.
         public static void StopSharing()
         {
             SessionConsent = false;
@@ -77,14 +77,17 @@ namespace KMHPatch.Diagnostics
             ServerRequested = false;
             SessionConsent  = false;
             _prompted       = false;
+            _redact         = null;   // rebuilt on first use, so a token stored since is covered too
             lock (_lock) { _queue.Clear(); _dropped = 0; _sequence = 0; _sessionBytes = 0; }
         }
 
         public static void Enqueue(string formattedLine)
         {
             if (_sending || !Active || string.IsNullOrEmpty(formattedLine)) return;
+            // The same scrub a report gets: the profile folder (the Windows user name) and any stored token never ship.
+            Features.Reports.KmhReportDiagnostics.Redactor redact = _redact ?? (_redact = Features.Reports.KmhReportDiagnostics.Redactor.ForThisMachine());
             // Bytes, because the caps are about what goes on the wire and one emoji is four of them.
-            string line = TrimToBytes(formattedLine, MaxLineBytes);
+            string line = TrimToBytes(redact.Apply(formattedLine), MaxLineBytes);
             lock (_lock)
             {
                 if (_sessionBytes >= MaxSessionBytes) { _dropped++; return; }
@@ -102,10 +105,11 @@ namespace KMHPatch.Diagnostics
         {
             if (Utf8Bytes(s) <= maxBytes) return s;
             int lo = 0, hi = s.Length;
+            char[] chars = s.ToCharArray();
             while (lo < hi)
             {
                 int mid = (lo + hi + 1) / 2;
-                if (System.Text.Encoding.UTF8.GetByteCount(s.ToCharArray(), 0, mid) <= maxBytes) lo = mid; else hi = mid - 1;
+                if (System.Text.Encoding.UTF8.GetByteCount(chars, 0, mid) <= maxBytes) lo = mid; else hi = mid - 1;
             }
             if (lo > 0 && char.IsHighSurrogate(s[lo - 1])) lo--;
             return s.Substring(0, lo) + "…";
@@ -115,7 +119,7 @@ namespace KMHPatch.Diagnostics
         {
             bool active = Active;
 
-            // Force verbose logging on while active so "everything we log" actually exists to send.
+            // Sharing needs the debug lines to exist, so verbose logging is forced on while active.
             if (active && !KmhLog.DebugEnabled) { KmhLog.DebugEnabled = true; _forcedDebug = true; }
             else if (!active && _forcedDebug)
             {

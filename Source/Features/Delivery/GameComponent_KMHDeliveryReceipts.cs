@@ -4,7 +4,7 @@ using Verse;
 
 namespace KMHPatch.Features.Delivery
 {
-    // A re-sent grant is only safe to ignore if the proof of holding it survives a reload, so the ack waits for the scribe rather than the socket.
+    // A re-sent grant is safe to ignore only if proof of holding it survives a reload, so the ack waits for the save.
     public class GameComponent_KMHDeliveryReceipts : GameComponent
     {
         private const int MaxReceipts = 512;
@@ -43,13 +43,13 @@ namespace KMHPatch.Features.Delivery
             if (!string.IsNullOrEmpty(deliveryId)) _thisSession.Add(deliveryId);
         }
 
-        // Instance is null until the Game exists, which is exactly when a replayed grant arrives; asked from the deferred delivery, not on arrival.
+        // Null until the Game exists, exactly when a replayed grant arrives, so ask from the deferred delivery.
         internal static bool HeldAlready(string deliveryId) => Instance?.AlreadyHeld(deliveryId) ?? false;
 
         // Only a delivery that actually landed: the colony now holds the goods, and the save captures that.
         internal static void RecordDelivered(string deliveryId) => Instance?.Record(deliveryId);
 
-        // Only ids the save actually holds are acked: a session-only one would let a crash discharge a delivery the reloaded game has no record of.
+        // Only saved ids are acked: acking a session-only one lets a crash discharge a delivery the reload never had.
         public override void GameComponentUpdate()
         {
             if (!_rescanNeeded || _durable.Count == 0 || !KmhDispatcher.IsKmhServer) return;
@@ -62,7 +62,7 @@ namespace KMHPatch.Features.Delivery
             _unacked.Clear();
         }
 
-        // Only the per-session ack bookkeeping resets, so the next server's owed list gets acknowledged again and nothing is dropped.
+        // Only per-session ack bookkeeping resets, so the next server's owed list is acknowledged again and nothing drops.
         internal void ForgetAcksForNewSession() { _acked.Clear(); _rescanNeeded = true; }
     }
 }

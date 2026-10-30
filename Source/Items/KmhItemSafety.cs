@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -8,19 +8,27 @@ namespace KMHPatch.Items
     // Blocks by default: an item is allowed only once full round-trip support is proven, never assumed.
     internal static class KmhItemSafety
     {
+        public static bool IsMinifiedDef(ThingDef def)
+            => def != null && typeof(MinifiedThing).IsAssignableFrom(def.thingClass);
+
+        // def+count rebuilds an empty crate, so a minified building may travel only via the deep-serialized instance path.
         public static KmhItemDecision EvaluateDef(ThingDef def)
         {
             if (def == null) return KmhItemDecision.Block(KmhItemReasonCode.MissingDef, "unknown item (def not loaded)");
             if (def.category != ThingCategory.Item) return KmhItemDecision.Block(KmhItemReasonCode.NotAnItem, "not a carryable item");
-            if (def.IsCorpse) return KmhItemDecision.Block(KmhItemReasonCode.Corpse, "corpses aren't supported by KMH yet (rot/pawn data can't be restored safely)");
-            if (typeof(MinifiedThing).IsAssignableFrom(def.thingClass))
-                return KmhItemDecision.Block(KmhItemReasonCode.Minified, "minified objects aren't supported yet (KMH can't safely preserve the inner item)");
+            if (def.IsCorpse) return KmhItemDecision.Block(KmhItemReasonCode.Corpse, "corpses aren't supported by Colony Nexus yet (rot/pawn data can't be restored safely)");
+            if (IsMinifiedDef(def))
+                return KmhItemDecision.Block(KmhItemReasonCode.Minified, "a minified building can only be moved as a whole item, not by name");
             if (typeof(Pawn).IsAssignableFrom(def.thingClass))
                 return KmhItemDecision.Block(KmhItemReasonCode.Pawn, "pawns/animals go through dedicated transfer, not item storage");
             if (string.IsNullOrEmpty(def.label) && string.IsNullOrEmpty(def.defName))
                 return KmhItemDecision.Block(KmhItemReasonCode.NoLabel, "item has no label");
             return KmhItemDecision.Allow(iconFallback: IconMissing(def));
         }
+
+        // Capture refuses non-items, so a pawn, building or corpse delivery came from a modified client.
+        internal static bool IsDeliverable(ThingDef def)
+            => def == null || (def.category == ThingCategory.Item && !def.IsCorpse && !typeof(Pawn).IsAssignableFrom(def.thingClass));
 
         // Everything EvaluateDef checks, plus the instance state a defName cannot show.
         public static KmhItemDecision Evaluate(Thing thing, KmhItemContext context)
@@ -29,9 +37,17 @@ namespace KMHPatch.Items
             if (thing.Destroyed) return KmhItemDecision.Block(KmhItemReasonCode.NullOrDestroyed, "item was already destroyed");
             if (thing.def == null || DefDatabase<ThingDef>.GetNamedSilentFail(thing.def.defName) == null)
                 return KmhItemDecision.Block(KmhItemReasonCode.MissingDef, "item has a missing/unloaded def");
-            if (thing is MinifiedThing) return KmhItemDecision.Block(KmhItemReasonCode.Minified, "minified objects aren't supported yet (inner item can't be preserved safely)");
             if (thing is Corpse) return KmhItemDecision.Block(KmhItemReasonCode.Corpse, "corpses aren't supported yet (rot/pawn data can't be restored safely)");
             if (thing is Pawn) return KmhItemDecision.Block(KmhItemReasonCode.Pawn, "pawns/animals go through dedicated transfer, not item storage");
+
+            // Rides the deep-scribe blob; capture refuses without it, as the metadata fallback would return an empty crate.
+            if (thing is MinifiedThing)
+            {
+                if (((MinifiedThing)thing).InnerThing == null)
+                    return KmhItemDecision.Block(KmhItemReasonCode.Minified, "this minified object has nothing inside it");
+                return KmhItemDecision.Allow(iconFallback: IconMissing(thing.def));
+            }
+
             KmhItemDecision defDecision = EvaluateDef(thing.def);
             if (!defDecision.Allowed) return defDecision;
             if (string.IsNullOrEmpty(SafeLabel(thing))) return KmhItemDecision.Block(KmhItemReasonCode.NoLabel, "item has no readable label");

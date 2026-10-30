@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Guilds.Dto
 {
-    // InGuild=false means Guild is null and the dialog renders the "not in a guild" state.
     public class GuildSnapshotEnvelope
     {
         // Server-stamped under its read lock; older revisions are dropped because transports reorder.
@@ -14,11 +13,9 @@ namespace KMHPatch.Features.Guilds.Dto
         [JsonProperty("guild")]
         public GuildSnapshot Guild { get; set; }
 
-        // Standing invites FOR this player (guildless users only) - lets the client offer accept/decline.
         [JsonProperty("my_invites")] public List<GuildInviteDto> MyInvites { get; set; } = new List<GuildInviteDto>();
     }
 
-    // One standing invite as the invitee sees it.
     public class GuildInviteDto
     {
         [JsonProperty("guild_name")]        public string GuildName       { get; set; } = "";
@@ -27,7 +24,6 @@ namespace KMHPatch.Features.Guilds.Dto
         [JsonProperty("members")]           public int    Members         { get; set; } = 0;
     }
 
-    // One row of the invite picker: a known, guildless player an officer can invite.
     public class InvitablePlayerDto
     {
         [JsonProperty("username")] public string Username { get; set; } = "";
@@ -45,7 +41,7 @@ namespace KMHPatch.Features.Guilds.Dto
         [JsonProperty("created_utc_ticks")] public long   CreatedUtcTicks { get; set; } = 0;
     }
 
-    // A guild's physical hall. null / HasHall=false = no hall (default + compat for pre-P8 guilds).
+    // null or HasHall=false means no hall, which is also how guilds created before halls arrive.
     public class GuildHallDto
     {
         [JsonProperty("has_hall")]          public bool   HasHall         { get; set; } = false;
@@ -65,15 +61,20 @@ namespace KMHPatch.Features.Guilds.Dto
 
         [JsonProperty("perks")]     public GuildPerksDto    Perks    { get; set; } = new GuildPerksDto();
         [JsonProperty("settings")]  public GuildSettingsDto Settings { get; set; } = new GuildSettingsDto();
-        [JsonProperty("guild_silver")]           public long GuildSilver { get; set; } = 0;   // silver-only guild vault balance
+        [JsonProperty("guild_silver")]           public long GuildSilver { get; set; } = 0;
         [JsonProperty("guild_treasury_enabled")] public bool GuildTreasuryEnabled { get; set; } = true;
+        // The vault's goods: compact stacks by item key, and full-state stacks shown without their saved state.
+        [JsonProperty("guild_items")]    public Dictionary<string, int> GuildItems { get; set; } = new Dictionary<string, int>();
+        [JsonProperty("guild_payloads")] public List<KMHPatch.Items.KmhThingPayload> GuildPayloads { get; set; } = new List<KMHPatch.Items.KmhThingPayload>();
         // Donations awaiting a donor's save-confirm - shown in the Hall but never spendable (excluded from guild_silver).
         [JsonProperty("pending_donations_silver")] public long PendingDonationsSilver { get; set; } = 0;
 
-        // Other guild name -> relationship value. Values are constants below.
         [JsonProperty("relationships")]
         public Dictionary<string, string> Relationships
             { get; set; } = new Dictionary<string, string>();
+
+        // Guilds that proposed an alliance to this one and wait for an answer; absent from an older server.
+        [JsonProperty("incoming_proposals")] public List<string> IncomingProposals { get; set; } = new List<string>();
 
         [JsonProperty("open_join")]       public bool OpenJoin { get; set; } = false;
         [JsonProperty("pending_invites")] public List<string> PendingInvites { get; set; } = new List<string>();
@@ -82,7 +83,6 @@ namespace KMHPatch.Features.Guilds.Dto
         [JsonProperty("invite_meta")]     public Dictionary<string, GuildInviteMetaDto> InviteMeta { get; set; }
             = new Dictionary<string, GuildInviteMetaDto>(System.StringComparer.OrdinalIgnoreCase);
 
-        // Optional physical Guild Hall. null = no hall.
         [JsonProperty("hall")]            public GuildHallDto Hall { get; set; }
 
         // Strings rather than an enum, so a rename cannot silently change the wire value.
@@ -94,7 +94,6 @@ namespace KMHPatch.Features.Guilds.Dto
 
     public class GuildMemberDto
     {
-        // Ranks as snake_case strings on the wire.
         public const string RankMember    = "member";
         public const string RankModerator = "moderator";
         public const string RankOfficer   = "officer";
@@ -114,7 +113,6 @@ namespace KMHPatch.Features.Guilds.Dto
 
     public class GuildPerksDto
     {
-        // Per-perk max level cap.
         public const int MaxLevel = 3;
 
         [JsonProperty("site_max_workers_bonus_level")]    public int SiteMaxWorkersBonusLevel    { get; set; } = 0;

@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.PlayerStats.Dto
 {
-    // GOOD LUCK LOL!
     public class ColonyReport
     {
         [JsonProperty("save_id")]           public string SaveId          { get; set; } = "";
@@ -28,7 +27,7 @@ namespace KMHPatch.Features.PlayerStats.Dto
         [JsonProperty("settlements")]       public List<SettlementReport> Settlements { get; set; } = new List<SettlementReport>();
     }
 
-    // Breakdown of the single Wealth figure above; the sum of these is that figure, so a reader can see where it sits.
+    // Breakdown of ColonyReport.Wealth: these sum to it.
     public class SettlementReport
     {
         [JsonProperty("name")]       public string Name       { get; set; } = "";
@@ -39,12 +38,23 @@ namespace KMHPatch.Features.PlayerStats.Dto
     public class ColonistRosterSnapshot
     {
         [JsonProperty("colonists")] public List<ColonistEntry> Colonists { get; set; } = new List<ColonistEntry>();
+        // Absent from older servers, which reads as an empty memorial.
+        [JsonProperty("fallen")]    public List<FallenColonistEntry> Fallen { get; set; } = new List<FallenColonistEntry>();
+    }
+
+    public class FallenColonistEntry
+    {
+        [JsonProperty("colonist")]       public ColonistEntry Colonist { get; set; } = new ColonistEntry();
+        [JsonProperty("colony_day")]     public int  ColonyDay    { get; set; } = 0;
+        [JsonProperty("died_utc_ticks")] public long DiedUtcTicks { get; set; } = 0;
     }
 
     public class ColonistEntry
     {
         [JsonProperty("owner")]   public string Owner  { get; set; } = "";
         [JsonProperty("colony")]  public string Colony { get; set; } = "";
+        // The pawn's ThingID: the same colonist after a rename, and two colonists who share a nickname stay two.
+        [JsonProperty("id")]      public string Id     { get; set; } = "";
         [JsonProperty("name")]    public string Name   { get; set; } = "";
         [JsonProperty("title")]   public string Title  { get; set; } = "";
         [JsonProperty("age")]     public int    Age    { get; set; } = 0;

@@ -3,7 +3,7 @@ using KMHPatch.Features.Roadworks.Dto;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Committed but unspent road silver returns on cancel, so it counts; spent silver bought road that exists and is deliberately excluded.
+    // Unspent road silver returns on cancel, so it counts; spent silver bought real road and is excluded.
     internal sealed class RoadworksWealthSource : IKmhWealthSource
     {
         public string Name => "Roadworks";

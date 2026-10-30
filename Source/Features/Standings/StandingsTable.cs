@@ -15,10 +15,9 @@ namespace KMHPatch.Features.Standings
         public Col(string header, float frac, Func<T, string> cell) { Header = header; Frac = frac; Cell = cell; }
     }
 
-    // Shared renderers so every board (player/guild/records/…) looks and virtualizes the same way.
     internal static class StandingsTable
     {
-        public const string Dash = "<color=grey>—</color>";
+        public const string Dash = "<color=#A9AFB9>—</color>";
 
         private const float TabH = 26f, TabGap = 4f;
 
@@ -58,10 +57,7 @@ namespace KMHPatch.Features.Standings
                 float w = TabW(labels[i], row.width);
                 if (x > 0f && x + w > row.width) { x = 0f; y += TabH + TabGap; }
 
-                Color old = GUI.color;
-                if (i == active) GUI.color = new Color(0.45f, 0.75f, 1f);
-                if (Widgets.ButtonText(new Rect(row.x + x, y, w, TabH), labels[i])) { if (active != i) { active = i; changed = true; } }
-                GUI.color = old;
+                if (KmhBrand.Tab(new Rect(row.x + x, y, w, TabH), labels[i], i == active) && active != i) { active = i; changed = true; }
                 x += w + TabGap;
             }
             return changed;
@@ -82,9 +78,22 @@ namespace KMHPatch.Features.Standings
             }
         }
 
-        // Ranked, virtualized table. isMe highlights the caller's row; onInfo (when set) adds a right-edge Info button.
+        // Mirrors the server: ties share a rank (1, 2, 2, 4) and <= 0 never ranks; lower-is-better boards pass -value.
+        public static int[] Ranks<T>(IReadOnlyList<T> rows, Func<T, long> value)
+        {
+            int[] ranks = new int[rows.Count];
+            for (int i = 0; i < rows.Count; i++)
+            {
+                long v = value(rows[i]);
+                if (v <= 0) continue;
+                ranks[i] = i > 0 && ranks[i - 1] > 0 && value(rows[i - 1]) == v ? ranks[i - 1] : i + 1;
+            }
+            return ranks;
+        }
+
+        // ranks replaces the row number, so ties share a place and an empty row ranks nobody.
         public static void Draw<T>(Rect box, List<T> rows, Col<T>[] cols, ref Vector2 scroll,
-                                   Func<T, bool> isMe, Action<T> onInfo)
+                                   Func<T, bool> isMe, Action<T> onInfo, int[] ranks = null, Func<T, bool> isSelected = null, string empty = null)
         {
             Rect inner = box.ContractedBy(DialogLayout.ListInnerPad);
             const float rowH = DialogLayout.RowHeightSingle;
@@ -94,6 +103,7 @@ namespace KMHPatch.Features.Standings
             Rect  viewRect = new Rect(0f, 0f, inner.width - DialogLayout.ScrollbarReserveWidth, viewH);
             float[] e      = Edges(cols, viewRect.width, hasInfo);
             float infoX    = viewRect.width - (hasInfo ? InfoW : 0f);
+            string info    = KmhText.Get("KMH_St_Info", "Info");
 
             Widgets.BeginScrollView(inner, ref scroll, viewRect);
             DialogLayout.VisibleRange(scroll, inner.height, rowH, rows.Count, out int first, out int last);
@@ -103,19 +113,26 @@ namespace KMHPatch.Features.Standings
                 float ly = i * rowH;
                 Rect r = new Rect(0f, ly, viewRect.width, rowH);
                 if (i % 2 == 0) Widgets.DrawAltRect(r);
+                if (isSelected != null && isSelected(row))
+                {
+                    Widgets.DrawBoxSolid(r, KmhBrand.WithAlpha(KmhBrand.Accent, 0.12f));
+                    Widgets.DrawBoxSolid(new Rect(r.x, r.y, 3f, r.height), KmhBrand.Accent);
+                }
                 Widgets.DrawHighlightIfMouseover(r);
 
-                string rank = i < 3 ? $"<color=yellow>#{i + 1}</color>" : $"<color=grey>#{i + 1}</color>";
-                string star = (isMe != null && isMe(row)) ? "<color=#80ff80>★</color> " : "";
+                int place = ranks == null ? i + 1 : i < ranks.Length ? ranks[i] : 0;
+                string rank = place <= 0 ? Dash : place <= 3 ? $"<color=yellow>#{place}</color>" : $"<color=#A9AFB9>#{place}</color>";
+                string star = (isMe != null && isMe(row)) ? "<color=#4cc38a>★</color> " : "";
                 DialogLayout.LabelTrunc(new Rect(e[0], ly + 2f, e[1] - e[0] - 4f, rowH - 4f), $"{rank}  {star}<b>{cols[0].Cell(row)}</b>");
                 for (int c = 1; c < cols.Length; c++)
                     DialogLayout.DrawCenteredLabel(new Rect(e[c], ly + 2f, e[c + 1] - e[c], rowH - 4f), cols[c].Cell(row));
 
-                if (hasInfo && Widgets.ButtonText(new Rect(infoX + 4f, ly + 3f, InfoW - 8f, rowH - 6f), "Info"))
+                if (hasInfo && (KmhBrand.Button(new Rect(infoX + 4f, ly + 3f, InfoW - 8f, rowH - 6f), info, false)
+                                || Widgets.ButtonInvisible(new Rect(0f, ly, infoX, rowH))))
                     onInfo(row);
             }
             if (rows.Count == 0)
-                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f), "<color=grey>No entries yet.</color>");
+                DialogLayout.LabelTrunc(new Rect(6f, 6f, viewRect.width, 20f), $"<color=#A9AFB9>{empty ?? KmhText.Get("KMH_St_NoEntries", "No entries yet.")}</color>");
             Widgets.EndScrollView();
         }
 
@@ -128,7 +145,7 @@ namespace KMHPatch.Features.Standings
             float[] e = new float[cols.Length + 1];
             for (int i = 0; i < cols.Length; i++) e[i] = cols[i].Frac * right;
             e[cols.Length] = right;
-            // guard monotonicity so a too-wide last data column never overruns the Info button
+            // Kept monotonic so a too-wide last data column never overruns the Info button.
             for (int i = cols.Length - 1; i >= 0; i--) if (e[i] > e[i + 1]) e[i] = e[i + 1];
             if (e[0] < 10f) e[0] = 10f;
             return e;

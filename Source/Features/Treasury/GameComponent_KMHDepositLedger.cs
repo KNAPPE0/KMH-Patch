@@ -16,19 +16,30 @@ namespace KMHPatch.Features.Treasury
         private List<string> _durable = new List<string>();
         private readonly HashSet<string> _sessionAdded = new HashSet<string>();
 
-        // Trims the wire, not the history: three hooks observe one save and each used to resend all 256 entries.
+        // Trims the wire, not the history: three hooks observe one save and would each resend all 256 entries.
         private readonly List<string> _newlyDurable = new List<string>();
         private long _confirmedEpoch = -1;
 
-        private bool     _saveArmed;              // ExposeData(Saving) ran; confirm on the next update (post-write)
+        private bool     _saveArmed;
         private bool     _reconciledThisSession;
         private DateTime _lastHeartbeatUtc = DateTime.MinValue;
         private int      _lastSeenPending  = -1;
 
+        // Past the server's 120 s ReconcileGraceSeconds, so a deposit made just before a drop gets reconciled again.
+        internal const double ReconcileAgainSeconds = 150.0;
+        private DateTime _lastReconcileUtc = DateTime.MinValue;
+        internal int ReconcilesForTest { get; private set; }
+
         // Scribed with the goods-removal it commits, so the server can spot a save-scum and reverse later deposits.
         private long     _epoch;
 
-        public GameComponent_KMHDepositLedger(Game game) { }
+        // The colony _epoch counts saves of; a save from before ledger ids gets one at its next save.
+        private string   _ledgerId;
+
+        public GameComponent_KMHDepositLedger(Game game) { _ledgerId = NewLedgerId(); }
+
+        internal static string NewLedgerId() => Guid.NewGuid().ToString("N");
+        internal string LedgerId => _ledgerId ?? "";
 
         public static GameComponent_KMHDepositLedger Instance => Current.Game?.GetComponent<GameComponent_KMHDepositLedger>();
 
@@ -46,8 +57,10 @@ namespace KMHPatch.Features.Treasury
             }
             // Bump BEFORE scribing, so the written value is this save's generation and older saves load a lower one.
             if (Scribe.mode == LoadSaveMode.Saving) _epoch++;
+            if (Scribe.mode == LoadSaveMode.Saving && string.IsNullOrEmpty(_ledgerId)) _ledgerId = NewLedgerId();
             Scribe_Collections.Look(ref _durable, "kmhDepositLedger", LookMode.Value);
             Scribe_Values.Look(ref _epoch, "kmhDepositEpoch", 0L);
+            Scribe_Values.Look(ref _ledgerId, "kmhDepositLedgerId");
             if (_durable == null) _durable = new List<string>();
             // Armed, not confirmed: a save that never finishes must not confirm, so that waits for the post-write hook.
             if (Scribe.mode == LoadSaveMode.Saving) { _sessionAdded.Clear(); _saveArmed = true; }
@@ -60,10 +73,9 @@ namespace KMHPatch.Features.Treasury
             KmhLog.Debug($"[KMH Treasury] Deposit pending until save txn={txnId}");
         }
 
-        // Called by every save hook we can catch (SaveGame postfix, Autosaver postfix, the post-write _saveArmed flush).
         public void NotifySaved(string source)
         {
-            // One logical confirmation per save generation, whichever hook notices first.
+            // Several save hooks fire per save; confirm once per save generation, whichever notices first.
             if (_epoch == _confirmedEpoch)
             {
                 KmhLog.Debug($"[KMH Treasury] Save detected (source={source}); generation {_epoch} already confirmed - not resending.");
@@ -90,14 +102,13 @@ namespace KMHPatch.Features.Treasury
             _newlyDurable.Clear();
         }
 
-        // A fresh treasury snapshot still showing pending we've saved -> re-confirm right away, don't wait for the tick.
         public void OnSnapshotApplied() => SelfHeal("snapshot");
 
         public override void GameComponentUpdate()
         {
             if (!KmhDispatcher.IsKmhServer) { _reconciledThisSession = false; return; }
 
-            if (!_reconciledThisSession) { _reconciledThisSession = true; SendReconcile(); }
+            if (!_reconciledThisSession) { _reconciledThisSession = true; SendReconcile(DateTime.UtcNow); }
 
             if (_saveArmed) { _saveArmed = false; NotifySaved("scribe-post"); }
 
@@ -109,10 +120,11 @@ namespace KMHPatch.Features.Treasury
             }
         }
 
+        private void SelfHeal(string source) => SelfHeal(source, TreasuryCache.HasSnapshot ? TreasuryCache.Snapshot?.PendingDeposits : null, DateTime.UtcNow);
+
         // Rollback-safe by construction: it only ever re-confirms txns already in the durable set.
-        private void SelfHeal(string source)
+        internal void SelfHeal(string source, List<PendingDeposit> pending, DateTime now)
         {
-            List<PendingDeposit> pending = TreasuryCache.HasSnapshot ? TreasuryCache.Snapshot?.PendingDeposits : null;
             int count = pending?.Count ?? 0;
 
             if (count != _lastSeenPending)
@@ -132,22 +144,39 @@ namespace KMHPatch.Features.Treasury
                     RecordDeposit(p.TxnId);
             }
 
+            // Pending there but neither saved nor made here: this game loaded an older save, so the server returns it.
+            if (HasUnknownPending(pending, _durable, _sessionAdded) && (now - _lastReconcileUtc).TotalSeconds >= ReconcileAgainSeconds)
+            {
+                KmhLog.Debug($"[KMH Treasury] A deposit pending on the server is not in this game; reconciling again ({source}).");
+                SendReconcile(now);
+            }
+
             if (confirmable.Count == 0)
             {
                 KmhLog.Debug($"[KMH Treasury] {count} deposit(s) pending on server, none durably saved locally yet - save to finalize (self-heal={source}).");
                 return;
             }
             KmhLog.Debug($"[KMH Treasury] Self-heal ({source}): {count} pending on server, re-confirming {confirmable.Count} durably-saved.");
-            SendConfirm(confirmable, $"self-heal:{source}");   // server pushes a fresh snapshot when it commits (committed>0)
+            SendConfirm(confirmable, $"self-heal:{source}");
         }
 
-        private void SendReconcile()
+        internal static bool HasUnknownPending(IEnumerable<PendingDeposit> pending, ICollection<string> durable, ICollection<string> sessionAdded)
         {
+            if (pending == null) return false;
+            foreach (PendingDeposit p in pending)
+                if (p != null && !string.IsNullOrEmpty(p.TxnId) && !durable.Contains(p.TxnId) && !sessionAdded.Contains(p.TxnId)) return true;
+            return false;
+        }
+
+        private void SendReconcile(DateTime now)
+        {
+            _lastReconcileUtc = now;
+            ReconcilesForTest++;
             try
             {
                 // Goods already gone but unsaved: sending them stops a racing reconnect reverting a real deposit.
                 var unsaved = new List<string>(_sessionAdded);
-                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable, pending = unsaved, epoch = _epoch });
+                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositReconcile, new { committed = _durable, pending = unsaved, epoch = _epoch, ledger = LedgerId });
                 KmhLog.Debug($"[KMH Treasury] Session reconcile of {_durable.Count} durable + {unsaved.Count} unsaved txn(s) at gen {_epoch}: {(ok ? "sent" : "FAILED to send")}.");
             }
             catch (Exception ex) { KmhLog.Warn($"Deposit reconcile send threw: {ex.Message}"); }
@@ -158,7 +187,7 @@ namespace KMHPatch.Features.Treasury
             if (ids == null || ids.Count == 0) { KmhLog.Debug($"[KMH Treasury] Confirm skipped ({source}): no durable txns."); return false; }
             try
             {
-                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositConfirm, new { txn_ids = ids, epoch = _epoch });
+                bool ok = KmhDispatcher.Send(KmhProtocol.Kind.TreasuryDepositConfirm, new { txn_ids = ids, epoch = _epoch, ledger = LedgerId });
                 KmhLog.Debug($"[KMH Treasury] Finalize confirm for {ids.Count} deposit txn(s) at gen {_epoch} ({source}): {(ok ? "sent" : "FAILED to send")}.");
                 return ok;
             }

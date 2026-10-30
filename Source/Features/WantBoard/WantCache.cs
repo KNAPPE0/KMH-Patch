@@ -3,7 +3,6 @@ using KMHPatch.Features.WantBoard.Dto;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // Client cache for the latest want-board snapshot. Pushed on handshake, on every change, and on the dialog's auto-refresh tick.
     public static class WantCache
     {
         public static WantSnapshot Snapshot       { get; private set; }
@@ -14,7 +13,7 @@ namespace KMHPatch.Features.WantBoard
 
         internal static void Apply(WantSnapshot snapshot)
         {
-            // Two transports can deliver out of order; Clear() on disconnect is what lets a new server's lower revision still apply.
+            // Two transports can deliver out of order; Clear() on disconnect lets a new server's lower revision still apply.
             if (snapshot == null) return;
             if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
             Snapshot       = snapshot;

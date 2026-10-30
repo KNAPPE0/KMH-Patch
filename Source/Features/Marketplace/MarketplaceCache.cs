@@ -3,7 +3,6 @@ using KMHPatch.Features.Marketplace.Dto;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // client cache for the latest marketplace snapshot
     public static class MarketplaceCache
     {
         public static MarketplaceSnapshot Snapshot       { get; private set; }

@@ -12,10 +12,11 @@ Releases/
 # Manual source-zip backups at repo root (e.g. "Source Patch 3.zip") — snapshots, not tracked source.
 /*.zip
 
-# Keep the repo-root mod DLLs so the clone is install-ready (root only,
-# so example/template build output below stays untracked).
-!/1.6/Assemblies/*.dll
-!/1.6/Assemblies/*.pdb
+# Built assemblies ship in the release zip; tracked, they once published the build machine's paths.
+/1.6/Assemblies/*.dll
+/1.6/Assemblies/*.xml
+/1.6/Assemblies/*.pdb
+/1.6/KMHLib/
 
 # Example extension build output - users build it themselves.
 Templates/ClientExtension/1.6/Assemblies/

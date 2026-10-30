@@ -4,16 +4,16 @@ namespace KMHPatch.Items
     internal enum KmhItemReasonCode
     {
         Ok = 0,
-        NullOrDestroyed,   // no live thing / already destroyed
-        MissingDef,        // def unloaded or not in the DefDatabase
-        NotAnItem,         // category isn't a carryable item
-        Minified,          // MinifiedThing wrapper (inner item can't be preserved yet)
-        Corpse,            // corpse (rot/pawn data not restorable yet)
-        Pawn,              // pawn/animal (dedicated transfer, not item storage)
-        NoLabel,           // no readable label
-        BadStack,          // invalid stack count
-        UnsupportedComp,   // carries comp/data KMH would drop on restore
-        ConfigBlocked,     // blocked by server/owner config
-        Unknown,           // couldn't be classified - blocked by default
+        NullOrDestroyed,
+        MissingDef,
+        NotAnItem,
+        Minified,
+        Corpse,            // rot and pawn data cannot be restored
+        Pawn,              // pawns use a dedicated transfer, not item storage
+        NoLabel,
+        BadStack,
+        UnsupportedComp,   // carries comp data KMH would drop on restore
+        ConfigBlocked,
+        Unknown,           // unclassifiable, so blocked by default
     }
 }

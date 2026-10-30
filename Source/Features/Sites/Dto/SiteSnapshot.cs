@@ -84,7 +84,7 @@ namespace KMHPatch.Features.Sites.Dto
         public const string ArchetypeQuarry    = "quarry";
         public const string ArchetypeWoodland  = "woodland";
         public const string ArchetypeRoadworks = "roadworks";
-        // Additive in v1.3.0: a site saved by an older build simply never carries it.
+        // Additive: a site saved by an older build never carries it.
         public const string ArchetypeRanch     = "ranch";
 
         [JsonProperty("tile")]              public int    Tile             { get; set; } = -1;
@@ -95,28 +95,21 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("owner_kind")]        public string OwnerKind       { get; set; } = OwnerPlayer;
         // Authoritative for owner_kind == guild. Never taken from a client; the server derives it.
         [JsonProperty("controlling_guild")] public string ControllingGuild { get; set; } = "";
-        // Optional system/neutral controller identity, so hostile locations are not all one generic owner.
         [JsonProperty("controller_faction")] public string ControllerFaction { get; set; } = "";
         // Presentation only. Never determines permission.
         [JsonProperty("site_name")]         public string SiteName        { get; set; } = "";
 
-        // Frontier Operations, layered over Archetype; blank = an ordinary Site, which keeps existing data untouched.
+        // Blank = an ordinary Site, so existing data stays untouched.
         [JsonProperty("outpost_template")]  public string OutpostTemplate { get; set; } = TemplateNone;
-        // Where it sits in the outpost lifecycle. Blank = not an outpost.
         [JsonProperty("outpost_state")]     public string OutpostState    { get; set; } = OutpostNone;
         [JsonProperty("established_utc")]   public long   EstablishedUtcTicks { get; set; } = 0;
-        // When a claim window closes. 0 = not claimable.
         [JsonProperty("claim_window_ends_utc")] public long ClaimWindowEndsUtcTicks { get; set; } = 0;
-        // The operation that established or resolved this location, for history.
         [JsonProperty("origin_operation_id")] public long OriginOperationId { get; set; } = 0;
-        // Who took it, kept so captured infrastructure does not read like something built from scratch.
         [JsonProperty("captured_by")]       public string CapturedBy    { get; set; } = "";
         // Kept here because the operation that decided it is pruned long before the claim window closes.
         [JsonProperty("claim_eligible_username")] public string ClaimEligibleUsername { get; set; } = "";
         // Caller-scoped: whether THIS caller may claim it right now. Decided by the server, always.
         [JsonProperty("can_claim")]         public bool   CanClaim      { get; set; } = false;
-
-
 
         // Defaults match the server's, so an older snapshot that omits these reads as healthy and unbuilt, not damaged.
         [JsonProperty("archetype")]         public string Archetype       { get; set; } = "";
@@ -186,12 +179,15 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("base_skill_level")] public int    BaseSkillLevel  { get; set; } = 0;
         [JsonProperty("destination")]      public string Destination     { get; set; } = SiteEntry.DestTreasury;
 
-        // The colonist doing the work (advisory; empty = legacy account-level worker).
+        // Empty on a snapshot from an older server, where the key itself was the account.
+        [JsonProperty("username")]          public string Username          { get; set; } = "";
+
+        // Advisory; empty = a legacy account-level worker.
         [JsonProperty("pawn_name")]         public string PawnName          { get; set; } = "";
         [JsonProperty("pawn_load_id")]      public int    PawnLoadId        { get; set; } = -1;
         [JsonProperty("last_validated_utc")] public long  LastValidatedUtc  { get; set; } = 0;
 
-        // Legacy = old account worker, disabled until a real pawn is assigned; BlockedReason explains any block.
+        // A legacy account worker stays disabled until a real pawn is assigned.
         [JsonProperty("legacy")]            public bool   Legacy            { get; set; } = false;
         [JsonProperty("blocked_reason")]    public string BlockedReason     { get; set; } = "";
 
@@ -213,7 +209,7 @@ namespace KMHPatch.Features.Sites.Dto
             }
         }
 
-        // What the player is shown: their pawn's skill, or their earned level once it overtakes it.
+        // Display only; real work counts EarnedLevel alone.
         [JsonIgnore] public int CurrentLevel => Math.Max(BaseSkillLevel, EarnedLevel);
     }
 }

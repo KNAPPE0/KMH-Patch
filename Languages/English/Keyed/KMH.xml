@@ -1,0 +1,2322 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Keys are KMH_<Area>_<Thing>. English is also the fallback compiled into the call site, so this file and the
+       code must agree; the contract check fails the build if a key used in code is missing here. -->
+
+  <!-- Server history / browser -->
+  <KMH_Servers_Title>Colony Nexus servers</KMH_Servers_Title>
+  <KMH_Servers_Subtitle>Servers you have connected to. Versions are from the last time you joined.</KMH_Servers_Subtitle>
+  <KMH_Servers_Empty>No Colony Nexus servers seen yet. Connect to one and it will show up here.</KMH_Servers_Empty>
+  <KMH_Servers_Forget>Forget</KMH_Servers_Forget>
+  <KMH_Common_Close>Close</KMH_Common_Close>
+
+  <!-- Main menu -->
+  <KMH_Menu_About>About</KMH_Menu_About>
+  <KMH_Menu_Friends>Friends</KMH_Menu_Friends>
+  <KMH_Menu_FriendsTip>Add friends with a code, see who is online and answer requests.</KMH_Menu_FriendsTip>
+  <KMH_Menu_GlobalChat>Global Chat</KMH_Menu_GlobalChat>
+  <KMH_Menu_GlobalChatTip>Talk with players on every Colony Nexus server without joining one. Needs a linked Colony Nexus account.</KMH_Menu_GlobalChatTip>
+  <KMH_Menu_Account>Account</KMH_Menu_Account>
+
+  <!-- Server browser -->
+  <KMH_Browser_Title>Colony Nexus Server Browser</KMH_Browser_Title>
+  <KMH_Browser_TitleUnofficial>Unofficial directory: {0}</KMH_Browser_TitleUnofficial>
+  <KMH_Browser_UnofficialTip>This list comes from an address set in Colony Nexus's mod settings, not from Colony Nexus Global. It cannot mark any server official.</KMH_Browser_UnofficialTip>
+  <KMH_Browser_OfficialTip>Marked official by Colony Nexus Global itself. A server cannot give itself this mark.</KMH_Browser_OfficialTip>
+  <KMH_Server_Unlisted>an unlisted server</KMH_Server_Unlisted>
+  <KMH_Server_UnlistedAt>unlisted server {0}</KMH_Server_UnlistedAt>
+  <KMH_Notice_StoredSource>Server notice</KMH_Notice_StoredSource>
+  <KMH_Browser_ServerOne>{0} server</KMH_Browser_ServerOne>
+  <KMH_Browser_ServerMany>{0} servers</KMH_Browser_ServerMany>
+  <KMH_Browser_PlayerOne>{0} player</KMH_Browser_PlayerOne>
+  <KMH_Browser_PlayerMany>{0} players</KMH_Browser_PlayerMany>
+  <KMH_DuplicateMod_Title>Colony Nexus is installed more than once</KMH_DuplicateMod_Title>
+  <KMH_DuplicateMod_Body>RimWorld found more than one copy of Colony Nexus and runs only one of them:</KMH_DuplicateMod_Body>
+  <KMH_DuplicateMod_Running>Running: {0}</KMH_DuplicateMod_Running>
+  <KMH_DuplicateMod_Ignored>Ignored: {0}</KMH_DuplicateMod_Ignored>
+  <KMH_DuplicateMod_Fix>Close RimWorld, delete the ignored copies and start it again. An old KMHPatch folder can go entirely: the mod now lives in the ColonyNexus folder, and your settings and account moved with it. A Steam Workshop copy is removed by unsubscribing.</KMH_DuplicateMod_Fix>
+  <KMH_Browser_CachedResults>Showing saved results</KMH_Browser_CachedResults>
+  <KMH_Browser_SearchHint>Search servers…</KMH_Browser_SearchHint>
+  <KMH_Browser_SelectAServer>Select a server to see its details.</KMH_Browser_SelectAServer>
+  <KMH_Browser_Join>Join</KMH_Browser_Join>
+
+  <KMH_Browser_Tab_All>All</KMH_Browser_Tab_All>
+  <KMH_Browser_Tab_Official>Official</KMH_Browser_Tab_Official>
+  <KMH_Browser_Tab_Favorites>Favourites</KMH_Browser_Tab_Favorites>
+  <KMH_Browser_Tab_Recent>Recent</KMH_Browser_Tab_Recent>
+  <KMH_Browser_Tab_Friends>Friends</KMH_Browser_Tab_Friends>
+  <KMH_Browser_Tab_Community>Community</KMH_Browser_Tab_Community>
+  <KMH_Browser_Tab_Test>Test</KMH_Browser_Tab_Test>
+
+  <KMH_Browser_Env_Official>Official</KMH_Browser_Env_Official>
+  <KMH_Browser_Env_Community>Community</KMH_Browser_Env_Community>
+  <KMH_Browser_Env_Test>Test</KMH_Browser_Env_Test>
+
+  <KMH_Browser_Section_About>About this server</KMH_Browser_Section_About>
+  <KMH_Browser_Section_Links>Links</KMH_Browser_Section_Links>
+  <KMH_Browser_Discord>Discord</KMH_Browser_Discord>
+  <KMH_Browser_Website>Website</KMH_Browser_Website>
+  <KMH_Browser_WebPage>Colony Nexus page</KMH_Browser_WebPage>
+  <KMH_Browser_Copy>Copy</KMH_Browser_Copy>
+  <KMH_Browser_Copied>Copied to clipboard.</KMH_Browser_Copied>
+  <KMH_Browser_Section_Overview>Overview</KMH_Browser_Section_Overview>
+  <KMH_Browser_Section_Compatibility>Compatibility</KMH_Browser_Section_Compatibility>
+  <KMH_Browser_Players>Players</KMH_Browser_Players>
+  <KMH_Browser_Status>Status</KMH_Browser_Status>
+  <KMH_Browser_Region>Region</KMH_Browser_Region>
+  <KMH_Browser_Languages>Languages</KMH_Browser_Languages>
+  <KMH_Browser_Protocol>Colony Nexus protocol</KMH_Browser_Protocol>
+  <KMH_Browser_Mods>Mods</KMH_Browser_Mods>
+
+  <KMH_Browser_Address>Address</KMH_Browser_Address>
+  <KMH_Browser_Address_None>not published</KMH_Browser_Address_None>
+  <KMH_Browser_YouHave>you have {0}</KMH_Browser_YouHave>
+  <KMH_Browser_Counts_Joinable>{0} you can join</KMH_Browser_Counts_Joinable>
+  <KMH_Browser_Tile_Tip>Browse Colony Nexus servers: see which ones your mods and versions match, and join without typing an address.</KMH_Browser_Tile_Tip>
+  <KMH_Browser_Tile_Tip_Offline>Colony Nexus Global cannot be reached right now, so this list is whatever was last saved. Servers you have joined before are still in Recent, and direct connect still works.</KMH_Browser_Tile_Tip_Offline>
+  <KMH_Browser_Tile_Tip_Connecting>Asking Colony Nexus Global which servers are up…</KMH_Browser_Tile_Tip_Connecting>
+
+  <KMH_Browser_Join_NoAddress>This server has not published a connection address.</KMH_Browser_Join_NoAddress>
+  <KMH_Browser_Join_Failed>RimWorld Together would not start the connection.</KMH_Browser_Join_Failed>
+
+  <KMH_Browser_Mods_Optional>Any mods allowed</KMH_Browser_Mods_Optional>
+  <KMH_Browser_Mods_NotSet>No mod list set yet</KMH_Browser_Mods_NotSet>
+  <KMH_Browser_Mods_Unpublished>Not published by this server</KMH_Browser_Mods_Unpublished>
+  <KMH_Browser_Mods_Checking>Comparing…</KMH_Browser_Mods_Checking>
+  <KMH_Browser_Mods_Match>Matches ({0} enforced)</KMH_Browser_Mods_Match>
+  <KMH_Browser_Mods_Mismatch>{0} to fix, of {1} enforced</KMH_Browser_Mods_Mismatch>
+  <KMH_Browser_Mod_Missing>Missing: {0}</KMH_Browser_Mod_Missing>
+  <KMH_Browser_Mod_More>…and {0} more</KMH_Browser_Mod_More>
+  <KMH_Browser_Mod_Disallowed>Not allowed here: {0}</KMH_Browser_Mod_Disallowed>
+  <KMH_Browser_Mod_Optional>Optional, not installed: {0}</KMH_Browser_Mod_Optional>
+  <KMH_Browser_Mod_Subscribe>Missing, can subscribe: {0}</KMH_Browser_Mod_Subscribe>
+  <KMH_Browser_Mod_Expansion>Missing expansion: {0}</KMH_Browser_Mod_Expansion>
+  <KMH_Browser_Mod_Manual>Missing, install by hand: {0}</KMH_Browser_Mod_Manual>
+  <KMH_Browser_Compat_ModsExpansion>Needs a RimWorld expansion</KMH_Browser_Compat_ModsExpansion>
+  <KMH_Browser_Why_ModsExpansion>This server requires a RimWorld expansion you do not have. Expansions are bought from Steam and cannot be downloaded here. Ask the owner to make it optional if the server does not really need it.</KMH_Browser_Why_ModsExpansion>
+  <KMH_Browser_Subscribe_Item>{0}  (Workshop {1})</KMH_Browser_Subscribe_Item>
+  <KMH_Browser_Subscribe_IdsNote>The names come from the server. Steam subscribes to the Workshop numbers, which you can look up on Steam first.</KMH_Browser_Subscribe_IdsNote>
+  <KMH_Browser_ModPlan_RestartNow>Restart now?</KMH_Browser_ModPlan_RestartNow>
+  <KMH_Browser_ModPlan_RestartFailed>Colony Nexus could not restart RimWorld for you. Close and reopen it yourself before opening the Mods page.</KMH_Browser_ModPlan_RestartFailed>
+
+  <KMH_Browser_Compat_Offline2>Offline</KMH_Browser_Compat_Offline2>
+  <KMH_Browser_Compat_Starting>Not ready</KMH_Browser_Compat_Starting>
+  <KMH_Browser_Compat_Maintenance>In maintenance</KMH_Browser_Compat_Maintenance>
+  <KMH_Browser_Compat_GameVersion>Needs RimWorld {0}</KMH_Browser_Compat_GameVersion>
+  <KMH_Browser_Compat_Protocol>Colony Nexus version differs</KMH_Browser_Compat_Protocol>
+  <KMH_Browser_Compat_Rwt>RimWorld Together differs</KMH_Browser_Compat_Rwt>
+  <KMH_Browser_Compat_NoAddress>No address published</KMH_Browser_Compat_NoAddress>
+  <KMH_Browser_Compat_Full>Server full</KMH_Browser_Compat_Full>
+  <KMH_Browser_Compat_ModsUnavailable>Mod list unavailable</KMH_Browser_Compat_ModsUnavailable>
+  <KMH_Browser_Compat_ModsAction>Mods need changing</KMH_Browser_Compat_ModsAction>
+  <KMH_Browser_Compat_ModsOptional>Ready - optional mods differ</KMH_Browser_Compat_ModsOptional>
+  <KMH_Browser_Compat_Ready>Ready to join</KMH_Browser_Compat_Ready>
+
+  <KMH_Browser_Why_Checking>Checking this server's requirements…</KMH_Browser_Why_Checking>
+  <KMH_Browser_Why_Offline>This server has stopped answering Colony Nexus Global.</KMH_Browser_Why_Offline>
+  <KMH_Browser_Why_Starting>This server is starting up or has not reported in recently. Try again shortly.</KMH_Browser_Why_Starting>
+  <KMH_Browser_Why_Maintenance>This server is in maintenance and is refusing play for now. Try again shortly.</KMH_Browser_Why_Maintenance>
+  <KMH_Browser_Why_GameVersion>This server runs RimWorld {0} and you are running {1}. Players on different RimWorld versions cannot share a server yet, so it cannot be joined from this game. To play here, run RimWorld {0}: Steam chooses the version under RimWorld &gt; Properties &gt; Betas. Colony Nexus never changes that for you.</KMH_Browser_Why_GameVersion>
+  <KMH_Browser_Why_Protocol>This server runs a different version of Colony Nexus. Update Colony Nexus on whichever side is older: a server and a client must speak the same protocol.</KMH_Browser_Why_Protocol>
+  <KMH_Browser_Why_Rwt>This server runs RimWorld Together {0}; you are running {1}. Switch to the matching version to join.</KMH_Browser_Why_Rwt>
+  <KMH_Browser_Why_NoAddress>The owner has not published a connection address for this server, so it cannot be joined from the browser. Ask them for the address and use RimWorld Together's own connect screen.</KMH_Browser_Why_NoAddress>
+  <KMH_Browser_Why_Full>Every player slot on this server is taken right now.</KMH_Browser_Why_Full>
+  <KMH_Browser_Why_ModsUnavailable>This server has not published its mod list, so the comparison could not run. You can still join, and RimWorld Together will do its own check.</KMH_Browser_Why_ModsUnavailable>
+  <KMH_Browser_Why_ModsAction>Your mod list does not match what this server requires. "Prepare and join" in the server browser downloads what is missing, sets your mod list, restarts RimWorld and joins.</KMH_Browser_Why_ModsAction>
+  <KMH_Browser_Why_RwtAndMods>Your mod list also needs changing for this server; "Prepare and join" in the server browser does both.</KMH_Browser_Why_RwtAndMods>
+  <KMH_Browser_Why_ModsOptional>You can join. Some mods this server allows are not in your list; that is optional, not a blocker.</KMH_Browser_Why_ModsOptional>
+  <KMH_Browser_Why_Ready>Everything matches. Join is ready.</KMH_Browser_Why_Ready>
+
+  <KMH_Browser_Status_GlobalOnline>Global online</KMH_Browser_Status_GlobalOnline>
+  <KMH_Browser_Tile_Tip_RateLimited>Colony Nexus Global asked this client to slow down, so the list refreshes again shortly. Nothing is wrong with your connection and joining still works.</KMH_Browser_Tile_Tip_RateLimited>
+  <KMH_Browser_Tile_Tip_Degraded>Colony Nexus Global answered but could not serve the list. Servers you have joined before are still in Recent, and direct connect still works.</KMH_Browser_Tile_Tip_Degraded>
+  <KMH_Browser_Status_GlobalBusy>Global busy - retrying</KMH_Browser_Status_GlobalBusy>
+  <KMH_Browser_Status_GlobalDegraded>Global degraded</KMH_Browser_Status_GlobalDegraded>
+  <KMH_Browser_Empty_RateLimited>Colony Nexus Global asked this client to slow down. The list refreshes again shortly.</KMH_Browser_Empty_RateLimited>
+  <KMH_Browser_Empty_Degraded>Colony Nexus Global answered but could not serve the list. Cached results are shown where available.</KMH_Browser_Empty_Degraded>
+  <KMH_Browser_Status_GlobalOffline>Global offline</KMH_Browser_Status_GlobalOffline>
+  <KMH_Browser_Status_Connecting>Connecting…</KMH_Browser_Status_Connecting>
+  <KMH_Browser_Status_Online>Online</KMH_Browser_Status_Online>
+  <KMH_Browser_Status_Degraded>Degraded</KMH_Browser_Status_Degraded>
+  <KMH_Browser_Status_Maintenance>Maintenance</KMH_Browser_Status_Maintenance>
+  <KMH_Browser_Status_Restarting>Restarting</KMH_Browser_Status_Restarting>
+  <KMH_Browser_Status_Stale>Not responding</KMH_Browser_Status_Stale>
+  <KMH_Browser_Status_Offline>Offline</KMH_Browser_Status_Offline>
+
+  <KMH_Browser_Compat_Checking>Checking…</KMH_Browser_Compat_Checking>
+
+  <KMH_Browser_Empty_All>No servers found. Try changing your filters.</KMH_Browser_Empty_All>
+  <KMH_Browser_Empty_Favorites>Favourite a server to find it here.</KMH_Browser_Empty_Favorites>
+  <KMH_Browser_Empty_Recent>Servers you join will show up here.</KMH_Browser_Empty_Recent>
+  <KMH_Browser_Friends_NotLinked>Sign in to Colony Nexus Global with Steam (Account, on the main menu) to see where your friends are playing.</KMH_Browser_Friends_NotLinked>
+  <KMH_Browser_Friends_Unavailable>Your friends list could not be loaded right now. It is tried again shortly.</KMH_Browser_Friends_Unavailable>
+  <KMH_Browser_Friends_Loading>Looking for your friends...</KMH_Browser_Friends_Loading>
+  <KMH_Browser_Friends_Hidden>{0} friend(s) online, on a server that is not listed or that they keep private.</KMH_Browser_Friends_Hidden>
+  <KMH_Browser_Friends_None>None of your friends are on a listed server right now.</KMH_Browser_Friends_None>
+  <KMH_Browser_FriendsHere>Friends here: {0}</KMH_Browser_FriendsHere>
+  <KMH_Browser_Empty_Offline>Unable to reach Colony Nexus Global. Cached results are shown where available.</KMH_Browser_Empty_Offline>
+
+  <KMH_Presence_JoinOff>A Discord join was offered, but joining from Discord is turned off in Colony Nexus settings.</KMH_Presence_JoinOff>
+  <KMH_Presence_JoinUnknown>That server is not in your Colony Nexus server list. Open the Colony Nexus server browser to refresh it.</KMH_Presence_JoinUnknown>
+  <KMH_Presence_JoinLocked>That server needs a password, so it cannot be joined from Discord.</KMH_Presence_JoinLocked>
+  <KMH_Presence_JoinNoAddress>That server publishes no address to connect to.</KMH_Presence_JoinNoAddress>
+  <KMH_Presence_JoinNotPublic>That server is not publicly listed.</KMH_Presence_JoinNotPublic>
+  <KMH_Presence_JoinFailed>Could not start the connection. Try joining from the Colony Nexus server browser.</KMH_Presence_JoinFailed>
+  <KMH_Presence_JoinStale>Colony Nexus could not refresh your server list, so it cannot check that server right now. Try again in a moment.</KMH_Presence_JoinStale>
+  <KMH_Presence_JoinChecking>Checking that server with Colony Nexus Global…</KMH_Presence_JoinChecking>
+  <KMH_Presence_JoinConfirm>Join {0}?</KMH_Presence_JoinConfirm>
+  <KMH_Presence_JoinConfirmBody>A Discord invite asked RimWorld to connect you. Colony Nexus checked this server against your own server list, not against anything the invite claimed.</KMH_Presence_JoinConfirmBody>
+  <KMH_Presence_JoinUnnamed>this server</KMH_Presence_JoinUnnamed>
+  <KMH_Presence_JoinLeaves>You are on another server right now. Joining will disconnect you from it.</KMH_Presence_JoinLeaves>
+  <KMH_Presence_Private>On a private server</KMH_Presence_Private>
+  <KMH_Presence_Official>Official server</KMH_Presence_Official>
+  <KMH_Presence_Community>Community server</KMH_Presence_Community>
+  <KMH_Presence_Locked>Password required</KMH_Presence_Locked>
+  <KMH_RP_IconCombat>In combat</KMH_RP_IconCombat>
+  <KMH_RP_IconHazard>Environmental hazard</KMH_RP_IconHazard>
+  <KMH_RP_IconEmergency>Emergency</KMH_RP_IconEmergency>
+  <KMH_RP_IconCaravan>Out in the world</KMH_RP_IconCaravan>
+  <KMH_RP_IconColony>Colony life</KMH_RP_IconColony>
+  <KMH_RP_IconResearch>Research</KMH_RP_IconResearch>
+  <KMH_RP_IconMultiplayer>Multiplayer</KMH_RP_IconMultiplayer>
+  <KMH_RP_Menu>In the main menu</KMH_RP_Menu>
+  <KMH_RP_Connecting>Connecting to a server</KMH_RP_Connecting>
+  <KMH_RP_Reconnecting>Reconnecting to the server</KMH_RP_Reconnecting>
+  <KMH_RP_PreparingMods>Preparing mods to join a server</KMH_RP_PreparingMods>
+  <KMH_RP_Loading>Loading a colony</KMH_RP_Loading>
+  <KMH_RP_Disconnected>Disconnected from the server</KMH_RP_Disconnected>
+  <KMH_RP_Colony1>Managing the colony</KMH_RP_Colony1>
+  <KMH_RP_Colony2>Life on the Rim</KMH_RP_Colony2>
+  <KMH_RP_Colony3>Another day on the Rim</KMH_RP_Colony3>
+  <KMH_RP_Colony4>Keeping the colony running</KMH_RP_Colony4>
+  <KMH_RP_NewColony1>Founding a new colony</KMH_RP_NewColony1>
+  <KMH_RP_NewColony2>Building a new settlement</KMH_RP_NewColony2>
+  <KMH_RP_NewColony3>Establishing a new colony</KMH_RP_NewColony3>
+  <KMH_RP_Growing1>Managing a growing colony</KMH_RP_Growing1>
+  <KMH_RP_Growing2>Running a busy settlement</KMH_RP_Growing2>
+  <KMH_RP_Season1>Growing season on the Rim</KMH_RP_Season1>
+  <KMH_RP_Season2>Tending the fields</KMH_RP_Season2>
+  <KMH_RP_PrepWinter1>Preparing for winter</KMH_RP_PrepWinter1>
+  <KMH_RP_PrepWinter2>Stocking up before winter</KMH_RP_PrepWinter2>
+  <KMH_RP_Winter1>Weathering the winter</KMH_RP_Winter1>
+  <KMH_RP_Winter2>Waiting out the winter</KMH_RP_Winter2>
+  <KMH_RP_Research1>Researching new technology</KMH_RP_Research1>
+  <KMH_RP_Research2>Advancing the colony's research</KMH_RP_Research2>
+  <KMH_RP_Research3>Studying new technology</KMH_RP_Research3>
+  <KMH_RP_Mechs1>Overseeing a mechanoid workforce</KMH_RP_Mechs1>
+  <KMH_RP_Mechs2>Commanding colony mechanoids</KMH_RP_Mechs2>
+  <KMH_RP_Entities1>Studying captured entities</KMH_RP_Entities1>
+  <KMH_RP_Entities2>Containing anomalies</KMH_RP_Entities2>
+  <KMH_RP_Nomads1>Traveling across the Rim</KMH_RP_Nomads1>
+  <KMH_RP_Nomads2>Living as nomads</KMH_RP_Nomads2>
+  <KMH_RP_Orbit1>Operating in orbit</KMH_RP_Orbit1>
+  <KMH_RP_Orbit2>Exploring orbit</KMH_RP_Orbit2>
+  <KMH_RP_Lasting1>Enduring {0}</KMH_RP_Lasting1>
+  <KMH_RP_Lasting2>Living with {0}</KMH_RP_Lasting2>
+  <KMH_RP_World1>Exploring the world map</KMH_RP_World1>
+  <KMH_RP_World2>Planning the next journey</KMH_RP_World2>
+  <KMH_RP_Caravan1>Traveling across the Rim</KMH_RP_Caravan1>
+  <KMH_RP_Caravan2>Leading a caravan</KMH_RP_Caravan2>
+  <KMH_RP_Caravan3>Caravan on the move</KMH_RP_Caravan3>
+  <KMH_RP_Visit1>Visiting a settlement</KMH_RP_Visit1>
+  <KMH_RP_Visit2>Caravan at a settlement</KMH_RP_Visit2>
+  <KMH_RP_Trade1>Trading with a faction</KMH_RP_Trade1>
+  <KMH_RP_Trade2>Striking a deal</KMH_RP_Trade2>
+  <KMH_RP_Forming1>Preparing a caravan</KMH_RP_Forming1>
+  <KMH_RP_Forming2>Packing for a journey</KMH_RP_Forming2>
+  <KMH_RP_Pods1>Preparing transport pods</KMH_RP_Pods1>
+  <KMH_RP_Expedition1>Exploring new lands</KMH_RP_Expedition1>
+  <KMH_RP_Expedition2>On an expedition</KMH_RP_Expedition2>
+  <KMH_RP_Quest1>Exploring a quest site</KMH_RP_Quest1>
+  <KMH_RP_Quest2>Investigating a quest location</KMH_RP_Quest2>
+  <KMH_RP_Ruins1>Exploring ancient ruins</KMH_RP_Ruins1>
+  <KMH_RP_Gravship1>Flying the gravship</KMH_RP_Gravship1>
+  <KMH_RP_Gravship2>Traveling by gravship</KMH_RP_Gravship2>
+  <KMH_RP_Visitors1>Hosting visitors</KMH_RP_Visitors1>
+  <KMH_RP_Visitors2>Welcoming visitors</KMH_RP_Visitors2>
+  <KMH_RP_Traders1>Trading with a passing caravan</KMH_RP_Traders1>
+  <KMH_RP_Traders2>Traders at the colony</KMH_RP_Traders2>
+  <KMH_RP_Ritual1>Holding a ceremony</KMH_RP_Ritual1>
+  <KMH_RP_Ritual2>Gathering for a ritual</KMH_RP_Ritual2>
+  <KMH_RP_Ritual3>Celebrating together</KMH_RP_Ritual3>
+  <KMH_RP_Royal1>Hosting a royal ceremony</KMH_RP_Royal1>
+  <KMH_RP_ResearchDone1>Completed a research project</KMH_RP_ResearchDone1>
+  <KMH_RP_ResearchDone2>Celebrating a breakthrough</KMH_RP_ResearchDone2>
+  <KMH_RP_Settled1>Established a new settlement</KMH_RP_Settled1>
+  <KMH_RP_Settled2>Expanding across the Rim</KMH_RP_Settled2>
+  <KMH_RP_Heat1>Surviving extreme heat</KMH_RP_Heat1>
+  <KMH_RP_Cold1>Surviving extreme cold</KMH_RP_Cold1>
+  <KMH_RP_HarshWinter1>Surviving a harsh winter</KMH_RP_HarshWinter1>
+  <KMH_RP_ServerEvent1>Taking part in a server event</KMH_RP_ServerEvent1>
+  <KMH_RP_EventTaxHoliday>Enjoying a tax holiday</KMH_RP_EventTaxHoliday>
+  <KMH_RP_EventMarketBoom>Trading in a market boom</KMH_RP_EventMarketBoom>
+  <KMH_RP_EventMarketCrash>Riding out a market crash</KMH_RP_EventMarketCrash>
+  <KMH_RP_EventShortage>Weathering a resource shortage</KMH_RP_EventShortage>
+  <KMH_RP_EventDoubleXp>Working through double worker XP</KMH_RP_EventDoubleXp>
+  <KMH_RP_EventStipend>Collecting the house stipend</KMH_RP_EventStipend>
+  <KMH_RP_EventBounty>Chasing a server bounty</KMH_RP_EventBounty>
+  <KMH_RP_Approach1>Raiders approaching</KMH_RP_Approach1>
+  <KMH_RP_Approach2>Hostiles gathering nearby</KMH_RP_Approach2>
+  <KMH_RP_Approach3>Bracing for an attack</KMH_RP_Approach3>
+  <KMH_RP_Cluster1>Dealing with a mechanoid cluster</KMH_RP_Cluster1>
+  <KMH_RP_Cluster2>A mechanoid cluster looms</KMH_RP_Cluster2>
+  <KMH_RP_Recover1>Recovering after a raid</KMH_RP_Recover1>
+  <KMH_RP_Recover2>Cleaning up after the battle</KMH_RP_Recover2>
+  <KMH_RP_Recover3>Rebuilding after an attack</KMH_RP_Recover3>
+  <KMH_RP_Injured1>Treating injured colonists</KMH_RP_Injured1>
+  <KMH_RP_Injured2>Tending to the wounded</KMH_RP_Injured2>
+  <KMH_RP_Disease1>Fighting a disease outbreak</KMH_RP_Disease1>
+  <KMH_RP_Disease2>Battling an illness</KMH_RP_Disease2>
+  <KMH_RP_Food1>Facing a food shortage</KMH_RP_Food1>
+  <KMH_RP_Food2>Running low on food</KMH_RP_Food2>
+  <KMH_RP_Ship1>Launching the ship</KMH_RP_Ship1>
+  <KMH_RP_Ship2>Counting down to launch</KMH_RP_Ship2>
+  <KMH_RP_Assault1>Assaulting an enemy settlement</KMH_RP_Assault1>
+  <KMH_RP_Assault2>Leading an assault</KMH_RP_Assault2>
+  <KMH_RP_Toxic1>Surviving toxic fallout</KMH_RP_Toxic1>
+  <KMH_RP_Toxic2>Sheltering from toxic fallout</KMH_RP_Toxic2>
+  <KMH_RP_Volcanic1>Weathering a volcanic winter</KMH_RP_Volcanic1>
+  <KMH_RP_Volcanic2>Living under ash clouds</KMH_RP_Volcanic2>
+  <KMH_RP_Flare1>Dealing with a solar flare</KMH_RP_Flare1>
+  <KMH_RP_Flare2>Waiting out a solar flare</KMH_RP_Flare2>
+  <KMH_RP_Eclipse1>Experiencing an eclipse</KMH_RP_Eclipse1>
+  <KMH_RP_Eclipse2>Living through an eclipse</KMH_RP_Eclipse2>
+  <KMH_RP_Drone1>Facing a psychic drone</KMH_RP_Drone1>
+  <KMH_RP_Drone2>Enduring a psychic drone</KMH_RP_Drone2>
+  <KMH_RP_HeatWave1>Surviving a heat wave</KMH_RP_HeatWave1>
+  <KMH_RP_HeatWave2>Sweltering in a heat wave</KMH_RP_HeatWave2>
+  <KMH_RP_ColdSnap1>Surviving a cold snap</KMH_RP_ColdSnap1>
+  <KMH_RP_ColdSnap2>Weathering a cold snap</KMH_RP_ColdSnap2>
+  <KMH_RP_Flashstorm1>Weathering a flashstorm</KMH_RP_Flashstorm1>
+  <KMH_RP_Haze1>Enduring a noxious haze</KMH_RP_Haze1>
+  <KMH_RP_Hazard1>Weathering {0}</KMH_RP_Hazard1>
+  <KMH_RP_Hazard2>Enduring {0}</KMH_RP_Hazard2>
+  <KMH_RP_Raid1>Colony under attack!</KMH_RP_Raid1>
+  <KMH_RP_Raid2>Defending the colony</KMH_RP_Raid2>
+  <KMH_RP_Raid3>Fighting off raiders</KMH_RP_Raid3>
+  <KMH_RP_Raid4>Holding the line</KMH_RP_Raid4>
+  <KMH_RP_Mech1>Defending against mechanoids</KMH_RP_Mech1>
+  <KMH_RP_Mech2>Mechanoids attacking!</KMH_RP_Mech2>
+  <KMH_RP_Insect1>Fighting insectoids</KMH_RP_Insect1>
+  <KMH_RP_Insect2>Insectoids in the colony!</KMH_RP_Insect2>
+  <KMH_RP_Manhunter1>Facing a manhunter pack</KMH_RP_Manhunter1>
+  <KMH_RP_Manhunter2>Fending off manhunters</KMH_RP_Manhunter2>
+  <KMH_RP_Anomaly1>Defending against anomalies</KMH_RP_Anomaly1>
+  <KMH_RP_Anomaly2>Entities attacking!</KMH_RP_Anomaly2>
+  <KMH_RP_Siege1>Surviving a siege</KMH_RP_Siege1>
+  <KMH_RP_Siege2>Under siege</KMH_RP_Siege2>
+  <KMH_RP_DropPods1>Defending against a drop pod raid</KMH_RP_DropPods1>
+  <KMH_RP_DropPods2>Raiders dropping in!</KMH_RP_DropPods2>
+  <KMH_RP_Away1>Fighting far from home</KMH_RP_Away1>
+  <KMH_RP_Away2>Under attack in the field</KMH_RP_Away2>
+  <KMH_RP_Fire1>Fighting a colony fire</KMH_RP_Fire1>
+  <KMH_RP_Fire2>Putting out a fire</KMH_RP_Fire2>
+  <KMH_RP_Medical1>Colony medical emergency</KMH_RP_Medical1>
+  <KMH_RP_Medical2>Struggling to survive</KMH_RP_Medical2>
+  <KMH_RP_Prison1>Stopping a prison break</KMH_RP_Prison1>
+  <KMH_RP_Rebellion1>Putting down a slave rebellion</KMH_RP_Rebellion1>
+  <KMH_RP_ColonyS1>Surviving on the Rim</KMH_RP_ColonyS1>
+  <KMH_RP_ColonyS2>Building a home on the Rim</KMH_RP_ColonyS2>
+  <KMH_RP_ColonyS3>Day by day on the Rim</KMH_RP_ColonyS3>
+  <KMH_RP_ColonyS4>Carving out a life on the Rim</KMH_RP_ColonyS4>
+  <KMH_RP_NewColonyS1>The first days on the Rim</KMH_RP_NewColonyS1>
+  <KMH_RP_NewColonyS2>Starting from scratch</KMH_RP_NewColonyS2>
+  <KMH_RP_NewColonyS3>Laying the foundations</KMH_RP_NewColonyS3>
+  <KMH_RP_GrowingS1>A colony on the rise</KMH_RP_GrowingS1>
+  <KMH_RP_GrowingS2>Many mouths to feed</KMH_RP_GrowingS2>
+  <KMH_RP_SeasonS1>Planting and harvesting</KMH_RP_SeasonS1>
+  <KMH_RP_SeasonS2>Bringing in the harvest</KMH_RP_SeasonS2>
+  <KMH_RP_PrepWinterS1>Autumn on the Rim</KMH_RP_PrepWinterS1>
+  <KMH_RP_PrepWinterS2>Cold days ahead</KMH_RP_PrepWinterS2>
+  <KMH_RP_WinterS1>Winter on the Rim</KMH_RP_WinterS1>
+  <KMH_RP_WinterS2>Keeping warm</KMH_RP_WinterS2>
+  <KMH_RP_ResearchS1>Pushing the colony forward</KMH_RP_ResearchS1>
+  <KMH_RP_ResearchS2>One breakthrough at a time</KMH_RP_ResearchS2>
+  <KMH_RP_MechsS1>Machines at work</KMH_RP_MechsS1>
+  <KMH_RP_EntitiesS1>Keeping the darkness contained</KMH_RP_EntitiesS1>
+  <KMH_RP_NomadsS1>Always on the move</KMH_RP_NomadsS1>
+  <KMH_RP_OrbitS1>Far above the Rim</KMH_RP_OrbitS1>
+  <KMH_RP_LastingS1>A hard world to live in</KMH_RP_LastingS1>
+  <KMH_RP_WorldS1>Charting the Rim</KMH_RP_WorldS1>
+  <KMH_RP_CaravanS1>Out on the road</KMH_RP_CaravanS1>
+  <KMH_RP_CaravanS2>Crossing the Rim</KMH_RP_CaravanS2>
+  <KMH_RP_VisitS1>Paying a visit</KMH_RP_VisitS1>
+  <KMH_RP_TradeS1>Buying and selling</KMH_RP_TradeS1>
+  <KMH_RP_FormingS1>Getting ready to set out</KMH_RP_FormingS1>
+  <KMH_RP_PodsS1>Getting ready to launch</KMH_RP_PodsS1>
+  <KMH_RP_FarFromHome>Far from home</KMH_RP_FarFromHome>
+  <KMH_RP_GravshipS1>Between landings</KMH_RP_GravshipS1>
+  <KMH_RP_VisitorsS1>Company at the colony</KMH_RP_VisitorsS1>
+  <KMH_RP_TradersS1>Business at the gates</KMH_RP_TradersS1>
+  <KMH_RP_RitualS1>The colony comes together</KMH_RP_RitualS1>
+  <KMH_RP_RoyalS1>An honor bestowed</KMH_RP_RoyalS1>
+  <KMH_RP_ResearchDoneS1>New technology unlocked</KMH_RP_ResearchDoneS1>
+  <KMH_RP_SettledS1>The colony grows</KMH_RP_SettledS1>
+  <KMH_RP_KeepCool>Keeping cool</KMH_RP_KeepCool>
+  <KMH_RP_BundleUp>Bundling up</KMH_RP_BundleUp>
+  <KMH_RP_HarshWinterS1>Bitter cold outside</KMH_RP_HarshWinterS1>
+  <KMH_RP_ServerEventS1>A server-wide event is on</KMH_RP_ServerEventS1>
+  <KMH_RP_ApproachS1>Preparing the defenses</KMH_RP_ApproachS1>
+  <KMH_RP_ApproachS2>Manning the walls</KMH_RP_ApproachS2>
+  <KMH_RP_ClusterS1>Planning the assault</KMH_RP_ClusterS1>
+  <KMH_RP_RecoverS1>Tending the wounded</KMH_RP_RecoverS1>
+  <KMH_RP_RecoverS2>Counting the cost</KMH_RP_RecoverS2>
+  <KMH_RP_InjuredS1>Doctors at work</KMH_RP_InjuredS1>
+  <KMH_RP_DiseaseS1>Sickness in the colony</KMH_RP_DiseaseS1>
+  <KMH_RP_FoodS1>Rationing supplies</KMH_RP_FoodS1>
+  <KMH_RP_ShipS1>Leaving the Rim behind</KMH_RP_ShipS1>
+  <KMH_RP_ToxicS1>Staying indoors</KMH_RP_ToxicS1>
+  <KMH_RP_VolcanicS1>Dark skies overhead</KMH_RP_VolcanicS1>
+  <KMH_RP_FlareS1>The power is down</KMH_RP_FlareS1>
+  <KMH_RP_EclipseS1>Darkness at midday</KMH_RP_EclipseS1>
+  <KMH_RP_DroneS1>Nerves on edge</KMH_RP_DroneS1>
+  <KMH_RP_FlashstormS1>Lightning on the horizon</KMH_RP_FlashstormS1>
+  <KMH_RP_HazeS1>Pollution in the air</KMH_RP_HazeS1>
+  <KMH_RP_HazardS1>Waiting for it to pass</KMH_RP_HazardS1>
+  <KMH_RP_RaidS1>Defending against raiders</KMH_RP_RaidS1>
+  <KMH_RP_RaidS2>Under enemy attack</KMH_RP_RaidS2>
+  <KMH_RP_RaidS3>Protecting the settlement</KMH_RP_RaidS3>
+  <KMH_RP_Survival>Fighting for survival</KMH_RP_Survival>
+  <KMH_RP_MechRaidS1>Holding off the machines</KMH_RP_MechRaidS1>
+  <KMH_RP_InsectS1>Clearing out the hive</KMH_RP_InsectS1>
+  <KMH_RP_ManhunterS1>Animals on the rampage</KMH_RP_ManhunterS1>
+  <KMH_RP_ManhunterS2>Staying behind the walls</KMH_RP_ManhunterS2>
+  <KMH_RP_AnomalyS1>Holding back the dark</KMH_RP_AnomalyS1>
+  <KMH_RP_SiegeS1>Shells falling</KMH_RP_SiegeS1>
+  <KMH_RP_SiegeS2>Breaking the siege</KMH_RP_SiegeS2>
+  <KMH_RP_DropPodsS1>Enemies from the sky</KMH_RP_DropPodsS1>
+  <KMH_RP_DropPodsS2>Fighting inside the walls</KMH_RP_DropPodsS2>
+  <KMH_RP_AwayS1>Holding out</KMH_RP_AwayS1>
+  <KMH_RP_FireS1>All hands on the fire line</KMH_RP_FireS1>
+  <KMH_RP_MedicalS1>Too many wounded</KMH_RP_MedicalS1>
+  <KMH_RP_PrisonS1>Prisoners on the loose</KMH_RP_PrisonS1>
+  <KMH_RP_RebellionS1>Restoring order</KMH_RP_RebellionS1>
+  <KMH_RP_Allies>Fighting alongside allies</KMH_RP_Allies>
+  <KMH_RP_InColony>In a colony</KMH_RP_InColony>
+  <KMH_RP_Singleplayer>Singleplayer</KMH_RP_Singleplayer>
+  <KMH_RP_Mp1>Playing Colony Nexus multiplayer</KMH_RP_Mp1>
+  <KMH_RP_Mp2>Surviving with friends</KMH_RP_Mp2>
+  <KMH_RP_Mp3>Playing on a Colony Nexus server</KMH_RP_Mp3>
+  <KMH_RP_RwtServer>RimWorld Together multiplayer</KMH_RP_RwtServer>
+  <KMH_RP_KmhServer>Colony Nexus multiplayer</KMH_RP_KmhServer>
+  <KMH_RP_ColonyInfoOne>1 colonist · day {0}</KMH_RP_ColonyInfoOne>
+  <KMH_RP_ColonyInfo>{0} colonists · day {1}</KMH_RP_ColonyInfo>
+  <KMH_RP_HazardFallback>a disaster</KMH_RP_HazardFallback>
+  <KMH_RP_ArtUnknown>not checked yet - Discord confirms each picture the first time it is shown</KMH_RP_ArtUnknown>
+  <KMH_RP_ArtNoIds>Discord did not confirm the logo, so the pictures cannot be checked from here</KMH_RP_ArtNoIds>
+  <KMH_RP_ArtStatus>logo found; activity pictures: {0} found, {1} missing, {2} not shown yet</KMH_RP_ArtStatus>
+  <KMH_Browser_Password>Password</KMH_Browser_Password>
+  <KMH_Browser_Password_Yes>required</KMH_Browser_Password_Yes>
+  <KMH_Browser_Password_No>not required</KMH_Browser_Password_No>
+  <KMH_Standings_NoFallen>No colonist has fallen on this server yet. Colonists the server sees die are remembered here.</KMH_Standings_NoFallen>
+  <KMH_Friends_Title>Friends</KMH_Friends_Title>
+  <KMH_Friends_Add_Title>Quick Add</KMH_Friends_Add_Title>
+  <KMH_Friends_Add_Help>Paste the friend code, player ID or Colony Nexus username a friend gave you. They do not need to be your Steam friend.</KMH_Friends_Add_Help>
+  <KMH_Friends_Add_Paste>Paste</KMH_Friends_Add_Paste>
+  <KMH_Friends_Add_PasteTip>Put what you copied into the box.</KMH_Friends_Add_PasteTip>
+  <KMH_Friends_Add_Placeholder>e.g. KX7P-2M9Q, a player ID or a username</KMH_Friends_Add_Placeholder>
+  <KMH_Friends_Add_Sending>Sending your request…</KMH_Friends_Add_Sending>
+  <KMH_Friends_Add_SendingShort>Sending…</KMH_Friends_Add_SendingShort>
+  <KMH_Friends_Add_SignedOut>Your Colony Nexus sign-in has ended. Link again under Account &amp; links.</KMH_Friends_Add_SignedOut>
+  <KMH_Friends_Add_Unconfirmed>Colony Nexus Global did not answer, so the request is not confirmed. If it is not under Sent, try again.</KMH_Friends_Add_Unconfirmed>
+  <KMH_Friends_Add_Down>Colony Nexus Global is not answering.</KMH_Friends_Add_Down>
+  <KMH_Friends_Add_Empty>Type or paste a friend code, player ID or username first.</KMH_Friends_Add_Empty>
+  <KMH_Friends_Add_Wait>Waiting for Colony Nexus Global to answer.</KMH_Friends_Add_Wait>
+  <KMH_Friends_Add_Busy>Updating your friends list; one moment.</KMH_Friends_Add_Busy>
+  <KMH_Friends_Hint_Id>A player ID. Press Send request.</KMH_Friends_Hint_Id>
+  <KMH_Friends_Hint_Partial>A player ID has 32 letters and digits; this one has {0}.</KMH_Friends_Hint_Partial>
+  <KMH_Friends_Hint_Code>Looks like a friend code. Press Send request.</KMH_Friends_Hint_Code>
+  <KMH_Friends_Hint_Name>Will look for a player with this Colony Nexus username.</KMH_Friends_Hint_Name>
+  <KMH_Friends_Share_Title>Share with a friend</KMH_Friends_Share_Title>
+  <KMH_Friends_Share_Code>Friend code</KMH_Friends_Share_Code>
+  <KMH_Friends_Share_Id>Player ID</KMH_Friends_Share_Id>
+  <KMH_Friends_Share_CodeLoading>loading…</KMH_Friends_Share_CodeLoading>
+  <KMH_Friends_Share_NoCode>not offered by this Global</KMH_Friends_Share_NoCode>
+  <KMH_Friends_Share_Help>Give a friend either one. Your code can be replaced if it ends up somewhere you did not want.</KMH_Friends_Share_Help>
+  <KMH_Friends_Share_Renew>New code</KMH_Friends_Share_Renew>
+  <KMH_Friends_Share_RenewConfirm>Replace your friend code? The old one stops working at once; people you already gave it to will need the new one.</KMH_Friends_Share_RenewConfirm>
+  <KMH_Friends_Copy>Copy</KMH_Friends_Copy>
+  <KMH_Friends_Copied>Copied ✓</KMH_Friends_Copied>
+  <KMH_Friends_Stale>Colony Nexus Global stopped answering; this list may be out of date.</KMH_Friends_Stale>
+  <KMH_Friends_Tab_Requests>Requests ({0})</KMH_Friends_Tab_Requests>
+  <KMH_Friends_Tab_RequestsNew>Requests ({0} new)</KMH_Friends_Tab_RequestsNew>
+  <KMH_Friends_Tab_Friends>Friends ({0})</KMH_Friends_Tab_Friends>
+  <KMH_Friends_Tab_Blocked>Blocked ({0})</KMH_Friends_Tab_Blocked>
+  <KMH_Friends_EmptyRequests>No requests waiting. Requests you send or receive show up here.</KMH_Friends_EmptyRequests>
+  <KMH_Friends_EmptyBlocked>You have not blocked anyone.</KMH_Friends_EmptyBlocked>
+  <KMH_Friends_MoreTip>More: remove, block and other actions</KMH_Friends_MoreTip>
+  <KMH_Friends_CancelRequest>Cancel request</KMH_Friends_CancelRequest>
+  <KMH_Friends_State_Playing>playing on {0}</KMH_Friends_State_Playing>
+  <KMH_Friends_NotLinked>Friends needs your Colony Nexus account. Link it once under Account &amp; links; it takes about a minute and uses your Steam sign-in.</KMH_Friends_NotLinked>
+  <KMH_Friends_Loading>Asking Colony Nexus Global for your friends…</KMH_Friends_Loading>
+  <KMH_Friends_Offline>Colony Nexus Global cannot be reached, so friends cannot be loaded right now. Everything else keeps working.</KMH_Friends_Offline>
+  <KMH_Common_Retry>Try again</KMH_Common_Retry>
+  <KMH_Friends_Add>Send request</KMH_Friends_Add>
+  <KMH_Friends_Incoming>Asking to be your friend</KMH_Friends_Incoming>
+  <KMH_Friends_Outgoing>Sent by you, waiting for an answer</KMH_Friends_Outgoing>
+  <KMH_Friends_Empty>No friends yet. Share your friend code, or paste a friend's into Quick Add above.</KMH_Friends_Empty>
+  <KMH_Friends_State_Blocked>blocked</KMH_Friends_State_Blocked>
+  <KMH_Friends_State_Offline>offline</KMH_Friends_State_Offline>
+  <KMH_Friends_State_Online>online</KMH_Friends_State_Online>
+  <KMH_Friends_State_OnServer>on a Colony Nexus server</KMH_Friends_State_OnServer>
+  <KMH_Friends_Accept>Accept</KMH_Friends_Accept>
+  <KMH_Friends_Decline>Decline</KMH_Friends_Decline>
+  <KMH_Friends_Remove>Remove friend</KMH_Friends_Remove>
+  <KMH_Friends_Unblock>Unblock</KMH_Friends_Unblock>
+  <KMH_Friends_BlockConfirm>Block {0}?
+
+They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_BlockConfirm>
+  <KMH_Friends_NewRequest>{0} sent you a friend request. Answer it under Friends.</KMH_Friends_NewRequest>
+  <KMH_Friends_NewRequests>{0} new friend requests. Answer them under Friends.</KMH_Friends_NewRequests>
+  <KMH_Friends_Accepted>{0} accepted your friend request.</KMH_Friends_Accepted>
+  <KMH_Friends_AcceptedMany>{0} people accepted your friend requests.</KMH_Friends_AcceptedMany>
+  <KMH_Friends_ActionFailed>Colony Nexus Global did not confirm that. If the list has not changed, try again in a moment.</KMH_Friends_ActionFailed>
+  <KMH_Friends_NowFriends>You and {0} are now friends.</KMH_Friends_NowFriends>
+  <KMH_Friends_RequestSent>Friend request sent to {0}.</KMH_Friends_RequestSent>
+  <KMH_Friends_BlockedNow>{0} is blocked on every Colony Nexus server.</KMH_Friends_BlockedNow>
+  <KMH_Friends_Err_Blocked>You cannot add this player.</KMH_Friends_Err_Blocked>
+  <KMH_Friends_Err_NoSuchId>No Colony Nexus player has that ID.</KMH_Friends_Err_NoSuchId>
+  <KMH_Friends_Err_NoMatch>No Colony Nexus player matches that friend code or username. Check it with your friend.</KMH_Friends_Err_NoMatch>
+  <KMH_Friends_Err_Misses>Too many tries matched nobody. Wait a few minutes, then check the code with your friend.</KMH_Friends_Err_Misses>
+  <KMH_Friends_Err_RenewLimit>You can get a new friend code three times a day. Try again tomorrow.</KMH_Friends_Err_RenewLimit>
+  <KMH_Friends_Err_Self>That is your own player ID.</KMH_Friends_Err_Self>
+  <KMH_Friends_Err_Closed>This player is not accepting friend requests.</KMH_Friends_Err_Closed>
+  <KMH_Friends_Err_Gone>That request no longer exists.</KMH_Friends_Err_Gone>
+  <KMH_Friends_Err_Limit>Too many friend actions for now. Try again later.</KMH_Friends_Err_Limit>
+  <KMH_Friends_Err_Other>Colony Nexus Global refused that ({0}).</KMH_Friends_Err_Other>
+  <KMH_PlayerMenu_Profile>View profile</KMH_PlayerMenu_Profile>
+  <KMH_PlayerMenu_AddFriend>Add friend</KMH_PlayerMenu_AddFriend>
+  <KMH_PlayerMenu_AcceptFriend>Accept friend request</KMH_PlayerMenu_AcceptFriend>
+  <KMH_PlayerMenu_DeclineFriend>Decline friend request</KMH_PlayerMenu_DeclineFriend>
+  <KMH_PlayerMenu_CopyId>Copy player ID</KMH_PlayerMenu_CopyId>
+  <KMH_PlayerMenu_IdCopied>Copied {0}'s player ID.</KMH_PlayerMenu_IdCopied>
+  <KMH_PlayerMenu_NameTip>Click for their profile, messages, friend and block options.</KMH_PlayerMenu_NameTip>
+  <KMH_PlayerMenu_CancelRequest>Cancel friend request</KMH_PlayerMenu_CancelRequest>
+  <KMH_PlayerMenu_Message>Message</KMH_PlayerMenu_Message>
+  <KMH_PlayerMenu_MessageByMail>Message by mail</KMH_PlayerMenu_MessageByMail>
+  <KMH_PlayerMenu_Mail>Send mail</KMH_PlayerMenu_Mail>
+  <KMH_PlayerMenu_BlockHere>Block on this server</KMH_PlayerMenu_BlockHere>
+  <KMH_PlayerMenu_UnblockHere>Unblock on this server</KMH_PlayerMenu_UnblockHere>
+  <KMH_PlayerMenu_BlockEverywhere>Block everywhere</KMH_PlayerMenu_BlockEverywhere>
+  <KMH_PlayerMenu_UnblockEverywhere>Unblock everywhere</KMH_PlayerMenu_UnblockEverywhere>
+  <KMH_PlayerMenu_Self>This is you</KMH_PlayerMenu_Self>
+  <KMH_PlayerMenu_NotAPlayer>Not a Colony Nexus player</KMH_PlayerMenu_NotAPlayer>
+  <KMH_PlayerMenu_Mention>Mention in chat</KMH_PlayerMenu_Mention>
+  <KMH_PlayerMenu_WhyNotLinked>link your account first</KMH_PlayerMenu_WhyNotLinked>
+  <KMH_PlayerMenu_WhyNoId>needs their player ID</KMH_PlayerMenu_WhyNoId>
+  <KMH_PlayerMenu_WhyNotOnServer>not on their server</KMH_PlayerMenu_WhyNotOnServer>
+  <KMH_PlayerMenu_WhyMailOff>mail is off here</KMH_PlayerMenu_WhyMailOff>
+  <KMH_PlayerMenu_WhyNoRoute>chat and mail are off here</KMH_PlayerMenu_WhyNoRoute>
+  <KMH_PlayerMenu_WhyBlockingOff>blocking is off here</KMH_PlayerMenu_WhyBlockingOff>
+  <KMH_PlayerMenu_WhyBlocked>you blocked them</KMH_PlayerMenu_WhyBlocked>
+  <KMH_PlayerMenu_NoIdTip>A name on a server does not say which Colony Nexus account it is. Ask them for the friend code in their Friends window, then type it into Quick Add in yours.</KMH_PlayerMenu_NoIdTip>
+  <KMH_PlayerMenu_NotLinkedTip>Friends, messages across servers and blocking everywhere need a Colony Nexus account. Link one under Account &amp; links.</KMH_PlayerMenu_NotLinkedTip>
+  <KMH_PlayerMenu_Busy>Friends is still busy with your last request. Try again in a moment.</KMH_PlayerMenu_Busy>
+  <KMH_Account_YourId>Your player ID: {0}</KMH_Account_YourId>
+  <KMH_Account_CopyId>Copy ID</KMH_Account_CopyId>
+  <KMH_Account_IdCopied>Player ID copied. Send it to a friend to be added.</KMH_Account_IdCopied>
+  <KMH_Account_FriendCode>Your friend code: {0}</KMH_Account_FriendCode>
+  <KMH_Account_CodeCopied>Friend code copied. A friend pastes it into Friends, Quick Add.</KMH_Account_CodeCopied>
+  <KMH_Account_OpenFriends>Friends and Quick Add</KMH_Account_OpenFriends>
+  <KMH_Tab_Friends>Friends</KMH_Tab_Friends>
+  <KMH_Tab_FriendsPending>Friends ({0} pending)</KMH_Tab_FriendsPending>
+  <KMH_Tab_FriendsTip>Your Colony Nexus friends on every server: who is online and where, friend requests, and players you blocked. Needs a linked account.</KMH_Tab_FriendsTip>
+  <KMH_Dm_NotLinked>Link your Steam account to Colony Nexus Global to send messages across servers.</KMH_Dm_NotLinked>
+  <KMH_Dm_Offline>Colony Nexus Global cannot be reached. Messages already sent are safe and will appear when it is back. Server and guild chat are unaffected.</KMH_Dm_Offline>
+  <KMH_Dm_Loading>Asking Colony Nexus Global...</KMH_Dm_Loading>
+  <KMH_Dm_Older>Load older messages</KMH_Dm_Older>
+  <KMH_Dm_Empty>No messages yet. Say something.</KMH_Dm_Empty>
+  <KMH_Dm_CannotReply>This player is not accepting messages from you.</KMH_Dm_CannotReply>
+  <KMH_Dm_With>Messages with {0}</KMH_Dm_With>
+  <KMH_Dm_AcrossServers>across every Colony Nexus server</KMH_Dm_AcrossServers>
+  <KMH_Dm_SomePlayer>a Colony Nexus player</KMH_Dm_SomePlayer>
+  <KMH_Dm_Sending>Sending…</KMH_Dm_Sending>
+  <KMH_Dm_Busy>Still busy with the last message. Try again in a moment.</KMH_Dm_Busy>
+  <KMH_Dm_Unconfirmed>Colony Nexus Global did not answer, so this message is not confirmed. It is still in the box; send it again.</KMH_Dm_Unconfirmed>
+  <KMH_Dm_Self>That is you.</KMH_Dm_Self>
+  <KMH_Dm_TooLong>That message is too long or empty.</KMH_Dm_TooLong>
+  <KMH_Dm_Slow>You are sending messages too quickly. Wait a moment.</KMH_Dm_Slow>
+  <KMH_Dm_Send>Send</KMH_Dm_Send>
+  <KMH_Account_AccountLinks>Account &amp; links</KMH_Account_AccountLinks>
+  <KMH_Account_WhoCanSeeYou>Who can see you</KMH_Account_WhoCanSeeYou>
+  <KMH_Account_TryAgain>Try again</KMH_Account_TryAgain>
+  <KMH_Account_CheckingWithGlobal>&lt;color=#9AA4B2&gt;Checking with Global...&lt;/color&gt;</KMH_Account_CheckingWithGlobal>
+  <KMH_Account_AlsoShowWhichServer>Also show which server I am on</KMH_Account_AlsoShowWhichServer>
+  <KMH_Account_KmhUsername>&lt;b&gt;Colony Nexus username&lt;/b&gt;</KMH_Account_KmhUsername>
+  <KMH_Account_NotAvailableWhileGlobal>&lt;color=#9AA4B2&gt;Not available while Global is unreachable.&lt;/color&gt;</KMH_Account_NotAvailableWhileGlobal>
+  <KMH_Account_NotChosenYetYour>&lt;color=#9AA4B2&gt;Not chosen yet - your Steam name stands in until you pick one.&lt;/color&gt;</KMH_Account_NotChosenYetYour>
+  <KMH_Account_Steam>&lt;b&gt;Steam&lt;/b&gt;</KMH_Account_Steam>
+  <KMH_Account_UnlinkSteam>Unlink Steam</KMH_Account_UnlinkSteam>
+  <KMH_Account_SignOutEverywhere>Sign out everywhere</KMH_Account_SignOutEverywhere>
+  <KMH_Chat_TooManySessions>This Colony Nexus account already has the maximum number of Global Chat sessions open. Close one of your other copies of RimWorld.</KMH_Chat_TooManySessions>
+  <KMH_Account_SignOutEverywhereConfirm>Sign out of Colony Nexus on every device?</KMH_Account_SignOutEverywhereConfirm>
+  <KMH_Account_SignOutEverywhereBody>Every copy of RimWorld linked to this Colony Nexus account is signed out, including this one. Nothing you own is lost - each copy links again as the same player.</KMH_Account_SignOutEverywhereBody>
+  <KMH_Account_WrongSteam>&lt;color=#f0c04f&gt;This Colony Nexus account belongs to a different Steam account.&lt;/color&gt;</KMH_Account_WrongSteam>
+  <KMH_Account_WrongSteamWhy>&lt;color=#9AA4B2&gt;RimWorld is signed in to Steam as someone else, so Colony Nexus will not act as that player here. Unlink to use this Steam account instead - the other account keeps everything it has.&lt;/color&gt;</KMH_Account_WrongSteamWhy>
+  <KMH_Menu_LinkNotConfirmed>Link not confirmed for this Steam account</KMH_Menu_LinkNotConfirmed>
+  <KMH_Account_UnlinkOtherConfirm>Unlink the other Steam account's Colony Nexus login from this copy of RimWorld?</KMH_Account_UnlinkOtherConfirm>
+  <KMH_Account_UnlinkOtherConfirmBody>That account keeps its username and everything it owns. This copy can then link as the Steam account you are actually signed in as.</KMH_Account_UnlinkOtherConfirmBody>
+  <KMH_Account_ReleaseUsername>Give up this username</KMH_Account_ReleaseUsername>
+  <KMH_Account_ReleaseConfirm>Give up the username {0}?</KMH_Account_ReleaseConfirm>
+  <KMH_Account_ReleaseConfirmBody>It becomes free for anyone else straight away, and you will have none until you choose one. Choosing a new one still counts as a rename, so the usual wait applies.</KMH_Account_ReleaseConfirmBody>
+  <KMH_Account_AskingGlobalForA>&lt;color=#9AA4B2&gt;Asking Global for a link code...&lt;/color&gt;</KMH_Account_AskingGlobalForA>
+  <KMH_Account_ThatCodeExpiredBefore>&lt;color=#f0c04f&gt;That code expired before it was used.&lt;/color&gt;</KMH_Account_ThatCodeExpiredBefore>
+  <KMH_Account_CodeAlreadyUsed>&lt;color=#f0c04f&gt;That code has already been used.&lt;/color&gt;</KMH_Account_CodeAlreadyUsed>
+  <KMH_Account_CodeAlreadyUsedWhy>&lt;color=#9AA4B2&gt;Either another copy of the game claimed it, or the reply to this one was lost. Nothing is linked yet - start over and approve a new code.&lt;/color&gt;</KMH_Account_CodeAlreadyUsedWhy>
+  <KMH_Account_KmhGlobalCouldNot>&lt;color=#f0c04f&gt;Colony Nexus Global could not be reached.&lt;/color&gt;</KMH_Account_KmhGlobalCouldNot>
+  <KMH_Account_YourLinkIsUnaffected>&lt;color=#9AA4B2&gt;Your link is unaffected - try again when you are back online.&lt;/color&gt;</KMH_Account_YourLinkIsUnaffected>
+  <KMH_Account_NotLinked>Not linked</KMH_Account_NotLinked>
+  <KMH_Account_LinkingProvesYouAre>&lt;color=#9AA4B2&gt;Linking proves you are the same player on every Colony Nexus server, so your name and history follow you.&lt;/color&gt;</KMH_Account_LinkingProvesYouAre>
+  <KMH_Account_EnterThisCodeIn>Enter this code in your browser:</KMH_Account_EnterThisCodeIn>
+  <KMH_Account_OpenSteamLink>Open Steam link</KMH_Account_OpenSteamLink>
+  <KMH_Account_CopyLink>Copy link</KMH_Account_CopyLink>
+  <KMH_Account_CopyCode>Copy code</KMH_Account_CopyCode>
+  <KMH_Account_Cancel>Cancel</KMH_Account_Cancel>
+  <KMH_Account_Discord>&lt;b&gt;Discord&lt;/b&gt;</KMH_Account_Discord>
+  <KMH_Account_LinksThisServerS>&lt;color=#9AA4B2&gt;This server can also link separately for chat relay and notifications.&lt;/color&gt;</KMH_Account_LinksThisServerS>
+  <KMH_Account_GetADiscordLink>Get a Discord link code</KMH_Account_GetADiscordLink>
+  <KMH_Ct_ConnectedTreasury>Connected Treasury</KMH_Ct_ConnectedTreasury>
+  <KMH_Ct_SilverHeldByYour>&lt;color=#9AA4B2&gt;Silver held by your Colony Nexus account. It follows you between servers, and is separate from this colony's local treasury.&lt;/color&gt;</KMH_Ct_SilverHeldByYour>
+  <KMH_Ct_AskingTheServerFor>&lt;color=#9AA4B2&gt;Asking the server for your Connected Treasury state…&lt;/color&gt;</KMH_Ct_AskingTheServerFor>
+  <KMH_Ct_YouHaveNotLinked>You have not linked a Colony Nexus account on this server yet.</KMH_Ct_YouHaveNotLinked>
+  <KMH_Ct_AKmhAccountIs>&lt;color=#9AA4B2&gt;A Colony Nexus account is what carries silver between servers. Linking is free and uses Steam - no password reaches this server.&lt;/color&gt;</KMH_Ct_AKmhAccountIs>
+  <KMH_Ct_LinkAKmhAccount>Link a Colony Nexus account</KMH_Ct_LinkAKmhAccount>
+  <KMH_Ct_KmhGlobalIsUnreachable>&lt;color=#f0c04f&gt;Colony Nexus Global is unreachable from this server, so deposits and withdrawals are paused.&lt;/color&gt;</KMH_Ct_KmhGlobalIsUnreachable>
+  <KMH_Ct_YourLocalTreasuryIs>&lt;color=#9AA4B2&gt;Your local treasury is unaffected and works normally. Anything already in flight finishes on its own once Global answers.&lt;/color&gt;</KMH_Ct_YourLocalTreasuryIs>
+  <KMH_Ct_ThisAccountIsFrozen>&lt;color=#f0c04f&gt;This account is frozen: it can receive, but not be drawn on.&lt;/color&gt;</KMH_Ct_ThisAccountIsFrozen>
+  <KMH_Ct_AnOperationIsAlready>&lt;color=#9AA4B2&gt;An operation is already running. It finishes on its own - only one at a time.&lt;/color&gt;</KMH_Ct_AnOperationIsAlready>
+  <KMH_Ct_NothingInProgress>&lt;color=#9AA4B2&gt;Nothing in progress.&lt;/color&gt;</KMH_Ct_NothingInProgress>
+  <KMH_Ct_NoMovementsRecordedYet>&lt;color=#9AA4B2&gt;No movements recorded yet.&lt;/color&gt;</KMH_Ct_NoMovementsRecordedYet>
+  <KMH_Cg_ConnectedGuildTreasury>Connected Guild Treasury</KMH_Cg_ConnectedGuildTreasury>
+  <KMH_Cg_SilverHeldByYour2>&lt;color=#9AA4B2&gt;Silver held by your guild at Colony Nexus Global. Every server your guild has linked reaches the same silver; the guild vault on this server is separate.&lt;/color&gt;</KMH_Cg_SilverHeldByYour2>
+  <KMH_Cg_AskingTheServerFor2>&lt;color=#9AA4B2&gt;Asking the server for your guild's federated state…&lt;/color&gt;</KMH_Cg_AskingTheServerFor2>
+  <KMH_Cg_YouAreNotIn>You are not in a guild, so there is no guild treasury to federate.</KMH_Cg_YouAreNotIn>
+  <KMH_Cg_NoLongerLinked>'{0}' is no longer linked to Colony Nexus Global.</KMH_Cg_NoLongerLinked>
+  <KMH_Cg_NotInFederation>'{0}' is not in a guild federation, so it has no connected guild treasury yet.</KMH_Cg_NotInFederation>
+  <KMH_Cg_RevokedKeepsSilver>Any silver the guild held stays with its federation at Colony Nexus Global, and every member server still reaches it.</KMH_Cg_RevokedKeepsSilver>
+  <KMH_Cg_ThisLinkMustBe>&lt;color=#f0c04f&gt;&lt;b&gt;This link must be proved again before federated silver can move.&lt;/b&gt;&lt;/color&gt;</KMH_Cg_ThisLinkMustBe>
+  <KMH_Cg_ReproveInFederation>A guild Admin or the Owner proves it again from the Guild Federation window. The guild vault on this server is unaffected, and the balance below is still readable.</KMH_Cg_ReproveInFederation>
+  <KMH_Cg_MembershipInFederation>Creating, joining and leaving a federation all happen in the Guild Federation window.</KMH_Cg_MembershipInFederation>
+  <KMH_Cg_OpenFederation>Open Guild Federation</KMH_Cg_OpenFederation>
+  <KMH_Cg_KmhGlobalIsUnreachable4>&lt;color=#f0c04f&gt;Colony Nexus Global is unreachable from this server, so federated deposits and withdrawals are paused.&lt;/color&gt;</KMH_Cg_KmhGlobalIsUnreachable4>
+  <KMH_Cg_TheGuildVaultOn>&lt;color=#9AA4B2&gt;The guild vault on this server is unaffected and works normally. Anything already in flight finishes on its own once Global answers.&lt;/color&gt;</KMH_Cg_TheGuildVaultOn>
+  <KMH_Cg_TheServerHasNot>&lt;color=#9AA4B2&gt;The server has not read this guild's balance from Colony Nexus Global yet.&lt;/color&gt;</KMH_Cg_TheServerHasNot>
+  <KMH_Cg_ThisGuildTreasuryIs>&lt;color=#f0c04f&gt;This guild treasury is frozen: it can receive, but not be drawn on.&lt;/color&gt;</KMH_Cg_ThisGuildTreasuryIs>
+  <KMH_Cg_FederatedSilverCannotMove>&lt;color=#9AA4B2&gt;Federated silver cannot move until the link is proved again. The guild vault still works normally.&lt;/color&gt;</KMH_Cg_FederatedSilverCannotMove>
+  <KMH_Cg_ThisGuildAlreadyHas>&lt;color=#9AA4B2&gt;This guild already has an operation running. It finishes on its own - one at a time, whoever started it.&lt;/color&gt;</KMH_Cg_ThisGuildAlreadyHas>
+  <KMH_Cg_DepositsCountAgainstYour>&lt;color=#9AA4B2&gt;Deposits count against your rank's daily withdraw cap, the same as taking silver out of the vault.&lt;/color&gt;</KMH_Cg_DepositsCountAgainstYour>
+  <KMH_Cg_NoFederatedMovementsRecorded>&lt;color=#9AA4B2&gt;No federated movements recorded yet.&lt;/color&gt;</KMH_Cg_NoFederatedMovementsRecorded>
+  <KMH_Steam_KmhAccount>Colony Nexus account</KMH_Steam_KmhAccount>
+  <KMH_Steam_LinkYourSteamAccount>Link your Steam account to Colony Nexus to keep one verified identity across supported Colony Nexus servers.</KMH_Steam_LinkYourSteamAccount>
+  <KMH_Steam_YouCanDoThis>&lt;color=#9AA4B2&gt;You can do this later from Account &amp; links.&lt;/color&gt;</KMH_Steam_YouCanDoThis>
+  <KMH_Steam_LinkSteam>Link Steam</KMH_Steam_LinkSteam>
+  <KMH_Steam_NotNow>Not now</KMH_Steam_NotNow>
+  <KMH_Steam_DonTAskAgain>Don't ask again</KMH_Steam_DonTAskAgain>
+  <KMH_Username_YourNameOnKmh>&lt;color=#9AA4B2&gt;Your name on Colony Nexus Global - unique across every Colony Nexus player, and it travels with your account. Letters, numbers and underscores, 3-24 characters.&lt;/color&gt;</KMH_Username_YourNameOnKmh>
+  <KMH_Username_SaveUsername>Save username</KMH_Username_SaveUsername>
+  <KMH_Enf_PublishMyConfigs>Publish my configs</KMH_Enf_PublishMyConfigs>
+  <KMH_Enf_MarkLikelyPersonalSafe>Mark likely-personal safe</KMH_Enf_MarkLikelyPersonalSafe>
+  <KMH_Enf_RestoreAlsoModList>Your own mod list from before a server changed it is put back too, unless you have changed it yourself since.</KMH_Enf_RestoreAlsoModList>
+  <KMH_Chat_Default>Default</KMH_Chat_Default>
+
+  <KMH_Ct_Available>Available: &lt;b&gt;{0}&lt;/b&gt; silver</KMH_Ct_Available>
+  <KMH_Bal_Reserved>&lt;color=#9AA4B2&gt;Reserved for withdrawals in progress: {0}&lt;/color&gt;</KMH_Bal_Reserved>
+  <KMH_Bal_Owed>&lt;color=#f0c04f&gt;Owed back: {0} - silver delivered after a hold expired.&lt;/color&gt;</KMH_Bal_Owed>
+  <KMH_Bal_PendingIn>&lt;color=#9AA4B2&gt;Pending deposit: {0} (not credited yet)&lt;/color&gt;</KMH_Bal_PendingIn>
+  <KMH_Ct_PendingOut>&lt;color=#9AA4B2&gt;Pending withdrawal: {0} (not delivered yet)&lt;/color&gt;</KMH_Ct_PendingOut>
+  <KMH_Ct_LocalHolds>&lt;color=#9AA4B2&gt;Local treasury holds {0} silver. Most this server moves at once: {1}.&lt;/color&gt;</KMH_Ct_LocalHolds>
+  <KMH_Cg_RankCannotMove>Your rank cannot move this guild's silver.</KMH_Cg_RankCannotMove>
+  <KMH_Cg_IsLinked>'{0}' is linked to Colony Nexus Global.</KMH_Cg_IsLinked>
+  <KMH_Cg_AvailableAt>Available at Colony Nexus Global: &lt;b&gt;{0}&lt;/b&gt; silver</KMH_Cg_AvailableAt>
+  <KMH_Cg_AsReported>&lt;color=#9AA4B2&gt;As Colony Nexus Global reported it {0}.&lt;/color&gt;</KMH_Cg_AsReported>
+  <KMH_Cg_PendingOut>&lt;color=#9AA4B2&gt;Pending withdrawal: {0} (not in the vault yet)&lt;/color&gt;</KMH_Cg_PendingOut>
+  <KMH_Cg_VaultHolds>&lt;color=#9AA4B2&gt;The guild vault on this server holds {0} silver. Most this server moves at once: {1}.&lt;/color&gt;</KMH_Cg_VaultHolds>
+
+  <KMH_Consent_Title>Before you can play here</KMH_Consent_Title>
+  <KMH_Consent_Apply>Apply &amp; continue</KMH_Consent_Apply>
+  <KMH_Consent_Disconnect>Disconnect</KMH_Consent_Disconnect>
+  <KMH_Consent_Intro>This server requires the following before the world loads.</KMH_Consent_Intro>
+  <KMH_Consent_NoChange>Nothing on this machine has to change.</KMH_Consent_NoChange>
+  <KMH_Comms_TitleMuted>Communications  &lt;color=#A9AFB9&gt;(notifications muted)&lt;/color&gt;</KMH_Comms_TitleMuted>
+  <KMH_Comms_Title>Communications</KMH_Comms_Title>
+  <KMH_Comms_Unmute>Muted - unmute</KMH_Comms_Unmute>
+  <KMH_Comms_NotifyOn>Notifications on</KMH_Comms_NotifyOn>
+  <KMH_Comms_MarkRead>Mark all read</KMH_Comms_MarkRead>
+  <KMH_Comms_LinkDiscord>Link Discord</KMH_Comms_LinkDiscord>
+  <KMH_Comms_ServerChat>Server Chat</KMH_Comms_ServerChat>
+  <KMH_Comms_GlobalChat>Global Chat</KMH_Comms_GlobalChat>
+  <KMH_Comms_GlobalChatTip>Chat with players on every Colony Nexus server. Needs a linked Colony Nexus account.</KMH_Comms_GlobalChatTip>
+  <KMH_Comms_GlobalConnecting>(connecting…)</KMH_Comms_GlobalConnecting>
+  <KMH_Comms_GlobalSignIn>(sign in)</KMH_Comms_GlobalSignIn>
+  <KMH_Comms_GlobalTooMany>(too many sessions)</KMH_Comms_GlobalTooMany>
+  <KMH_Comms_GlobalReconnecting>(reconnecting…)</KMH_Comms_GlobalReconnecting>
+  <KMH_Comms_DirectAcross>Direct · across servers</KMH_Comms_DirectAcross>
+  <KMH_Comms_NewConversation>New: {0}</KMH_Comms_NewConversation>
+  <KMH_Comms_OffServer>Not on a server: Global Chat and messages across servers work from here. Join a server for its chat, mail and players.</KMH_Comms_OffServer>
+  <KMH_Comms_LinkAccount>Link your account…</KMH_Comms_LinkAccount>
+  <KMH_Comms_NoGlobalChat>This directory has no Global Chat</KMH_Comms_NoGlobalChat>
+  <KMH_Item_NeedsContent>Needs {0}, which this game does not have: a DLC or mod that is not active here.</KMH_Item_NeedsContent>
+  <KMH_Item_NeedsContentPart>Needs content this game does not have ({0}): a DLC or mod that is not active here.</KMH_Item_NeedsContentPart>
+  <KMH_Item_CannotLoad>Its saved copy cannot be loaded in this game.</KMH_Item_CannotLoad>
+  <KMH_Item_CrateUnbuildable>A crated building whose saved copy could not be loaded here.</KMH_Item_CrateUnbuildable>
+  <KMH_Grant_Blocked>{0} could not arrive. {1} It stays owed to you and arrives when you join with that content active.</KMH_Grant_Blocked>
+  <KMH_Number_Ambiguous>That number could mean two things. Write whole amounts without separators (1000), and fractions with one separator (1.5 or 1,5).</KMH_Number_Ambiguous>
+  <KMH_Comms_Direct>Direct Messages</KMH_Comms_Direct>
+  <KMH_Comms_MessagePlayer>Message a player</KMH_Comms_MessagePlayer>
+  <KMH_Comms_OpenFriends>Open Friends to add someone</KMH_Comms_OpenFriends>
+
+  <KMH_SteamFind_Button>Find Steam friends</KMH_SteamFind_Button>
+  <KMH_SteamFind_Running>Checking your Steam friends…</KMH_SteamFind_Running>
+  <KMH_SteamFind_Off>Steam friend matching is off in your privacy settings.</KMH_SteamFind_Off>
+  <KMH_SteamFind_Failed>Couldn't reach Colony Nexus Global to check Steam friends.</KMH_SteamFind_Failed>
+  <KMH_SteamFind_NoSteam>Steam did not give your friends list, so none were checked.</KMH_SteamFind_NoSteam>
+  <KMH_SteamFind_Rejected>Colony Nexus Global could not check Steam friends ({0}).</KMH_SteamFind_Rejected>
+  <KMH_SteamFind_Found>Steam friends: {0} added as friends.</KMH_SteamFind_Found>
+  <KMH_SteamFind_None>No new Steam matches.</KMH_SteamFind_None>
+  <KMH_SteamFind_Tip>Only mutual matches are added, straight away and without a request: you are friends on Steam, both of you have Steam matching on, and they have run Find Steam friends too. Nobody is asked or told when there is no match.</KMH_SteamFind_Tip>
+  <KMH_Account_SteamDiscovery>Let my Steam friends find me on Colony Nexus</KMH_Account_SteamDiscovery>
+
+  <KMH_Presence_OfficialKmh>Official Colony Nexus Server</KMH_Presence_OfficialKmh>
+
+  <KMH_Presence_ActMarketplace>At the marketplace</KMH_Presence_ActMarketplace>
+  <KMH_Presence_ActAuctions>At the auction house</KMH_Presence_ActAuctions>
+  <KMH_Presence_ActWantBoard>At the want board</KMH_Presence_ActWantBoard>
+  <KMH_Presence_ActQuests>Taking on a quest</KMH_Presence_ActQuests>
+  <KMH_Presence_ActSites>Building a site</KMH_Presence_ActSites>
+  <KMH_Presence_ActFrontier>Out on the frontier</KMH_Presence_ActFrontier>
+  <KMH_Presence_ActTreasury>At the treasury</KMH_Presence_ActTreasury>
+  <KMH_Presence_ActGuild>At the guild hall</KMH_Presence_ActGuild>
+  <KMH_Account_DiscordUnavailable>Colony Nexus Global cannot be reached, so your Discord link cannot be shown or changed right now. It is unchanged.</KMH_Account_DiscordUnavailable>
+  <KMH_Account_DiscordLinking>Linking… finish in your browser. This updates on its own.</KMH_Account_DiscordLinking>
+  <KMH_Account_DiscordLinked>Linked to Discord</KMH_Account_DiscordLinked>
+  <KMH_Account_UnlinkDiscord>Unlink Discord</KMH_Account_UnlinkDiscord>
+  <KMH_Account_ConnectDiscord>Connect Discord</KMH_Account_ConnectDiscord>
+  <KMH_Account_DiscordConnectBlurb>Links your Colony Nexus account to Discord on every Colony Nexus server at once. Colony Nexus is shown your Discord name and nothing else.</KMH_Account_DiscordConnectBlurb>
+  <KMH_Account_DiscordNotOffered>This Colony Nexus Global does not offer Discord linking.</KMH_Account_DiscordNotOffered>
+  <KMH_Presence_JoinEnforces>This server sets its own mod list. Colony Nexus asks before changing anything, and offers to put your own list back from the main menu afterwards.</KMH_Presence_JoinEnforces>
+  <KMH_Discord_StatusOff>&lt;color=#A9AFB9&gt;status off in Colony Nexus settings&lt;/color&gt;</KMH_Discord_StatusOff>
+  <KMH_Discord_StatusWaiting>&lt;color=#A9AFB9&gt;waiting for Discord - the status appears once Discord is running&lt;/color&gt;</KMH_Discord_StatusWaiting>
+  <KMH_Discord_StatusConnected>connected</KMH_Discord_StatusConnected>
+  <KMH_Discord_StatusShowing>showing "{0}"</KMH_Discord_StatusShowing>
+  <KMH_Discord_JoinOn>&lt;color=#7FC08A&gt;offered&lt;/color&gt; - invite from Discord with the + beside the message box</KMH_Discord_JoinOn>
+  <KMH_Discord_JoinNoPresence>&lt;color=#A9AFB9&gt;needs the Discord status on&lt;/color&gt;</KMH_Discord_JoinNoPresence>
+  <KMH_Discord_JoinOff>&lt;color=#A9AFB9&gt;turned off in Colony Nexus settings&lt;/color&gt;</KMH_Discord_JoinOff>
+  <KMH_Discord_JoinNoServer>&lt;color=#A9AFB9&gt;join a Colony Nexus server first&lt;/color&gt;</KMH_Discord_JoinNoServer>
+  <KMH_Discord_JoinNotListed>&lt;color=#f0c04f&gt;this server is not publicly listed, so it cannot be joined from Discord&lt;/color&gt;</KMH_Discord_JoinNotListed>
+  <KMH_Discord_JoinLocked>&lt;color=#f0c04f&gt;this server needs a password, so it cannot be joined from Discord&lt;/color&gt;</KMH_Discord_JoinLocked>
+  <KMH_Discord_JoinNoAddress>&lt;color=#f0c04f&gt;this server publishes no address to connect to&lt;/color&gt;</KMH_Discord_JoinNoAddress>
+  <KMH_Discord_JoinNoScheme>&lt;color=#f0c04f&gt;Discord cannot launch RimWorld on this machine - restart the game with joins on&lt;/color&gt;</KMH_Discord_JoinNoScheme>
+  <KMH_Discord_InviteHint>Discord sends the invite, not Colony Nexus: open a Discord channel, press + beside the message box and choose Invite to play. Whoever accepts needs RimWorld and Colony Nexus installed.</KMH_Discord_InviteHint>
+  <KMH_Account_DiscordNeedsAccount>&lt;color=#9AA4B2&gt;Link your Colony Nexus account above first - Discord attaches to it.&lt;/color&gt;</KMH_Account_DiscordNeedsAccount>
+  <KMH_Account_LinkNeedsSteam>Colony Nexus links your account through Steam, so RimWorld has to be running from Steam with Steam signed in. Start the game through Steam and try again.</KMH_Account_LinkNeedsSteam>
+  <KMH_Account_LinkSteamMismatch>The browser approved that code while signed in as a different Steam account than the one running the game. Sign in to that page as the same account and try again.</KMH_Account_LinkSteamMismatch>
+  <KMH_Video_TooLarge>the download grew past the size limit for this video and was stopped</KMH_Video_TooLarge>
+  <KMH_Publish_BadPartSize>The server asked for upload parts of {0} bytes, outside the {1} to {2} this client sends. Nothing was uploaded.</KMH_Publish_BadPartSize>
+
+  <!-- Guild Federation -->
+  <KMH_Fed_Title>Guild Federation</KMH_Fed_Title>
+  <KMH_Fed_TabTip>Your guild together with guilds on other servers: one name and tag, shared renown, weekly objectives and small local bonuses.</KMH_Fed_TabTip>
+  <KMH_Fed_DashLabel>Federation</KMH_Fed_DashLabel>
+  <KMH_Fed_DashNoGuild>join a guild first</KMH_Fed_DashNoGuild>
+  <KMH_Fed_DashNotLinked>your guild is not in a federation</KMH_Fed_DashNotLinked>
+  <KMH_Fed_DashLevel>level {0} · {1} member server(s)</KMH_Fed_DashLevel>
+  <KMH_Fed_DashStale>last known</KMH_Fed_DashStale>
+  <KMH_Fed_UnavailFeatureOff>Guild Federation is switched off on this server.</KMH_Fed_UnavailFeatureOff>
+  <KMH_Fed_UnavailGlobalOff>This server's owner has switched Colony Nexus Global off, so Guild Federation cannot reach it.</KMH_Fed_UnavailGlobalOff>
+  <KMH_Fed_UnavailGlobalSetup>This server has no Colony Nexus Global identity yet. It sets one up on its own, so try again in a few minutes.</KMH_Fed_UnavailGlobalSetup>
+  <KMH_Fed_UnavailUnreachable>Colony Nexus Global is not answering this server right now.</KMH_Fed_UnavailUnreachable>
+  <KMH_Fed_UnavailUnsupported>The Colony Nexus Global this server uses is too old for Guild Federation.</KMH_Fed_UnavailUnsupported>
+  <KMH_Fed_UnavailRevoked>This server's Colony Nexus Global registration was revoked, so Guild Federation is not available here.</KMH_Fed_UnavailRevoked>
+  <KMH_Fed_LinkActive>Active</KMH_Fed_LinkActive>
+  <KMH_Fed_LinkReproof>Needs to be proved again</KMH_Fed_LinkReproof>
+  <KMH_Fed_LinkRevoked>Revoked</KMH_Fed_LinkRevoked>
+  <KMH_Fed_LinkLeft>Left</KMH_Fed_LinkLeft>
+  <KMH_Fed_LinkRemoved>Removed</KMH_Fed_LinkRemoved>
+  <KMH_Fed_LinkDisbanded>Disbanded</KMH_Fed_LinkDisbanded>
+  <KMH_Fed_StateActive>Active</KMH_Fed_StateActive>
+  <KMH_Fed_StateDisbanded>Disbanded</KMH_Fed_StateDisbanded>
+  <KMH_Fed_ObjActive>In progress</KMH_Fed_ObjActive>
+  <KMH_Fed_ObjCompleted>Completed</KMH_Fed_ObjCompleted>
+  <KMH_Fed_ObjExpired>Expired</KMH_Fed_ObjExpired>
+  <KMH_Fed_CatQuest>Player quests</KMH_Fed_CatQuest>
+  <KMH_Fed_CatWorld>Living World quests</KMH_Fed_CatWorld>
+  <KMH_Fed_CatSite>Site production</KMH_Fed_CatSite>
+  <KMH_Fed_CatRoad>Road building</KMH_Fed_CatRoad>
+  <KMH_Fed_CatFrontier>Frontier outposts</KMH_Fed_CatFrontier>
+  <KMH_Fed_CatActivity>Active members</KMH_Fed_CatActivity>
+  <KMH_Fed_EvCreated>Founded</KMH_Fed_EvCreated>
+  <KMH_Fed_EvJoined>Joined</KMH_Fed_EvJoined>
+  <KMH_Fed_EvLeft>Left</KMH_Fed_EvLeft>
+  <KMH_Fed_EvRemoved>Removed</KMH_Fed_EvRemoved>
+  <KMH_Fed_EvLeaderTransferred>Leadership handed over</KMH_Fed_EvLeaderTransferred>
+  <KMH_Fed_EvLeaderSucceeded>Leadership passed on</KMH_Fed_EvLeaderSucceeded>
+  <KMH_Fed_EvProfileUpdated>Profile updated</KMH_Fed_EvProfileUpdated>
+  <KMH_Fed_EvInviteIssued>Invite issued</KMH_Fed_EvInviteIssued>
+  <KMH_Fed_EvInviteRevoked>Invite withdrawn</KMH_Fed_EvInviteRevoked>
+  <KMH_Fed_EvObjectiveCompleted>Objective completed</KMH_Fed_EvObjectiveCompleted>
+  <KMH_Fed_EvLevelReached>Level reached</KMH_Fed_EvLevelReached>
+  <KMH_Fed_EvAchievementUnlocked>Achievement unlocked</KMH_Fed_EvAchievementUnlocked>
+  <KMH_Fed_EvDisbanded>Disbanded</KMH_Fed_EvDisbanded>
+  <KMH_Fed_EvReproved>Link proved again</KMH_Fed_EvReproved>
+  <KMH_Fed_DetailObjective>{0}, target {1}</KMH_Fed_DetailObjective>
+  <KMH_Fed_DetailLevel>Level {0}</KMH_Fed_DetailLevel>
+  <KMH_Fed_DetailInviteServer>for server {0}</KMH_Fed_DetailInviteServer>
+  <KMH_Fed_ReasonGuildDisbanded>the guild was disbanded on its own server</KMH_Fed_ReasonGuildDisbanded>
+  <KMH_Fed_ReasonUnlinked>its server took the guild out of the federation</KMH_Fed_ReasonUnlinked>
+  <KMH_Fed_ReasonRemoved>the federation's leader removed it</KMH_Fed_ReasonRemoved>
+  <KMH_Fed_ReasonFederationDisbanded>the federation was disbanded</KMH_Fed_ReasonFederationDisbanded>
+  <KMH_Fed_ReasonLastMemberLeft>its last member left</KMH_Fed_ReasonLastMemberLeft>
+  <KMH_Fed_ReasonNoMembersAtUpgrade>it had no active members when federations were introduced</KMH_Fed_ReasonNoMembersAtUpgrade>
+  <KMH_Fed_ReasonIdentityProven>the server proved its own identity, so what another key made under it ended</KMH_Fed_ReasonIdentityProven>
+  <KMH_Fed_ReasonIdentityRebound>the Colony Nexus Global operator returned the server's identity to its rightful key</KMH_Fed_ReasonIdentityRebound>
+  <KMH_Fed_ReasonServerRevoked>the server's Colony Nexus Global registration was revoked</KMH_Fed_ReasonServerRevoked>
+  <KMH_Fed_ReasonGenerationChanged>the server's signing key changed, so the link must be proved again</KMH_Fed_ReasonGenerationChanged>
+  <KMH_Fed_ReasonReproofRequired>Colony Nexus Global asks for the link to be proved again</KMH_Fed_ReasonReproofRequired>
+  <KMH_Fed_ReasonLinkUnknown>Colony Nexus Global has no record of this link any more</KMH_Fed_ReasonLinkUnknown>
+  <KMH_Fed_ReasonDataSetChanged>this server's data was restored or moved, so the link must be proved again</KMH_Fed_ReasonDataSetChanged>
+  <KMH_Fed_ReasonLeftBy>{0} took the guild out of the federation</KMH_Fed_ReasonLeftBy>
+  <KMH_Fed_ReasonDisbandedBy>{0} disbanded the federation</KMH_Fed_ReasonDisbandedBy>
+  <KMH_Fed_FieldName>name</KMH_Fed_FieldName>
+  <KMH_Fed_FieldTag>tag</KMH_Fed_FieldTag>
+  <KMH_Fed_FieldDescription>description</KMH_Fed_FieldDescription>
+  <KMH_Fed_FieldColor>colour</KMH_Fed_FieldColor>
+  <KMH_Fed_AchFounded>Founded</KMH_Fed_AchFounded>
+  <KMH_Fed_AchFirstAlly>First ally</KMH_Fed_AchFirstAlly>
+  <KMH_Fed_AchFiveServers>Five servers</KMH_Fed_AchFiveServers>
+  <KMH_Fed_AchLevel3>Level 3</KMH_Fed_AchLevel3>
+  <KMH_Fed_AchLevel5>Level 5</KMH_Fed_AchLevel5>
+  <KMH_Fed_AchLevel10>Level 10</KMH_Fed_AchLevel10>
+  <KMH_Fed_AchObjectives5>Five objectives</KMH_Fed_AchObjectives5>
+  <KMH_Fed_AchObjectives25>Twenty-five objectives</KMH_Fed_AchObjectives25>
+  <KMH_Fed_AchVerified25>Twenty-five players took part</KMH_Fed_AchVerified25>
+  <KMH_Fed_AchVeteran>Veteran</KMH_Fed_AchVeteran>
+  <KMH_Fed_AchFoundedWhy>The federation was created.</KMH_Fed_AchFoundedWhy>
+  <KMH_Fed_AchFirstAllyWhy>Two member servers at the same time.</KMH_Fed_AchFirstAllyWhy>
+  <KMH_Fed_AchFiveServersWhy>Five servers have been members.</KMH_Fed_AchFiveServersWhy>
+  <KMH_Fed_AchLevel3Why>The federation reached level 3.</KMH_Fed_AchLevel3Why>
+  <KMH_Fed_AchLevel5Why>The federation reached level 5.</KMH_Fed_AchLevel5Why>
+  <KMH_Fed_AchLevel10Why>The federation reached level 10.</KMH_Fed_AchLevel10Why>
+  <KMH_Fed_AchObjectives5Why>Five weekly objectives completed.</KMH_Fed_AchObjectives5Why>
+  <KMH_Fed_AchObjectives25Why>Twenty-five weekly objectives completed.</KMH_Fed_AchObjectives25Why>
+  <KMH_Fed_AchVerified25Why>Twenty-five different players have taken part, each confirmed by Colony Nexus Global.</KMH_Fed_AchVerified25Why>
+  <KMH_Fed_AchVeteranWhy>Thirty days old, with at least two member servers.</KMH_Fed_AchVeteranWhy>
+  <KMH_Fed_BenTag>Federation tag and colour beside your guild's name</KMH_Fed_BenTag>
+  <KMH_Fed_BenSiteOutput>Site output +{0}%</KMH_Fed_BenSiteOutput>
+  <KMH_Fed_BenRoadworks>Roadworks progress +{0}%</KMH_Fed_BenRoadworks>
+  <KMH_Fed_BenExtraObjective>A fourth weekly objective</KMH_Fed_BenExtraObjective>
+  <KMH_Fed_BenRenowned>The Renowned badge</KMH_Fed_BenRenowned>
+  <KMH_Fed_NeedInvite>Paste the invite code first.</KMH_Fed_NeedInvite>
+  <KMH_Fed_NeedTarget>Paste the other server's Server ID first.</KMH_Fed_NeedTarget>
+  <KMH_Fed_NotLinked>Your guild is not in a federation.</KMH_Fed_NotLinked>
+  <KMH_Fed_DisbandTypeTag>Type the federation's tag exactly as shown to disband it.</KMH_Fed_DisbandTypeTag>
+  <KMH_Fed_BadName>A federation name is 3 to 32 characters, without &lt; or &gt;.</KMH_Fed_BadName>
+  <KMH_Fed_BadTag>A tag is 2 to 5 letters or digits.</KMH_Fed_BadTag>
+  <KMH_Fed_BadDescription>A description is at most 280 characters, without &lt; or &gt;.</KMH_Fed_BadDescription>
+  <KMH_Fed_BadColor>Pick one of the offered colours, or none.</KMH_Fed_BadColor>
+  <KMH_Fed_Sending>Asking the server…</KMH_Fed_Sending>
+  <KMH_Fed_NotSent>Not connected to a Colony Nexus server, so nothing was sent.</KMH_Fed_NotSent>
+  <KMH_Fed_TabOverview>Overview</KMH_Fed_TabOverview>
+  <KMH_Fed_TabMembers>Member servers</KMH_Fed_TabMembers>
+  <KMH_Fed_TabObjectives>Objectives</KMH_Fed_TabObjectives>
+  <KMH_Fed_TabHistory>History</KMH_Fed_TabHistory>
+  <KMH_Fed_TabManage>Manage</KMH_Fed_TabManage>
+  <KMH_Fed_NoAnswer>The server has not answered yet. This window keeps asking.</KMH_Fed_NoAnswer>
+  <KMH_Fed_Waiting>Asking the server for your guild's federation…</KMH_Fed_Waiting>
+  <KMH_Fed_Refresh>Refresh</KMH_Fed_Refresh>
+  <KMH_Fed_RefreshWait>Just refreshed. You can ask again in {0} s.</KMH_Fed_RefreshWait>
+  <KMH_Fed_NotSynced>Not read from Colony Nexus Global yet</KMH_Fed_NotSynced>
+  <KMH_Fed_Stale>Colony Nexus Global has not answered since {0}, so this is the last view this server had.</KMH_Fed_Stale>
+  <KMH_Fed_NoGuild>You are not in a guild. A federation joins guilds together, so create or join one in the Guild Hall first.</KMH_Fed_NoGuild>
+  <KMH_Fed_Unverified>Colony Nexus Global has not verified who you are on this server, so you can look but not manage, and nothing you do counts toward the federation.</KMH_Fed_Unverified>
+  <KMH_Fed_NoReason>no reason given</KMH_Fed_NoReason>
+  <KMH_Fed_DisbandedNotice>This federation was disbanded on {0}: {1}. It can never become active again.</KMH_Fed_DisbandedNotice>
+  <KMH_Fed_ReproofNotice>This server's link must be proved again before it counts for the federation. A guild Admin or the Owner can do that under Manage.</KMH_Fed_ReproofNotice>
+  <KMH_Fed_EndedLeft>This server's guild has left the federation.</KMH_Fed_EndedLeft>
+  <KMH_Fed_EndedRemoved>The federation's leader removed this server's guild from it.</KMH_Fed_EndedRemoved>
+  <KMH_Fed_EndedDisbanded>The federation this server's guild belonged to was disbanded.</KMH_Fed_EndedDisbanded>
+  <KMH_Fed_EndedRevoked>This server's link to the federation was revoked.</KMH_Fed_EndedRevoked>
+  <KMH_Fed_EndedOther>This server's guild is no longer a member ({0}).</KMH_Fed_EndedOther>
+  <KMH_Fed_About>A Guild Federation joins guilds on different servers under one name and tag. Together they earn renown, share weekly objectives and unlock small bonuses on each member's own server. Nothing moves silver, items or resources between servers.</KMH_Fed_About>
+  <KMH_Fed_StartHint>To start one, or to join with an invite, open Manage.</KMH_Fed_StartHint>
+  <KMH_Fed_LevelLine>Level {0} · {1} renown</KMH_Fed_LevelLine>
+  <KMH_Fed_NextLevel>{0} renown to the next level</KMH_Fed_NextLevel>
+  <KMH_Fed_TopLevel>The highest level there is.</KMH_Fed_TopLevel>
+  <KMH_Fed_Today>Today: {0} of the {1} renown the federation can earn in a day</KMH_Fed_Today>
+  <KMH_Fed_Status>Status</KMH_Fed_Status>
+  <KMH_Fed_Leader>Leader</KMH_Fed_Leader>
+  <KMH_Fed_Founded>Founded</KMH_Fed_Founded>
+  <KMH_Fed_FoundedBy>{0} by {1}</KMH_Fed_FoundedBy>
+  <KMH_Fed_MembersLabel>Member servers</KMH_Fed_MembersLabel>
+  <KMH_Fed_MemberCounts>{0} now · {1} ever</KMH_Fed_MemberCounts>
+  <KMH_Fed_Verified>Players who took part</KMH_Fed_Verified>
+  <KMH_Fed_VerifiedCounts>{0} in the last 30 days · {1} ever</KMH_Fed_VerifiedCounts>
+  <KMH_Fed_ObjectivesDone>Objectives completed</KMH_Fed_ObjectivesDone>
+  <KMH_Fed_ThisServer>This server</KMH_Fed_ThisServer>
+  <KMH_Fed_PendingReports>{0} contribution(s) from this server are waiting to reach Colony Nexus Global.</KMH_Fed_PendingReports>
+  <KMH_Fed_LostReports>{0} contribution(s) from this server were never counted: Global was out of reach for too long, or the queue was full.</KMH_Fed_LostReports>
+  <KMH_Fed_Benefits>Benefits</KMH_Fed_Benefits>
+  <KMH_Fed_Achievements>Achievements</KMH_Fed_Achievements>
+  <KMH_Fed_Contributions>Contributions</KMH_Fed_Contributions>
+  <KMH_Fed_CategoryCounts>{0} in all · {1} in the last 7 days</KMH_Fed_CategoryCounts>
+  <KMH_Fed_LeaderMark>leader</KMH_Fed_LeaderMark>
+  <KMH_Fed_Joined>joined {0}</KMH_Fed_Joined>
+  <KMH_Fed_BenefitsHelp>Benefits apply on each member's own server while its link and the federation are active. If Colony Nexus Global cannot be reached they keep working for 72 hours, then pause until it answers.</KMH_Fed_BenefitsHelp>
+  <KMH_Fed_NoBenefits>No benefits reported yet.</KMH_Fed_NoBenefits>
+  <KMH_Fed_FromLevel>from level {0}</KMH_Fed_FromLevel>
+  <KMH_Fed_NoMembers>No member servers to show.</KMH_Fed_NoMembers>
+  <KMH_Fed_LeadOnly>Only the guild Owner on the leader server can remove member servers or hand over leadership.</KMH_Fed_LeadOnly>
+  <KMH_Fed_SelfMark>this server</KMH_Fed_SelfMark>
+  <KMH_Fed_Online>online</KMH_Fed_Online>
+  <KMH_Fed_Offline>offline</KMH_Fed_Offline>
+  <KMH_Fed_MemberRenown>{0} renown, {1} in the last 7 days</KMH_Fed_MemberRenown>
+  <KMH_Fed_MakeLeader>Make leader</KMH_Fed_MakeLeader>
+  <KMH_Fed_Remove>Remove</KMH_Fed_Remove>
+  <KMH_Fed_TransferConfirm>Make {0} the leader of {1}? Its guild Owner can then edit the profile, remove members and disband the federation, and this server no longer can.</KMH_Fed_TransferConfirm>
+  <KMH_Fed_RemoveConfirm>Remove {0} from {1}? It can only come back with a new invite.</KMH_Fed_RemoveConfirm>
+  <KMH_Fed_NoObjectives>No objectives for this week yet. They are set the first time anyone looks each week.</KMH_Fed_NoObjectives>
+  <KMH_Fed_WeekEnds>This week's objectives end in {0}.</KMH_Fed_WeekEnds>
+  <KMH_Fed_Progress>{0} of {1} · your guild: {2}</KMH_Fed_Progress>
+  <KMH_Fed_Reward>Reward: {0} renown for the federation</KMH_Fed_Reward>
+  <KMH_Fed_RewardGranted>Your guild's share has been put in its vault on this server.</KMH_Fed_RewardGranted>
+  <KMH_Fed_RewardPending>Your guild earned a share. It arrives in the guild vault on this server.</KMH_Fed_RewardPending>
+  <KMH_Fed_RewardIneligible>Your guild added nothing to this one, so it earns no share.</KMH_Fed_RewardIneligible>
+  <KMH_Fed_NoEvents>Nothing has happened yet.</KMH_Fed_NoEvents>
+  <KMH_Fed_CodeTitle>Server ID</KMH_Fed_CodeTitle>
+  <KMH_Fed_CodeHelp>To join a federation, give this Server ID to an Admin or the Owner of a guild already in it, so they can invite this server.</KMH_Fed_CodeHelp>
+  <KMH_Fed_NoCode>This server has no Server ID until it has a Colony Nexus Global identity.</KMH_Fed_NoCode>
+  <KMH_Fed_ManageOnly>Only a guild Admin or the Owner, verified with Colony Nexus Global, can manage the guild's federation.</KMH_Fed_ManageOnly>
+  <KMH_Fed_Reprove>Prove this server's link again</KMH_Fed_Reprove>
+  <KMH_Fed_CreateTitle>Start a federation</KMH_Fed_CreateTitle>
+  <KMH_Fed_CreateHelp>Your guild becomes its founder and leader. Other guilds join with an invite from you.</KMH_Fed_CreateHelp>
+  <KMH_Fed_Name>Name</KMH_Fed_Name>
+  <KMH_Fed_Tag>Tag</KMH_Fed_Tag>
+  <KMH_Fed_Description>Description</KMH_Fed_Description>
+  <KMH_Fed_Create>Create the federation</KMH_Fed_Create>
+  <KMH_Fed_JoinTitle>Join a federation</KMH_Fed_JoinTitle>
+  <KMH_Fed_JoinHelp>Paste the invite an Admin or the Owner of a member guild made for this server. Each invite works once, only for this server, for 30 minutes.</KMH_Fed_JoinHelp>
+  <KMH_Fed_Join>Join</KMH_Fed_Join>
+  <KMH_Fed_InviteTitle>Invite a server</KMH_Fed_InviteTitle>
+  <KMH_Fed_InviteHelp>Paste the other server's Server ID. The invite works once, only for that server, for 30 minutes.</KMH_Fed_InviteHelp>
+  <KMH_Fed_Invite>Invite</KMH_Fed_Invite>
+  <KMH_Fed_FreshInvite>New invite for {0}, valid for {1}:</KMH_Fed_FreshInvite>
+  <KMH_Fed_FreshHelp>Send this code to an Admin or the Owner of that server's guild. It is shown only to you, and only now.</KMH_Fed_FreshHelp>
+  <KMH_Fed_Outstanding>Invites not used yet</KMH_Fed_Outstanding>
+  <KMH_Fed_Revoke>Withdraw</KMH_Fed_Revoke>
+  <KMH_Fed_LeaveTitle>Leaving</KMH_Fed_LeaveTitle>
+  <KMH_Fed_LeaveLeader>This server leads the federation, so it hands leadership to another member before it can leave.</KMH_Fed_LeaveLeader>
+  <KMH_Fed_LeaveLast>This server is the last member. A federation cannot be left empty, so disband it instead.</KMH_Fed_LeaveLast>
+  <KMH_Fed_LeaveHelp>Your guild stops counting for the federation. Its history stays, and coming back takes a new invite.</KMH_Fed_LeaveHelp>
+  <KMH_Fed_Leave>Leave the federation</KMH_Fed_Leave>
+  <KMH_Fed_LeaveConfirm>Take {0} out of {1}?</KMH_Fed_LeaveConfirm>
+  <KMH_Fed_LeaderTitle>Leader</KMH_Fed_LeaderTitle>
+  <KMH_Fed_LeaderOnly>Only the guild Owner on the leader server can edit the profile, hand over leadership or disband the federation.</KMH_Fed_LeaderOnly>
+  <KMH_Fed_EditTitle>Edit the profile</KMH_Fed_EditTitle>
+  <KMH_Fed_Save>Save the profile</KMH_Fed_Save>
+  <KMH_Fed_UndoEdit>Undo my changes</KMH_Fed_UndoEdit>
+  <KMH_Fed_TransferTitle>Hand over leadership</KMH_Fed_TransferTitle>
+  <KMH_Fed_NoOneToLead>There is no other member server to hand leadership to.</KMH_Fed_NoOneToLead>
+  <KMH_Fed_ChooseLeader>Choose the new leader…</KMH_Fed_ChooseLeader>
+  <KMH_Fed_DisbandTitle>Disband the federation</KMH_Fed_DisbandTitle>
+  <KMH_Fed_DisbandHelp>This is permanent: every member is let go, renown and level freeze, and the federation can never become active again. Its history is kept.</KMH_Fed_DisbandHelp>
+  <KMH_Fed_DisbandTypeLabel>Type {0} to confirm</KMH_Fed_DisbandTypeLabel>
+  <KMH_Fed_DisbandReason>Reason (optional)</KMH_Fed_DisbandReason>
+  <KMH_Fed_Disband>Disband it</KMH_Fed_Disband>
+  <KMH_Fed_DisbandConfirm>Disband {0} for good? This cannot be undone.</KMH_Fed_DisbandConfirm>
+  <KMH_Fed_DisbandNeedsTag>The button works once the tag is typed exactly as shown, capitals included.</KMH_Fed_DisbandNeedsTag>
+  <KMH_Fed_FillIn>Give it a name and a tag.</KMH_Fed_FillIn>
+  <KMH_Fed_Colour>Colour</KMH_Fed_Colour>
+  <KMH_Fed_NoColour>No colour</KMH_Fed_NoColour>
+  <KMH_Fed_Copy>Copy</KMH_Fed_Copy>
+  <KMH_Fed_Copied>Copied to the clipboard.</KMH_Fed_Copied>
+  <KMH_Fed_RefusedWhileDown>Until it answers, federation changes are refused, not queued: try again later. Your guild works normally.</KMH_Fed_RefusedWhileDown>
+  <KMH_Fed_BonusesUntil>Bonuses on this server continue until {0}, then pause until Colony Nexus Global answers.</KMH_Fed_BonusesUntil>
+  <KMH_Fed_BonusesPaused>Bonuses on this server are paused until Colony Nexus Global answers.</KMH_Fed_BonusesPaused>
+  <KMH_Fed_SyncNoGuild>Join a guild first</KMH_Fed_SyncNoGuild>
+  <KMH_Fed_SyncNotLinked>Your guild is not in a federation</KMH_Fed_SyncNotLinked>
+  <KMH_Fed_SyncDownBonuses>Colony Nexus Global unreachable — showing the copy from {0}, bonuses continue until {1}</KMH_Fed_SyncDownBonuses>
+  <KMH_Fed_SyncDownPaused>Colony Nexus Global unreachable — showing the copy from {0}, bonuses paused until it answers</KMH_Fed_SyncDownPaused>
+  <KMH_Fed_SyncDown>Colony Nexus Global unreachable — showing the copy from {0}</KMH_Fed_SyncDown>
+  <KMH_Fed_SyncCopy>Showing the copy from {0}</KMH_Fed_SyncCopy>
+  <KMH_Fed_SyncedNow>Synced just now</KMH_Fed_SyncedNow>
+  <KMH_Fed_SyncedAgo>Synced {0} min ago</KMH_Fed_SyncedAgo>
+  <KMH_Fed_RankOwner>Owner</KMH_Fed_RankOwner>
+  <KMH_Fed_RankAdmin>Admin</KMH_Fed_RankAdmin>
+  <KMH_Fed_RankModerator>Moderator</KMH_Fed_RankModerator>
+  <KMH_Fed_RankOfficer>Officer</KMH_Fed_RankOfficer>
+  <KMH_Fed_RankMember>Member</KMH_Fed_RankMember>
+  <KMH_Fed_PlaceTitle>Your place</KMH_Fed_PlaceTitle>
+  <KMH_Fed_PlaceServer>Server</KMH_Fed_PlaceServer>
+  <KMH_Fed_PlaceGuild>Guild</KMH_Fed_PlaceGuild>
+  <KMH_Fed_PlaceRank>Your rank</KMH_Fed_PlaceRank>
+  <KMH_Fed_YouCan>You can:</KMH_Fed_YouCan>
+  <KMH_Fed_CanView>See the federation, its member servers, objectives and history</KMH_Fed_CanView>
+  <KMH_Fed_CanManage>Invite servers, withdraw invites and take your guild out of the federation</KMH_Fed_CanManage>
+  <KMH_Fed_CanStart>Start a federation, or join one with an invite</KMH_Fed_CanStart>
+  <KMH_Fed_CanLead>Lead it: edit the profile, remove member servers, hand over leadership or disband</KMH_Fed_CanLead>
+  <KMH_Fed_CanCount>Earn renown: your quests and daily activity count toward the federation</KMH_Fed_CanCount>
+  <KMH_Fed_NotCounting>What you do does not count toward a federation until Colony Nexus Global confirms who you are on this server.</KMH_Fed_NotCounting>
+  <KMH_Fed_BoxGuildTitle>Your guild — this server only</KMH_Fed_BoxGuildTitle>
+  <KMH_Fed_BoxGuildBody>Members and ranks, the guild vault, perks, sites, guild chat and alliances with other guilds here. The Guild Hall manages them, and none of it leaves this server.</KMH_Fed_BoxGuildBody>
+  <KMH_Fed_BoxGuildLine>{0} member(s) · {1} local alliance(s)</KMH_Fed_BoxGuildLine>
+  <KMH_Fed_OpenHall>Open the Guild Hall</KMH_Fed_OpenHall>
+  <KMH_Fed_BoxFedTitle>Your federation — kept by Colony Nexus Global, as this server passes it on</KMH_Fed_BoxFedTitle>
+  <KMH_Fed_StartHintOfficer>An Admin or the Owner of your guild can start one, or join one with an invite, under Manage.</KMH_Fed_StartHintOfficer>
+  <KMH_Fed_WeekLabel>This week</KMH_Fed_WeekLabel>
+  <KMH_Fed_WeekNone>no objectives set yet</KMH_Fed_WeekNone>
+  <KMH_Fed_WeekCounts>{0} of {1} objectives done, ends in {2}</KMH_Fed_WeekCounts>
+  <KMH_Fed_AchievedCount>{0} of {1} earned</KMH_Fed_AchievedCount>
+  <KMH_Fed_LastEvent>Latest</KMH_Fed_LastEvent>
+  <KMH_Fed_BoxServerTitle>What each server does for itself</KMH_Fed_BoxServerTitle>
+  <KMH_Fed_BoxServerBody>Each member server applies the federation's bonuses on its own, capped by its owner, and makes its own reward caches for completed objectives, put in your guild's vault here.</KMH_Fed_BoxServerBody>
+  <KMH_Fed_NeverShared>Never shared: silver, items, colonists, vault contents, chat, member names and ranks.</KMH_Fed_NeverShared>
+  <KMH_Fed_HistoryNote>Shows the last {0} events at most, newest first.</KMH_Fed_HistoryNote>
+
+  <!-- What's New -->
+  <KMH_WhatsNew_Title>What's new in {0} v{1}</KMH_WhatsNew_Title>
+  <KMH_WhatsNew_Subtitle>Connected Worlds: find a server, bring your friends, federate your guild.</KMH_WhatsNew_Subtitle>
+  <KMH_WhatsNew_Rw17>Plays on RimWorld 1.7, together with RimWorld Together's own 1.7 release (26.10.20.1 or newer).</KMH_WhatsNew_Rw17>
+  <KMH_WhatsNew_Look>A new Colony Nexus look: a full-screen loading screen with real progress and tips, a Colony Nexus card on the main menu and a tidier Colony Nexus tab.</KMH_WhatsNew_Look>
+  <KMH_WhatsNew_Leaderboards>Leaderboards: 22 boards in Server Standings, and the same rankings on the Colony Nexus website, with images to share.</KMH_WhatsNew_Leaderboards>
+  <KMH_WhatsNew_Browser>Find a server from the main menu: the Colony Nexus server browser shows each server's status, players, versions and the mods it expects, and Join connects through RimWorld Together's own login.</KMH_WhatsNew_Browser>
+  <KMH_WhatsNew_Mods>Prepare and join: one button shows what a server needs, then subscribes and downloads its Workshop mods, installs its RimWorld Together version, sets your mod list (yours is kept and can be restored), restarts RimWorld, checks what loaded and joins.</KMH_WhatsNew_Mods>
+  <KMH_WhatsNew_Account>Link a Colony Nexus Global account through Steam with a short code: one username, friends, presence, direct messages and Global Chat that follow you between servers. Global is optional - every server still plays without it.</KMH_WhatsNew_Account>
+  <KMH_WhatsNew_Federation>Guild Federation: guilds on different servers join one federation with renown, weekly objectives and small local bonuses. Silver, items and resources never move between servers.</KMH_WhatsNew_Federation>
+  <KMH_WhatsNew_Enforcement>A server's mod settings are applied while you join, before the world loads: accept once, and reconnecting only re-checks your files - at most one restart, and none when nothing changed.</KMH_WhatsNew_Enforcement>
+  <KMH_WhatsNew_Sites>Sites are worked by colonists, not accounts: put several of your colonists on one site and recall them one at a time.</KMH_WhatsNew_Sites>
+  <KMH_WhatsNew_Discord>Link Discord from Account &amp; Links. Rich Presence shows the server you are playing on (private servers stay unnamed); what you are doing in game is shown too, and Mod settings can turn that off.</KMH_WhatsNew_Discord>
+  <KMH_WhatsNew_Update>Everyone updates together: v1.3.1 speaks protocol v3, and a Patch and Server Addon from different generations say so and stay off instead of half-working.</KMH_WhatsNew_Update>
+  <KMH_WhatsNew_FullNotes>Colony Nexus Discord / full notes</KMH_WhatsNew_FullNotes>
+  <KMH_WhatsNew_GitHub>Colony Nexus on GitHub</KMH_WhatsNew_GitHub>
+  <KMH_WhatsNew_GotIt>Got it</KMH_WhatsNew_GotIt>
+  <KMH_WhatsNew_Reports>Report a bug or an idea from the Colony Nexus tab, Advanced &amp; tools or the main menu. You see the screenshot and the diagnostics before anything is sent, and the window says who received it.</KMH_WhatsNew_Reports>
+  <KMH_WhatsNew_Performance>Smoother online play: sending never holds up a frame, large updates are put together off the game's thread, and a large compressed update no longer drops the connection. Advanced &amp; tools shows your frame rate, game speed and what Colony Nexus costs each frame.</KMH_WhatsNew_Performance>
+
+  <!-- Shared buttons -->
+  <KMH_Common_Cancel>Cancel</KMH_Common_Cancel>
+
+  <!-- Bug reports and suggestions -->
+  <KMH_Report_Button>Report a bug or suggestion</KMH_Report_Button>
+  <KMH_Report_ButtonTip>Tell the server owner and the Colony Nexus team what went wrong or what you would like. A screenshot and diagnostics can go with it - you see both before anything is sent.</KMH_Report_ButtonTip>
+  <KMH_Report_Title>Report a bug, an idea or a question</KMH_Report_Title>
+  <KMH_Report_Kind>What is it?</KMH_Report_Kind>
+  <KMH_Report_Bug>Something is wrong</KMH_Report_Bug>
+  <KMH_Report_Suggestion>An idea</KMH_Report_Suggestion>
+  <KMH_Report_Question>A question</KMH_Report_Question>
+  <KMH_Report_Area>Area</KMH_Report_Area>
+  <KMH_Report_Area_General>General</KMH_Report_Area_General>
+  <KMH_Report_Area_Joining>Joining &amp; server browser</KMH_Report_Area_Joining>
+  <KMH_Report_Area_Marketplace>Marketplace</KMH_Report_Area_Marketplace>
+  <KMH_Report_Area_Auctions>Auctions</KMH_Report_Area_Auctions>
+  <KMH_Report_Area_WantBoard>Want Board</KMH_Report_Area_WantBoard>
+  <KMH_Report_Area_Treasury>Treasury</KMH_Report_Area_Treasury>
+  <KMH_Report_Area_Mail>Mail</KMH_Report_Area_Mail>
+  <KMH_Report_Area_Chat>Chat</KMH_Report_Area_Chat>
+  <KMH_Report_Area_Guilds>Guilds</KMH_Report_Area_Guilds>
+  <KMH_Report_Area_Quests>Quests</KMH_Report_Area_Quests>
+  <KMH_Report_Area_WorldEvents>World events</KMH_Report_Area_WorldEvents>
+  <KMH_Report_Area_Sites>Sites</KMH_Report_Area_Sites>
+  <KMH_Report_Area_Roadworks>Roadworks</KMH_Report_Area_Roadworks>
+  <KMH_Report_Area_Frontier>Frontier</KMH_Report_Area_Frontier>
+  <KMH_Report_Area_Standings>Standings &amp; leaderboards</KMH_Report_Area_Standings>
+  <KMH_Report_Area_Performance>Performance</KMH_Report_Area_Performance>
+  <KMH_Report_Area_Other>Other</KMH_Report_Area_Other>
+  <KMH_Report_Severity>How bad?</KMH_Report_Severity>
+  <KMH_Report_Sev_Blocks>Blocks me</KMH_Report_Sev_Blocks>
+  <KMH_Report_Sev_Annoying>Annoying</KMH_Report_Sev_Annoying>
+  <KMH_Report_Sev_Minor>Minor</KMH_Report_Sev_Minor>
+  <KMH_Report_Frequency>How often?</KMH_Report_Frequency>
+  <KMH_Report_Freq_Always>Every time</KMH_Report_Freq_Always>
+  <KMH_Report_Freq_Sometimes>Sometimes</KMH_Report_Freq_Sometimes>
+  <KMH_Report_Freq_Once>Once</KMH_Report_Freq_Once>
+  <KMH_Report_Summary>Summary</KMH_Report_Summary>
+  <KMH_Report_SummaryHintBug>One line, e.g. "Marketplace window stays empty"</KMH_Report_SummaryHintBug>
+  <KMH_Report_SummaryHintIdea>One line, e.g. "Let me sort the quest board by reward"</KMH_Report_SummaryHintIdea>
+  <KMH_Report_SummaryHintQuestion>One line, e.g. "How do guild taxes work?"</KMH_Report_SummaryHintQuestion>
+  <KMH_Report_Details>Details</KMH_Report_Details>
+  <KMH_Report_DetailsHintBug>What happened, what you expected instead, and how to make it happen again.</KMH_Report_DetailsHintBug>
+  <KMH_Report_DetailsHintIdea>What you would like, and what it would help you do.</KMH_Report_DetailsHintIdea>
+  <KMH_Report_DetailsHintQuestion>What you would like to know, and where you got stuck.</KMH_Report_DetailsHintQuestion>
+  <KMH_Report_TplDid>What I did:</KMH_Report_TplDid>
+  <KMH_Report_TplExpected>What I expected:</KMH_Report_TplExpected>
+  <KMH_Report_TplHappened>What happened:</KMH_Report_TplHappened>
+  <KMH_Report_SendTo>Send to</KMH_Report_SendTo>
+  <KMH_Report_ToStaff>This server's staff</KMH_Report_ToStaff>
+  <KMH_Report_ToDevelopers>Colony Nexus developers</KMH_Report_ToDevelopers>
+  <KMH_Report_StaffUnavailable>Join a Colony Nexus server that takes reports to send one to its staff.</KMH_Report_StaffUnavailable>
+  <KMH_Report_DevelopersTip>The people who make Colony Nexus. They read every report, whichever server it came from.</KMH_Report_DevelopersTip>
+  <KMH_Report_NeedDestination>Choose who should get it - this server's staff, the Colony Nexus developers, or both.</KMH_Report_NeedDestination>
+  <KMH_Report_ThisServer>this server</KMH_Report_ThisServer>
+  <KMH_Report_HowItem>{0}: {1}</KMH_Report_HowItem>
+  <KMH_Report_HowViaServer>via {0}</KMH_Report_HowViaServer>
+  <KMH_Report_HowDirect>directly with your linked Colony Nexus account</KMH_Report_HowDirect>
+  <KMH_Report_HowLater>saved and sent automatically as soon as possible</KMH_Report_HowLater>
+  <KMH_Report_OldServerForwards>{0} passes every report on to the Colony Nexus developers too.</KMH_Report_OldServerForwards>
+  <KMH_Report_Attach>Attach</KMH_Report_Attach>
+  <KMH_Report_AttachShot>A screenshot of the game as it was when you opened this</KMH_Report_AttachShot>
+  <KMH_Report_NoShot>No screenshot - {0}</KMH_Report_NoShot>
+  <KMH_Report_ShotTip>This is what will be attached.</KMH_Report_ShotTip>
+  <KMH_Report_AttachDiagnostics>Diagnostics - Colony Nexus log, game errors, mod list, performance, system and settings</KMH_Report_AttachDiagnostics>
+  <KMH_Report_Preview>See what's sent</KMH_Report_Preview>
+  <KMH_Report_PreviewTitle>Everything that is sent</KMH_Report_PreviewTitle>
+  <KMH_Report_PreviewNote>{0} characters of diagnostics. Exactly this goes with the report when you press Send.</KMH_Report_PreviewNote>
+  <KMH_Report_PreviewIdLater>assigned when you press Send</KMH_Report_PreviewIdLater>
+  <KMH_Report_PreviewShot>a JPEG picture, {0} KB</KMH_Report_PreviewShot>
+  <KMH_Report_CopyAll>Copy all</KMH_Report_CopyAll>
+  <KMH_Report_Privacy>Never included: passwords, account tokens, chat or save files. Your Windows user folder is removed from every path.</KMH_Report_Privacy>
+  <KMH_Report_Send>Send report</KMH_Report_Send>
+  <KMH_Report_SendAgain>Send again</KMH_Report_SendAgain>
+  <KMH_Report_OpenCopies>Open saved copy</KMH_Report_OpenCopies>
+  <KMH_Report_NeedSummary>Give it a one-line summary first - it is what the owner sees in the list.</KMH_Report_NeedSummary>
+  <KMH_Report_Preparing>Preparing your report…</KMH_Report_Preparing>
+  <KMH_Report_Reference>Reference {0}</KMH_Report_Reference>
+  <KMH_Report_ReferenceTip>Quote this when you talk to the server's staff or the Colony Nexus developers about it.</KMH_Report_ReferenceTip>
+  <KMH_Report_CopyRef>Copy</KMH_Report_CopyRef>
+  <KMH_Report_StateSending>{0}: sending…</KMH_Report_StateSending>
+  <KMH_Report_StateDelivered>{0}: delivered.</KMH_Report_StateDelivered>
+  <KMH_Report_StateRelayed>{0}: on its way through {1}.</KMH_Report_StateRelayed>
+  <KMH_Report_StateDirect>{0}: delivered with your linked account.</KMH_Report_StateDirect>
+  <KMH_Report_StatePending>{0}: saved, and sent automatically as soon as possible ({1}).</KMH_Report_StatePending>
+  <KMH_Report_StateFailed>{0}: not delivered - {1}.</KMH_Report_StateFailed>
+  <KMH_Report_NotSavedLocal>It could not be saved on this computer, so it is lost if the game closes before it is delivered.</KMH_Report_NotSavedLocal>
+  <KMH_Report_StaffOf>the staff of {0}</KMH_Report_StaffOf>
+  <KMH_Report_TheDevelopers>the Colony Nexus developers</KMH_Report_TheDevelopers>
+  <KMH_Report_DeliveredToast>Your report {0} reached {1}.</KMH_Report_DeliveredToast>
+  <KMH_Report_RelayedToast>Your report {0} was handed to {1}, which says it passes reports on to the Colony Nexus developers.</KMH_Report_RelayedToast>
+  <KMH_Report_FailedToast>Your report {0} could not be delivered to {1}: {2}.</KMH_Report_FailedToast>
+  <KMH_Report_Why_Waiting>nobody can take it right now</KMH_Report_Why_Waiting>
+  <KMH_Report_Why_Queued>waiting for another report to finish</KMH_Report_Why_Queued>
+  <KMH_Report_Why_NoAnswer>the server did not answer</KMH_Report_Why_NoAnswer>
+  <KMH_Report_Why_Disconnected>the connection ended before the server answered</KMH_Report_Why_Disconnected>
+  <KMH_Report_Why_CouldNotSend>it could not be sent just now</KMH_Report_Why_CouldNotSend>
+  <KMH_Report_Why_RateLimited>several reports in a short time - the server asked for a pause</KMH_Report_Why_RateLimited>
+  <KMH_Report_Why_Storage>the server could not save it</KMH_Report_Why_Storage>
+  <KMH_Report_Why_Invalid>refused as incomplete</KMH_Report_Why_Invalid>
+  <KMH_Report_Why_NotForwarded>this server does not pass reports on</KMH_Report_Why_NotForwarded>
+  <KMH_Report_Why_GlobalDown>Colony Nexus Global did not answer</KMH_Report_Why_GlobalDown>
+  <KMH_Report_Why_GlobalLimit>Global's limit for today is reached</KMH_Report_Why_GlobalLimit>
+  <KMH_Report_Why_GlobalSignIn>Global did not accept your account - link it again under Account &amp; links</KMH_Report_Why_GlobalSignIn>
+  <KMH_Report_Why_GlobalInvalid>Global refused it as incomplete</KMH_Report_Why_GlobalInvalid>
+  <KMH_Report_Why_Missing>its saved copy is gone from this computer</KMH_Report_Why_Missing>
+  <KMH_Report_Why_Refused>refused: {0}</KMH_Report_Why_Refused>
+
+  <!-- A KMH window that failed to draw -->
+  <KMH_Error_PanelFailed>This Colony Nexus panel hit an error and couldn't finish drawing.</KMH_Error_PanelFailed>
+  <KMH_Error_PanelHelp>It's safe to close and reopen it. Details are in the Colony Nexus log (Mods → {0} settings → Open Colony Nexus log folder).</KMH_Error_PanelHelp>
+  <KMH_Error_Report>Report this problem</KMH_Error_Report>
+  <KMH_Error_ReportTitle>{0} could not draw</KMH_Error_ReportTitle>
+
+  <!-- Performance (Advanced & tools) -->
+  <KMH_Perf_Header>Performance</KMH_Perf_Header>
+  <KMH_Perf_Overlay>Show frame rate and game speed in the corner of the map</KMH_Perf_Overlay>
+  <KMH_Perf_OverlayTip>A small line over the map: frames per second, the slowest 1% of frames, ticks per second against the speed you picked, and what Colony Nexus itself costs each frame.</KMH_Perf_OverlayTip>
+  <KMH_Visuals_Animated>Animated Colony Nexus visuals</KMH_Visuals_Animated>
+  <KMH_Visuals_AnimatedTip>The moving parts of Colony Nexus loading screens: the orbiting moon, the glow, the stars and the progress bars. Off shows them standing still.</KMH_Visuals_AnimatedTip>
+  <KMH_Visuals_ReduceMotion>Reduce motion</KMH_Visuals_ReduceMotion>
+  <KMH_Visuals_ReduceMotionTip>Keeps the progress bars moving but stops the orbiting moon, the pulsing glow and the twinkling stars.</KMH_Visuals_ReduceMotionTip>
+  <KMH_Visuals_Shaders>RimWorld 1.7 shader effects (experimental)</KMH_Visuals_Shaders>
+  <KMH_Visuals_ShadersTip>Draws the light that crosses the Colony Nexus name with RimWorld 1.7's own graphics engine. Off draws the same effect without it.</KMH_Visuals_ShadersTip>
+  <KMH_Visuals_LoadingScreen>Colony Nexus loading screen</KMH_Visuals_LoadingScreen>
+  <KMH_Visuals_LoadingScreenTip>While joining or leaving a Colony Nexus server, the loading screen shows Colony Nexus, with real progress where RimWorld reports it. Off keeps RimWorld's own loading screen.</KMH_Visuals_LoadingScreenTip>
+  <KMH_Load_Step>Step {0} of {1}</KMH_Load_Step>
+  <KMH_Load_Joined>Joined</KMH_Load_Joined>
+  <KMH_Load_PreviewButton>Preview the loading screen</KMH_Load_PreviewButton>
+  <KMH_Load_PreviewTitle>Loading screen preview</KMH_Load_PreviewTitle>
+  <KMH_Load_PreviewStatus>Connecting to the server</KMH_Load_PreviewStatus>
+  <KMH_Load_PreviewDetail>Preview: nothing is loading</KMH_Load_PreviewDetail>
+  <!-- Prepare and join, browser -->
+  <KMH_Prep_EnforcementApplied>Another server's Config Enforcement is still applied to this game. Restore your settings from Colony Nexus &gt; Advanced tools first.</KMH_Prep_EnforcementApplied>
+  <KMH_Prep_MainMenuOnly>Preparing a server changes your mod list, so it only runs from the main menu.</KMH_Prep_MainMenuOnly>
+  <KMH_Prep_Cancelled>Cancelled. Anything already downloaded stays; your mod list can be restored below.</KMH_Prep_Cancelled>
+  <KMH_Prep_NotSaved>Colony Nexus could not write down where it got to, so it will not restart RimWorld for you. Restart it yourself and choose the server again.</KMH_Prep_NotSaved>
+  <KMH_Prep_RestartFailed>Colony Nexus could not restart RimWorld. Close and reopen it yourself; preparation carries on when it starts.</KMH_Prep_RestartFailed>
+  <KMH_Prep_Line_Check>Read the server's requirements</KMH_Prep_Line_Check>
+  <KMH_Prep_Line_Rwt>RimWorld Together version</KMH_Prep_Line_Rwt>
+  <KMH_Prep_Line_Workshop>Workshop mods</KMH_Prep_Line_Workshop>
+  <KMH_Prep_Line_ModList>Mod list and load order</KMH_Prep_Line_ModList>
+  <KMH_Prep_Line_Restart>Restart RimWorld</KMH_Prep_Line_Restart>
+  <KMH_Prep_Line_Account>RimWorld Together account</KMH_Prep_Line_Account>
+  <KMH_Prep_Line_Connect>Join the server</KMH_Prep_Line_Connect>
+  <KMH_Prep_Crashed>Something went wrong preparing this server ({0}). Retry, or cancel and join by hand.</KMH_Prep_Crashed>
+  <KMH_Prep_Headline_Restart>Ready for a restart. RimWorld loads the new setup when it starts again, then Colony Nexus carries on.</KMH_Prep_Headline_Restart>
+  <KMH_Prep_Headline_Menu>Paused while a game is open. Return to the main menu to carry on.</KMH_Prep_Headline_Menu>
+  <KMH_Prep_FindingServer>Looking the server up on Colony Nexus Global…</KMH_Prep_FindingServer>
+  <KMH_Prep_ServerGone>Colony Nexus Global no longer lists this server, or cannot be reached. Retry later.</KMH_Prep_ServerGone>
+  <KMH_Prep_Headline_Waiting>Waiting for the server. Colony Nexus keeps checking; cancel any time.</KMH_Prep_Headline_Waiting>
+  <KMH_Prep_ReadingMods>Reading the server's mod list…</KMH_Prep_ReadingMods>
+  <KMH_Prep_NoModList>The server has not published its mod list; RimWorld Together checks it when you join.</KMH_Prep_NoModList>
+  <KMH_Prep_Manual>These mods are not on the Steam Workshop and have to be installed by hand: {0}</KMH_Prep_Manual>
+  <KMH_Prep_ListAfter>Set once the downloads above have finished.</KMH_Prep_ListAfter>
+  <KMH_Prep_Headline_Working>Preparing. You can leave this window open or close it; Colony Nexus keeps going.</KMH_Prep_Headline_Working>
+  <KMH_Prep_TooManyRestarts>RimWorld has restarted {0} times and this server's requirements are still not met. Check the details above, or restore your mod list.</KMH_Prep_TooManyRestarts>
+  <KMH_Prep_RestartNeeded>RimWorld has to restart to load the new setup.</KMH_Prep_RestartNeeded>
+  <KMH_Prep_VerifyFailed>RimWorld did not load what Colony Nexus set up: {0}</KMH_Prep_VerifyFailed>
+  <KMH_Prep_Verified>RimWorld loaded the new setup.</KMH_Prep_Verified>
+  <KMH_Prep_NoRestart>Not needed.</KMH_Prep_NoRestart>
+  <KMH_Prep_Rechecking>Checking again…</KMH_Prep_Rechecking>
+  <KMH_Prep_Account>RimWorld Together needs a player name and password before it can join. Fill in its Account Setup window; Colony Nexus carries on when it is saved.</KMH_Prep_Account>
+  <KMH_Prep_Headline_Account>Waiting for your RimWorld Together account.</KMH_Prep_Headline_Account>
+  <KMH_Prep_NoAccountPrompt>RimWorld Together has no saved account and Colony Nexus could not open its account window. Use RimWorld Together's own Join once to create one.</KMH_Prep_NoAccountPrompt>
+  <KMH_Prep_ReadyManual>Everything is ready. Press Join now.</KMH_Prep_ReadyManual>
+  <KMH_Prep_Headline_Ready>Ready to join.</KMH_Prep_Headline_Ready>
+  <KMH_Prep_JoiningIn>Joining in {0} s…</KMH_Prep_JoiningIn>
+  <KMH_Prep_RwtMatches>{0} - matches the server.</KMH_Prep_RwtMatches>
+  <KMH_Prep_RwtStaged>{0} is installed and loads after the restart.</KMH_Prep_RwtStaged>
+  <KMH_Prep_RwtWorkshop>Your Steam Workshop copy ({0}) loads after the restart - nothing to download.</KMH_Prep_RwtWorkshop>
+  <KMH_Prep_RwtPrevious>{0}, which Colony Nexus installed before, loads after the restart - nothing to download.</KMH_Prep_RwtPrevious>
+  <KMH_Prep_RwtSwitchFailed>Colony Nexus could not switch RimWorld Together to {0}: {1}</KMH_Prep_RwtSwitchFailed>
+  <KMH_Prep_ResumedFailed>Preparing {0} stopped last time: {1} Retry, or cancel it.</KMH_Prep_ResumedFailed>
+  <KMH_Prep_RwtBusy>Downloading RimWorld Together {0}: {1}</KMH_Prep_RwtBusy>
+  <KMH_Prep_RwtFailed>RimWorld Together {0} could not be installed: {1}</KMH_Prep_RwtFailed>
+  <KMH_Prep_RwtLookup>Looking up RimWorld Together {0} on its official release page…</KMH_Prep_RwtLookup>
+  <KMH_Prep_RwtUnverified>RimWorld Together {0} has no published checksum. Start again from the browser and accept installing it unverified, or install it yourself.</KMH_Prep_RwtUnverified>
+  <KMH_Prep_NothingToDownload>Nothing to download.</KMH_Prep_NothingToDownload>
+  <KMH_Prep_NoSteam>Steam is not running or not signed in, so the server's Workshop mods cannot be subscribed. Start Steam, then Retry.</KMH_Prep_NoSteam>
+  <KMH_Prep_SubscribeRefused>Steam refused the subscription to {0} (Workshop {1}).</KMH_Prep_SubscribeRefused>
+  <KMH_Prep_SubscribeIgnored>Steam did not take the subscription to {0} (Workshop {1}). The item may have been removed, made private, or be unavailable in your region.</KMH_Prep_SubscribeIgnored>
+  <KMH_Prep_Stalled>The download of {0} (Workshop {1}) has stopped moving. Check Steam's Downloads page, then Retry.</KMH_Prep_Stalled>
+  <KMH_Prep_Downloading>{0} of {1} on disk</KMH_Prep_Downloading>
+  <KMH_Prep_Rescanning>Downloaded. Asking RimWorld to find the new mods…</KMH_Prep_Rescanning>
+  <KMH_Prep_FoundOnRestart>Downloaded. RimWorld finds them when it restarts.</KMH_Prep_FoundOnRestart>
+  <KMH_Prep_Downloaded>{0} mod(s) on disk.</KMH_Prep_Downloaded>
+  <KMH_Prep_ListLoaded>Loaded.</KMH_Prep_ListLoaded>
+  <KMH_Prep_ListWritten>Set. RimWorld loads it after the restart.</KMH_Prep_ListWritten>
+  <KMH_Prep_ListAfterRestart>Set after the restart, once RimWorld has found the new mods.</KMH_Prep_ListAfterRestart>
+  <KMH_Prep_NoListToSet>Nothing to set.</KMH_Prep_NoListToSet>
+  <KMH_Prep_ListBlocked>Colony Nexus cannot build a mod list for this server: {0}.</KMH_Prep_ListBlocked>
+  <KMH_Prep_ListMatches>Already matches the server.</KMH_Prep_ListMatches>
+  <KMH_Prep_ListFailed>Colony Nexus could not write your mod list: {0}</KMH_Prep_ListFailed>
+  <KMH_Prep_ListSet>Set: {0} switched on, {1} switched off. Your own list is kept and can be restored.</KMH_Prep_ListSet>
+  <KMH_Prep_NotLoaded>not loaded: {0}</KMH_Prep_NotLoaded>
+  <KMH_Prep_RwtStillOld>RimWorld Together is {0}, not {1}</KMH_Prep_RwtStillOld>
+  <KMH_Prep_Connecting>Connecting to {0}…</KMH_Prep_Connecting>
+  <KMH_Prep_Headline_Connecting>Joining. RimWorld Together takes it from here.</KMH_Prep_Headline_Connecting>
+  <KMH_Prep_Joined>Joined.</KMH_Prep_Joined>
+  <KMH_Prep_Headline_Done>Done. Have fun on {0}!</KMH_Prep_Headline_Done>
+  <KMH_Prep_ConnectFailed>RimWorld Together could not join (its own message says why - a taken player name, a wrong server password, or a server that stopped answering). Retry when it is sorted.</KMH_Prep_ConnectFailed>
+  <KMH_Prep_Rwt_Verifying>checking the download</KMH_Prep_Rwt_Verifying>
+  <KMH_Prep_Rwt_Extracting>unpacking</KMH_Prep_Rwt_Extracting>
+  <KMH_Prep_Rwt_Activating>installing</KMH_Prep_Rwt_Activating>
+  <KMH_Prep_Rwt_Downloading>downloading</KMH_Prep_Rwt_Downloading>
+  <KMH_Prep_Title>Prepare to join {0}</KMH_Prep_Title>
+  <KMH_Prep_ReviewIntro>Colony Nexus can set this game up for the server and join it. This is what it will do:</KMH_Prep_ReviewIntro>
+  <KMH_Prep_ReviewRwt>RimWorld Together</KMH_Prep_ReviewRwt>
+  <KMH_Prep_ReviewRwtBody>Download RimWorld Together {0} from its official release page and install it in your Mods folder (you have {1}). Your Steam Workshop copy is not touched.</KMH_Prep_ReviewRwtBody>
+  <KMH_Prep_ReviewRwtWhile>While it is in your Mods folder, RimWorld loads it in every mod list. "Restore my mod list", or preparing a server on your Workshop version, switches back without downloading.</KMH_Prep_ReviewRwtWhile>
+  <KMH_Prep_ReviewRwtWorkshop>Switch back to your Steam Workshop copy, which is {0} (you are running {1}). Nothing to download: the copy Colony Nexus put in your Mods folder is set aside.</KMH_Prep_ReviewRwtWorkshop>
+  <KMH_Prep_ReviewRwtWorkshopOwn>Switch back to your Steam Workshop copy, which is {0} (you are running {1}). Nothing to download: your own copy in the Mods folder is set aside, and "Restore my mod list" puts it back.</KMH_Prep_ReviewRwtWorkshopOwn>
+  <KMH_Prep_ReviewRwtPrevious>Switch to RimWorld Together {0}, which Colony Nexus installed for another server before (you are running {1}). Nothing to download.</KMH_Prep_ReviewRwtPrevious>
+  <KMH_Prep_ReviewRwtStaged>RimWorld Together {0} is already installed and loads after a restart (you are running {1}).</KMH_Prep_ReviewRwtStaged>
+  <KMH_Prep_ReviewUnverified>Install it although GitHub published no checksum for this older release</KMH_Prep_ReviewUnverified>
+  <KMH_Prep_ReviewSubscribe>Subscribe on the Steam Workshop ({0})</KMH_Prep_ReviewSubscribe>
+  <KMH_Prep_ReviewNoSteam>Steam is not running or not signed in. Start it before you begin, or preparation stops at this step.</KMH_Prep_ReviewNoSteam>
+  <KMH_Prep_ReviewOptional>Optional mods this server allows (only if you tick them)</KMH_Prep_ReviewOptional>
+  <KMH_Prep_ReviewEnable>Switch on (already installed)</KMH_Prep_ReviewEnable>
+  <KMH_Prep_ReviewDisable>Switch off (this server does not allow them)</KMH_Prep_ReviewDisable>
+  <KMH_Prep_ReviewOrder>Set your load order to the server's.</KMH_Prep_ReviewOrder>
+  <KMH_Prep_ReviewExpansion>Cannot be fixed here - an expansion you do not own: {0}</KMH_Prep_ReviewExpansion>
+  <KMH_Prep_ReviewNoList>The server's mod list could not be read yet. Colony Nexus reads it again when preparation starts.</KMH_Prep_ReviewNoList>
+  <KMH_Prep_ReviewThen>Then</KMH_Prep_ReviewThen>
+  <KMH_Prep_ReviewRestart>RimWorld restarts to load the new setup (a second time only if newly downloaded mods have to be found first). Colony Nexus checks what actually loaded, then joins after a 5-second countdown you can stop.</KMH_Prep_ReviewRestart>
+  <KMH_Prep_ReviewKeep>Your current mod list is kept. "Restore my mod list" in the browser puts it back at any time.</KMH_Prep_ReviewKeep>
+  <KMH_Prep_Busy>Colony Nexus is already preparing {0}. Cancel that first.</KMH_Prep_Busy>
+  <KMH_Prep_Cancel>Cancel</KMH_Prep_Cancel>
+  <KMH_Prep_Start>Prepare and join</KMH_Prep_Start>
+  <KMH_Prep_Close>Close</KMH_Prep_Close>
+  <KMH_Prep_Retry>Retry</KMH_Prep_Retry>
+  <KMH_Prep_RestartNow>Restart now</KMH_Prep_RestartNow>
+  <KMH_Prep_JoinNow>Join now</KMH_Prep_JoinNow>
+  <KMH_Prep_DontJoin>Don't join yet</KMH_Prep_DontJoin>
+  <KMH_Prep_Hide>Hide</KMH_Prep_Hide>
+  <KMH_Prep_HideTip>Preparation keeps going. Reopen it from the server browser.</KMH_Prep_HideTip>
+  <KMH_Prep_Restore>Restore my mod list</KMH_Prep_Restore>
+  <KMH_Prep_RestoreFailed>Your mod list could not be restored: {0}</KMH_Prep_RestoreFailed>
+  <KMH_Prep_Restored>Your own mod list and RimWorld Together copy are back on disk. RimWorld loads them when it restarts - and until then, opening the Mods page would undo this.</KMH_Prep_Restored>
+  <KMH_Browser_SortBy>Sort: {0}</KMH_Browser_SortBy>
+  <KMH_Browser_Tags>Tags</KMH_Browser_Tags>
+  <KMH_Browser_TagsCount>Tags ({0})</KMH_Browser_TagsCount>
+  <KMH_Browser_TagsClear>Clear</KMH_Browser_TagsClear>
+  <KMH_Browser_HistoryUnlisted>{0} more you know of are not listed right now.</KMH_Browser_HistoryUnlisted>
+  <KMH_Browser_LoadMore>Load more servers</KMH_Browser_LoadMore>
+  <KMH_Browser_Preparing>Preparing…</KMH_Browser_Preparing>
+  <KMH_Browser_Why_ModsPrepare>Your mod list does not match what this server requires. "Prepare and join" downloads what is missing, sets your mod list, restarts RimWorld and joins - you see every step first.</KMH_Browser_Why_ModsPrepare>
+  <KMH_Browser_Why_ModsNoSteam>Your mod list does not match, and some of the missing mods come from the Steam Workshop. Start Steam to let Colony Nexus subscribe to them.</KMH_Browser_Why_ModsNoSteam>
+  <KMH_Browser_Why_RwtPrepare>"Prepare and join" switches to the matching version, and downloads it from its official release page only if it is not on this PC yet.</KMH_Browser_Why_RwtPrepare>
+  <KMH_Browser_Why_ModsUnchecked>This server's mod list could not be read just now ({0}), so it could not be compared. You can still join, and RimWorld Together checks at the door.</KMH_Browser_Why_ModsUnchecked>
+  <KMH_Browser_RimWorldDiffers>This server runs RimWorld {0} and you have {1}. RimWorld Together may refuse the join until both match; Steam updates RimWorld itself.</KMH_Browser_RimWorldDiffers>
+  <KMH_Browser_Favourited>★ Favourite</KMH_Browser_Favourited>
+  <KMH_Browser_AddFavourite>☆ Add favourite</KMH_Browser_AddFavourite>
+  <KMH_Browser_Favourited_Tip>In your Favourites. Click to remove it.</KMH_Browser_Favourited_Tip>
+  <KMH_Browser_AddFavourite_Tip>Keep this server in your Favourites tab.</KMH_Browser_AddFavourite_Tip>
+  <KMH_Browser_Restore_Tip>Puts back the mod list and RimWorld Together copy you had before Colony Nexus set them up for a server. RimWorld has to restart to load them.</KMH_Browser_Restore_Tip>
+  <KMH_Browser_ShowPreparation>Preparing… (show)</KMH_Browser_ShowPreparation>
+  <KMH_Browser_Prepare>Prepare and join</KMH_Browser_Prepare>
+  <KMH_Browser_Prepare_Tip>Shows exactly what Colony Nexus would download, switch on or off and restart for this server. Nothing changes until you accept.</KMH_Browser_Prepare_Tip>
+  <KMH_Browser_Restore_Confirm>Put back the mod list and RimWorld Together copy you had before Colony Nexus changed them? RimWorld has to restart to load them.</KMH_Browser_Restore_Confirm>
+  <KMH_Browser_Join_NeedsAccount>RimWorld Together needs a player name and password first. Save them in its Account Setup window, then press Join again.</KMH_Browser_Join_NeedsAccount>
+  <KMH_Browser_Mod_Disabled>Installed, switched off: {0}</KMH_Browser_Mod_Disabled>
+  <KMH_Browser_Mod_Order>Your load order differs from this server's.</KMH_Browser_Mod_Order>
+  <KMH_Browser_Mods_OrderOnly>Load order differs</KMH_Browser_Mods_OrderOnly>
+  <KMH_Browser_Sort_Players>Most players</KMH_Browser_Sort_Players>
+  <KMH_Browser_Sort_Active>Most active</KMH_Browser_Sort_Active>
+  <KMH_Browser_Sort_Name>Name</KMH_Browser_Sort_Name>
+  <KMH_Browser_Sort_Heard>Last heard from</KMH_Browser_Sort_Heard>
+  <KMH_Browser_Sort_Recommended>Recommended</KMH_Browser_Sort_Recommended>
+  <KMH_Browser_Sort_Players_Tip>Highest player count right now.</KMH_Browser_Sort_Players_Tip>
+  <KMH_Browser_Sort_Active_Tip>Busiest in the last 24 hours, so a server that is quiet this hour still ranks.</KMH_Browser_Sort_Active_Tip>
+  <KMH_Browser_Sort_Name_Tip>Alphabetical.</KMH_Browser_Sort_Name_Tip>
+  <KMH_Browser_Sort_Heard_Tip>Most recently heard from Colony Nexus Global. Not the same as the Recent tab, which lists servers you joined.</KMH_Browser_Sort_Heard_Tip>
+  <KMH_Browser_Sort_Recommended_Tip>Servers you can join, busiest first.</KMH_Browser_Sort_Recommended_Tip>
+
+  <!-- Quest review, join verification, federation reasons -->
+  <KMH_Quest_Review>Review</KMH_Quest_Review>
+  <KMH_Quest_ApprovePay>Approve &amp; pay bounty</KMH_Quest_ApprovePay>
+  <KMH_Quest_RejectWithNote>Reject (with note)</KMH_Quest_RejectWithNote>
+  <KMH_Quest_RejectReason>Reason for rejection</KMH_Quest_RejectReason>
+  <KMH_Quest_Reject>Reject</KMH_Quest_Reject>
+  <KMH_Join_SignedOut>You are not signed in to Colony Nexus Global. Link Steam under Account &amp; links - Colony Nexus then confirms you on this server without a reconnect.</KMH_Join_SignedOut>
+  <KMH_Join_PublicUnknown>the address the server browser lists</KMH_Join_PublicUnknown>
+  <KMH_Join_LocalAddress>You connected through a local address ({0}). Global can only confirm your identity when you connect through the server's public address ({1}).</KMH_Join_LocalAddress>
+  <KMH_Join_OtherAddress>You connected through {0}, which is not the address this server registered with Colony Nexus Global ({1}), so Global cannot confirm your identity on this connection.</KMH_Join_OtherAddress>
+  <KMH_Join_Unreachable>Colony Nexus Global could not be reached, so your identity on this server is not confirmed yet. Colony Nexus tries again on its own.</KMH_Join_Unreachable>
+  <KMH_Join_ServerRefused>This server did not accept your Colony Nexus Global ticket ({0}). Colony Nexus tries again on its own.</KMH_Join_ServerRefused>
+  <KMH_Join_Refused>You are signed in, but Colony Nexus Global did not confirm your identity on this server ({0}). Colony Nexus tries again on its own.</KMH_Join_Refused>
+  <KMH_Account_ThisServer>&lt;b&gt;This server&lt;/b&gt;</KMH_Account_ThisServer>
+  <KMH_Account_ServerVerified>This server accepted your Colony Nexus Global sign-in.</KMH_Account_ServerVerified>
+  <KMH_Account_ServerChecking>Waiting for Colony Nexus Global to confirm who you are on this server.</KMH_Account_ServerChecking>
+  <KMH_Account_ServerSignedOut>You are not signed in to Colony Nexus Global yet. Link Steam in the Steam section of this window, and this server confirms you without a reconnect.</KMH_Account_ServerSignedOut>
+  <KMH_Fed_WhySignedOut>Sign in to Colony Nexus Global with Steam under Account &amp; links. This server confirms who you are as soon as you do.</KMH_Fed_WhySignedOut>
+  <KMH_Fed_WhyLocalAddress>You are signed in to Colony Nexus Global, but this connection is unverified: you joined through a local or private address, and Global only confirms players who join through the server's public address.</KMH_Fed_WhyLocalAddress>
+  <KMH_Fed_WhyOtherAddress>You are signed in to Colony Nexus Global, but this connection is unverified: you joined through an address that is not the one this server registered with Global.</KMH_Fed_WhyOtherAddress>
+  <KMH_Fed_WhyUnconfirmed>You are signed in to Colony Nexus Global, but it has not confirmed this connection yet. Colony Nexus keeps trying on its own.</KMH_Fed_WhyUnconfirmed>
+  <KMH_Fed_WhyTicketRefused>You are signed in to Colony Nexus Global, but this server could not accept your identity ticket. Colony Nexus keeps trying on its own.</KMH_Fed_WhyTicketRefused>
+  <KMH_Fed_WhyUnknown>This server has no proof of your Colony Nexus Global identity on this connection yet. Sign in with Steam under Account &amp; links if you have not.</KMH_Fed_WhyUnknown>
+  <KMH_Fed_WhyServerIdentity>This server is still getting its Colony Nexus Global identity, so it cannot confirm who you are yet.</KMH_Fed_WhyServerIdentity>
+  <KMH_Fed_WhyNoGuild>You are not in a guild.</KMH_Fed_WhyNoGuild>
+  <KMH_Fed_WhyGuildMissing>Your guild record is missing.</KMH_Fed_WhyGuildMissing>
+  <KMH_Fed_WhyRankManage>Only a guild Admin or the Owner can manage the guild's federation.</KMH_Fed_WhyRankManage>
+  <KMH_Fed_WhyRankLead>Only the guild Owner can lead the federation.</KMH_Fed_WhyRankLead>
+  <KMH_Fed_WhyNotLeader>Only the federation's leading guild can do this.</KMH_Fed_WhyNotLeader>
+  <KMH_Menu_Browse>Browse servers</KMH_Menu_Browse>
+  <KMH_Menu_ReportShort>Report</KMH_Menu_ReportShort>
+  <KMH_Menu_AccountOffline>Account: Global unreachable, linking waits</KMH_Menu_AccountOffline>
+  <KMH_Menu_NotLinked>Steam not linked: open Account to link</KMH_Menu_NotLinked>
+  <KMH_Menu_SignedInAs>Signed in as</KMH_Menu_SignedInAs>
+  <KMH_Menu_SteamLinked>Steam linked</KMH_Menu_SteamLinked>
+  <KMH_Load_PreviewFull>Preview full screen</KMH_Load_PreviewFull>
+  <KMH_Load_PreviewExit>Click or press Esc to close the preview.</KMH_Load_PreviewExit>
+  <KMH_Tip_Label>Colony Nexus tip</KMH_Tip_Label>
+  <KMH_Tip_1>Open the Colony Nexus tab to trade with other players: the Marketplace, the Want Board and timed auctions.</KMH_Tip_1>
+  <KMH_Tip_2>Your treasury vault keeps silver and goods off the map. A deposit counts once your colony has been saved.</KMH_Tip_2>
+  <KMH_Tip_3>Guilds share a vault, ranks and perks. Start one or accept an invite in the Guild Hall.</KMH_Tip_3>
+  <KMH_Tip_4>Frontier Operations are derelict and contested places anyone can claim, for themselves or for their guild.</KMH_Tip_4>
+  <KMH_Tip_5>Roadworks plans a route on the world map and quotes the cost before you commit to building it.</KMH_Tip_5>
+  <KMH_Tip_6>Server Standings ranks players, guilds and colonies. The website shows every board for this server.</KMH_Tip_6>
+  <KMH_Tip_7>Mail can carry silver and items, and you can recall it while it is still unread.</KMH_Tip_7>
+  <KMH_Tip_8>Link Steam under Account so your name and history follow you to every Colony Nexus server.</KMH_Tip_8>
+
+  <!-- Layout: wrapped, shortened and measured labels -->
+  <KMH_Guild_VaultWithdrawTitle>Withdraw from guild vault</KMH_Guild_VaultWithdrawTitle>
+  <KMH_Guild_VaultWithdrawTip>Delivered to your colony. Your rank sets a daily cap.</KMH_Guild_VaultWithdrawTip>
+  <KMH_Guild_PickerNone>No guilds on this server yet. Create one in the Guild Hall.</KMH_Guild_PickerNone>
+  <KMH_Guild_MenuRival>Mark as a rival (a label only, no effect on play)</KMH_Guild_MenuRival>
+  <KMH_Guild_MenuRivalVerb>Rival:</KMH_Guild_MenuRivalVerb>
+  <KMH_Guild_MenuAccept>Accept the alliance from {0}</KMH_Guild_MenuAccept>
+  <KMH_Guild_MenuDecline>Decline the alliance from {0}</KMH_Guild_MenuDecline>
+  <KMH_Guild_MenuCancel>Proposal sent to {0} - cancel it</KMH_Guild_MenuCancel>
+  <KMH_Guild_MenuBreak>End the alliance with {0}</KMH_Guild_MenuBreak>
+  <KMH_Guild_MenuClearRival>Clear the rival mark on {0}</KMH_Guild_MenuClearRival>
+  <KMH_Guild_DiplomacyTip>An alliance needs both guilds: one proposes, the other accepts, and either can end it. Ending it ends it for both, so allying again takes a new proposal. A rival mark is only a label and has no effect on play.</KMH_Guild_DiplomacyTip>
+  <KMH_Guild_IncomingRow>{0} proposes an alliance with your guild.</KMH_Guild_IncomingRow>
+  <KMH_Guild_IncomingMore>(and {0} more under Diplomacy)</KMH_Guild_IncomingMore>
+  <KMH_Guild_IncomingAdminOnly>An Admin or the Owner can answer it.</KMH_Guild_IncomingAdminOnly>
+  <KMH_Guild_Accept>Accept</KMH_Guild_Accept>
+  <KMH_Guild_Decline>Decline</KMH_Guild_Decline>
+  <KMH_Guild_RelIncoming>proposes an alliance to you</KMH_Guild_RelIncoming>
+  <KMH_Guild_RelAllied>allied</KMH_Guild_RelAllied>
+  <KMH_Guild_RelSent>proposal sent</KMH_Guild_RelSent>
+  <KMH_Guild_RelRival>rival</KMH_Guild_RelRival>
+  <KMH_Guild_DipIncoming>Proposals to you:</KMH_Guild_DipIncoming>
+  <KMH_Guild_DipSent>Proposal sent:</KMH_Guild_DipSent>
+  <KMH_Guild_DipRivals>Rivals:</KMH_Guild_DipRivals>
+  <KMH_Guild_FlashDeclined>Declined the alliance from {0}</KMH_Guild_FlashDeclined>
+  <KMH_Guild_FlashCancelled>Proposal to {0} cancelled</KMH_Guild_FlashCancelled>
+  <KMH_Guild_FlashRival>Marked {0} as a rival</KMH_Guild_FlashRival>
+  <KMH_Guild_FlashRivalCleared>Rival mark on {0} cleared</KMH_Guild_FlashRivalCleared>
+  <KMH_Amount_In>Amount in {0}</KMH_Amount_In>
+  <KMH_Sites_PausedHint>Send a caravan to tile {0} and assign a colonist.</KMH_Sites_PausedHint>
+  <KMH_Road_TierLocked>(locked)</KMH_Road_TierLocked>
+  <KMH_MyReports_Title>My reports</KMH_MyReports_Title>
+  <KMH_MyReports_Tip>Every report sent from this game: whether it reached the server and the developers, and what the developers did with it.</KMH_MyReports_Tip>
+  <KMH_MyReports_NotLinked>Link your Colony Nexus account to see what the developers did with your reports.</KMH_MyReports_NotLinked>
+  <KMH_MyReports_NoService>This Colony Nexus directory does not report back on reports yet.</KMH_MyReports_NoService>
+  <KMH_MyReports_Failed>Could not reach Colony Nexus just now; it tries again later.</KMH_MyReports_Failed>
+  <KMH_MyReports_NewReply>The Colony Nexus developers replied to your report {0}.</KMH_MyReports_NewReply>
+  <KMH_MyReports_NewStatus>Your report {0} is now: {1}.</KMH_MyReports_NewStatus>
+  <KMH_MyReports_StatusNew>Received</KMH_MyReports_StatusNew>
+  <KMH_MyReports_StatusSeen>Seen by the developers</KMH_MyReports_StatusSeen>
+  <KMH_MyReports_StatusAck>Acknowledged</KMH_MyReports_StatusAck>
+  <KMH_MyReports_StatusWorking>Being worked on</KMH_MyReports_StatusWorking>
+  <KMH_MyReports_StatusFixed>Fixed</KMH_MyReports_StatusFixed>
+  <KMH_MyReports_StatusFixedIn>Fixed in {0}</KMH_MyReports_StatusFixedIn>
+  <KMH_MyReports_StatusWontFix>Won't be changed</KMH_MyReports_StatusWontFix>
+  <KMH_MyReports_StatusDuplicate>Already reported by someone else</KMH_MyReports_StatusDuplicate>
+  <KMH_MyReports_StatusClosed>Closed</KMH_MyReports_StatusClosed>
+  <KMH_MyReports_Checking>Asking Colony Nexus for news on your reports…</KMH_MyReports_Checking>
+  <KMH_MyReports_Checked>Developer status checked {0} ago.</KMH_MyReports_Checked>
+  <KMH_MyReports_Refresh>Check now</KMH_MyReports_Refresh>
+  <KMH_MyReports_None>No reports sent from this game yet.</KMH_MyReports_None>
+  <KMH_MyReports_Folder>Open saved copies</KMH_MyReports_Folder>
+  <KMH_MyReports_ToServer>Server staff</KMH_MyReports_ToServer>
+  <KMH_MyReports_ToDevs>Developers</KMH_MyReports_ToDevs>
+  <KMH_MyReports_Reply>Developers replied</KMH_MyReports_Reply>
+  <KMH_MyReports_SentFrom>Sent while on {0}</KMH_MyReports_SentFrom>
+  <KMH_MyReports_Sent>sent</KMH_MyReports_Sent>
+  <KMH_MyReports_Sending>sending…</KMH_MyReports_Sending>
+  <KMH_MyReports_NotSent>not sent</KMH_MyReports_NotSent>
+  <KMH_MyReports_Waiting>waiting to send</KMH_MyReports_Waiting>
+  <KMH_MyReports_KindIdea>Idea</KMH_MyReports_KindIdea>
+  <KMH_MyReports_KindQuestion>Question</KMH_MyReports_KindQuestion>
+  <KMH_MyReports_KindBug>Bug</KMH_MyReports_KindBug>
+  <KMH_MyReports_Moments>moments</KMH_MyReports_Moments>
+  <KMH_ErrorOffer_Title>Colony Nexus hit a problem</KMH_ErrorOffer_Title>
+  <KMH_ErrorOffer_Body>Reporting it now, while you remember what you were doing, helps the most.</KMH_ErrorOffer_Body>
+  <KMH_ErrorOffer_Report>Report it</KMH_ErrorOffer_Report>
+  <KMH_ErrorOffer_Later>Not now</KMH_ErrorOffer_Later>
+  <KMH_ErrorOffer_Never>Don't offer again</KMH_ErrorOffer_Never>
+  <KMH_ErrorOffer_ReportTitle>Error: {0}</KMH_ErrorOffer_ReportTitle>
+  <KMH_ErrorOffer_ReportBody>What I was doing when it happened:</KMH_ErrorOffer_ReportBody>
+  <KMH_ErrorOffer_ReportError>The error Colony Nexus logged:</KMH_ErrorOffer_ReportError>
+  <KMH_ErrorOffer_Setting>Offer to report Colony Nexus errors</KMH_ErrorOffer_Setting>
+  <KMH_ErrorOffer_SettingTip>When Colony Nexus itself hits an error, a small window offers a report already filled in. Once per kind of error, at most three times a session.</KMH_ErrorOffer_SettingTip>
+  <KMH_Friends_OpenAccount>Open Account &amp; links</KMH_Friends_OpenAccount>
+
+  <!-- Guild Hall -->
+  <KMH_GH_NoGuildTitle>(no guild)</KMH_GH_NoGuildTitle>
+  <KMH_GH_Title>Guild Hall - {0}</KMH_GH_Title>
+  <KMH_GH_TransferLabel>Transfer ownership to {0}</KMH_GH_TransferLabel>
+  <KMH_GH_TransferConfirm>Make {0} the guild Owner? You become an Admin. This cannot be undone by you.</KMH_GH_TransferConfirm>
+  <KMH_GH_MemberOne>1 member</KMH_GH_MemberOne>
+  <KMH_GH_MemberMany>{0} members</KMH_GH_MemberMany>
+  <KMH_GH_WhyTitle>What a guild gives you</KMH_GH_WhyTitle>
+  <KMH_GH_WhyVault>Shared vault</KMH_GH_WhyVault>
+  <KMH_GH_WhyVaultText>Pool silver and goods in one vault. Ranks decide who may take from it.</KMH_GH_WhyVaultText>
+  <KMH_GH_WhyRanks>Ranks and perks</KMH_GH_WhyRanks>
+  <KMH_GH_WhyRanksText>Give members ranks, and buy perks from the guild's funds for everyone.</KMH_GH_WhyRanksText>
+  <KMH_GH_WhySites>Sites and outposts</KMH_GH_WhySites>
+  <KMH_GH_WhySitesText>Build sites for the guild and claim Frontier outposts in its name.</KMH_GH_WhySitesText>
+  <KMH_GH_WhyAllies>Alliances and Federation</KMH_GH_WhyAllies>
+  <KMH_GH_WhyAlliesText>Ally with other guilds here, or federate with guilds on other servers for renown and weekly objectives.</KMH_GH_WhyAlliesText>
+  <KMH_GH_Loading>Loading guild snapshot…</KMH_GH_Loading>
+  <KMH_GH_NotInGuild>You're not currently in a guild.</KMH_GH_NotInGuild>
+  <KMH_GH_NotInGuildHow>Create your own guild, accept an invite below, or join an open guild by name.</KMH_GH_NotInGuildHow>
+  <KMH_GH_CreateGuild>Create a guild</KMH_GH_CreateGuild>
+  <KMH_GH_JoinGuild>Join a guild</KMH_GH_JoinGuild>
+  <KMH_GH_Create>Create</KMH_GH_Create>
+  <KMH_GH_InvitesTitle>Guild invites for you</KMH_GH_InvitesTitle>
+  <KMH_GH_NoInvites>No pending invites. When a guild invites you, it appears here.</KMH_GH_NoInvites>
+  <KMH_GH_InvitedBy>invited by {0}</KMH_GH_InvitedBy>
+  <KMH_GH_Motd>MOTD:</KMH_GH_Motd>
+  <KMH_GH_EditMotd>Edit MOTD</KMH_GH_EditMotd>
+  <KMH_GH_EditMotdTitle>Edit guild MOTD</KMH_GH_EditMotdTitle>
+  <KMH_GH_Save>Save</KMH_GH_Save>
+  <KMH_GH_DiplomacyMenu>Diplomacy ▾</KMH_GH_DiplomacyMenu>
+  <KMH_GH_HallLabel>Guild Hall:</KMH_GH_HallLabel>
+  <KMH_GH_HallSet>set at world tile {0}</KMH_GH_HallSet>
+  <KMH_GH_HallRadius>(access radius {0})</KMH_GH_HallRadius>
+  <KMH_GH_HallNotSet>not set (only needed if the server enables Guild Hall rules)</KMH_GH_HallNotSet>
+  <KMH_GH_JumpToHall>Jump to Hall</KMH_GH_JumpToHall>
+  <KMH_GH_MoveHall>Move / Remove Hall ▾</KMH_GH_MoveHall>
+  <KMH_GH_SetHall>Set Hall ▾</KMH_GH_SetHall>
+  <KMH_GH_HallViaMap>Set via map (pick a world tile)</KMH_GH_HallViaMap>
+  <KMH_GH_HallHere>Set at my current colony/caravan tile</KMH_GH_HallHere>
+  <KMH_GH_HallRemove>Remove Guild Hall</KMH_GH_HallRemove>
+  <KMH_GH_InvitePlayer>Invite player</KMH_GH_InvitePlayer>
+  <KMH_GH_SetInviteOnly>Set Invite-only</KMH_GH_SetInviteOnly>
+  <KMH_GH_SetOpen>Set Open to join</KMH_GH_SetOpen>
+  <KMH_GH_Refresh>Refresh</KMH_GH_Refresh>
+  <KMH_GH_AnyoneCanJoin>Anyone can join</KMH_GH_AnyoneCanJoin>
+  <KMH_GH_InviteOnly>Invite-only</KMH_GH_InviteOnly>
+  <KMH_GH_DonateSilver>Donate silver</KMH_GH_DonateSilver>
+  <KMH_GH_WithdrawSilver>Withdraw silver</KMH_GH_WithdrawSilver>
+  <KMH_GH_DonateTitle>Donate to guild vault</KMH_GH_DonateTitle>
+  <KMH_GH_Donate>Donate</KMH_GH_Donate>
+  <KMH_GH_DonateUnit>silver (from your personal Treasury)</KMH_GH_DonateUnit>
+  <KMH_GH_Withdraw>Withdraw</KMH_GH_Withdraw>
+  <KMH_GH_WithdrawUnit>silver (to your personal Treasury; daily cap by rank)</KMH_GH_WithdrawUnit>
+  <KMH_GH_LeaveGuild>Leave guild</KMH_GH_LeaveGuild>
+  <KMH_GH_LeaveConfirm>Leave this guild? You lose your rank and contribution credit. Guild vault/sites/perks are not deleted. The guild Owner must transfer ownership or disband before leaving.</KMH_GH_LeaveConfirm>
+  <KMH_GH_VaultLabel>Guild vault:</KMH_GH_VaultLabel>
+  <KMH_GH_SilverAmount>{0} silver</KMH_GH_SilverAmount>
+  <KMH_GH_YourDonated>Your donated:</KMH_GH_YourDonated>
+  <KMH_GH_VaultDisabled>disabled by server</KMH_GH_VaultDisabled>
+  <KMH_GH_WithdrawItems>Withdraw items ▾</KMH_GH_WithdrawItems>
+  <KMH_GH_Yours>Yours:</KMH_GH_Yours>
+  <KMH_GH_SaveToFinalize>(save your game to finalize)</KMH_GH_SaveToFinalize>
+  <KMH_GH_PendingDonations>Pending donations:</KMH_GH_PendingDonations>
+  <KMH_GH_NotSpendable>(not spendable yet)</KMH_GH_NotSpendable>
+  <KMH_GH_Members>Members</KMH_GH_Members>
+  <KMH_GH_Perks>Perks</KMH_GH_Perks>
+  <KMH_GH_GuildSilver>guild silver {0}</KMH_GH_GuildSilver>
+  <KMH_GH_VaultItems>Vault items:</KMH_GH_VaultItems>
+  <KMH_GH_None>none</KMH_GH_None>
+  <KMH_GH_PlusMore>(+{0} more)</KMH_GH_PlusMore>
+  <KMH_GH_MemberStatsOne>{0} donated • 1 quest</KMH_GH_MemberStatsOne>
+  <KMH_GH_MemberStats>{0} donated • {1} quests</KMH_GH_MemberStats>
+  <KMH_GH_MemberStatsTip>{0} donated to the guild vault, {1} quest(s) completed</KMH_GH_MemberStatsTip>
+  <KMH_GH_NoMembers>No members.</KMH_GH_NoMembers>
+  <KMH_GH_NoOtherGuilds>No other guilds available.</KMH_GH_NoOtherGuilds>
+  <KMH_GH_ProposeWith>Propose alliance with</KMH_GH_ProposeWith>
+  <KMH_GH_AllyWith>Ally with</KMH_GH_AllyWith>
+  <KMH_GH_Manage>Manage ▾</KMH_GH_Manage>
+  <KMH_GH_PromoteTo>Promote to {0}</KMH_GH_PromoteTo>
+  <KMH_GH_DemoteTo>Demote to {0}</KMH_GH_DemoteTo>
+  <KMH_GH_Kick>Kick from guild</KMH_GH_Kick>
+  <KMH_GH_PerkWorkers>Site Max Workers</KMH_GH_PerkWorkers>
+  <KMH_GH_PerkWorkersFx>+{0} workers/site</KMH_GH_PerkWorkersFx>
+  <KMH_GH_PerkTax>Market Tax Cut</KMH_GH_PerkTax>
+  <KMH_GH_PerkTaxFx>-{0}% market tax</KMH_GH_PerkTaxFx>
+  <KMH_GH_PerkXp>Worker XP Bonus</KMH_GH_PerkXp>
+  <KMH_GH_PerkXpFx>x{0} XP</KMH_GH_PerkXpFx>
+  <KMH_GH_PerkCost>Custom Site Cost</KMH_GH_PerkCost>
+  <KMH_GH_PerkCostFx>-{0}% build cost</KMH_GH_PerkCostFx>
+  <KMH_GH_PerkLevel>(Lv {0}/{1})</KMH_GH_PerkLevel>
+  <KMH_GH_PerkMaxed>maxed</KMH_GH_PerkMaxed>
+  <KMH_GH_PerkNext>next: {0}</KMH_GH_PerkNext>
+  <KMH_GH_PerkNeed>need {0} more</KMH_GH_PerkNeed>
+  <KMH_GH_PerkAffordable>affordable</KMH_GH_PerkAffordable>
+  <KMH_GH_PerkTipNow>Current: {0} {1}</KMH_GH_PerkTipNow>
+  <KMH_GH_PerkTipNext>Next level costs {0} from the guild vault (balance {1}).</KMH_GH_PerkTipNext>
+  <KMH_GH_PerkMax>MAX</KMH_GH_PerkMax>
+  <KMH_GH_Buy>Buy</KMH_GH_Buy>
+  <KMH_GH_Edit>Edit</KMH_GH_Edit>
+  <KMH_GH_Settings>Settings</KMH_GH_Settings>
+  <KMH_GH_SettingsTax>Guild tax to vault - site rewards: {0}%  •  member sales: {1}%  •  Default listings: {2}</KMH_GH_SettingsTax>
+  <KMH_GH_GuildOnly>guild-only</KMH_GH_GuildOnly>
+  <KMH_GH_Public>public</KMH_GH_Public>
+  <KMH_GH_SettingsMarket>Server market tax: {0}%  •  guild perk reduction: -{1}%  •  effective: {2}% (before world events)</KMH_GH_SettingsMarket>
+  <KMH_GH_SettingsCaps>Daily withdraw caps - Member: {0}  •  Officer: {1}  •  Moderator: {2}  •  Admin: {3}</KMH_GH_SettingsCaps>
+  <KMH_GH_Unlimited>unlimited</KMH_GH_Unlimited>
+  <KMH_GH_RankOwner>OWNER</KMH_GH_RankOwner>
+  <KMH_GH_RankAdmin>ADMIN</KMH_GH_RankAdmin>
+  <KMH_GH_RankMod>MOD</KMH_GH_RankMod>
+  <KMH_GH_RankOfficer>OFFICER</KMH_GH_RankOfficer>
+  <KMH_GH_RankMember>MEMBER</KMH_GH_RankMember>
+  <KMH_Guild_DipAllies>Allies:</KMH_Guild_DipAllies>
+  <KMH_Guild_DipNone>Diplomacy: no declared alliances.</KMH_Guild_DipNone>
+
+  <!-- Player profile -->
+  <KMH_PP_Title>Player profile</KMH_PP_Title>
+  <KMH_Ago_JustNow>just now</KMH_Ago_JustNow>
+  <KMH_Ago_Ago>{0} ago</KMH_Ago_Ago>
+  <KMH_PP_TabOverview>Overview</KMH_PP_TabOverview>
+  <KMH_PP_TabColony>Colony</KMH_PP_TabColony>
+  <KMH_PP_TabColonists>Colonists</KMH_PP_TabColonists>
+  <KMH_PP_TabCombat>Combat</KMH_PP_TabCombat>
+  <KMH_PP_TabContracts>Contracts</KMH_PP_TabContracts>
+  <KMH_PP_TabTrade>Trade</KMH_PP_TabTrade>
+  <KMH_PP_TabGuildWork>Guild Work</KMH_PP_TabGuildWork>
+  <KMH_PP_TabHistory>History</KMH_PP_TabHistory>
+  <KMH_PP_Asking>Asking the server for player stats…</KMH_PP_Asking>
+  <KMH_PP_NoStats>No stats for this player on this server yet.</KMH_PP_NoStats>
+  <KMH_PP_Actions>Actions ▾</KMH_PP_Actions>
+  <KMH_PP_NoColony>no colony reported yet</KMH_PP_NoColony>
+  <KMH_PP_NoGuild>no guild</KMH_PP_NoGuild>
+  <KMH_PP_NoColonyTip>A colony's name arrives from the player's own game the first time it plays here with Colony Nexus.</KMH_PP_NoColonyTip>
+  <KMH_PP_OnlineNow>Online now</KMH_PP_OnlineNow>
+  <KMH_PP_LastSeen>Last seen {0}</KMH_PP_LastSeen>
+  <KMH_PP_NotSeen>Not seen yet</KMH_PP_NotSeen>
+  <KMH_PP_CloseProfile>Close the profile</KMH_PP_CloseProfile>
+  <KMH_PP_NoRanks>Not on any leaderboard yet.</KMH_PP_NoRanks>
+  <KMH_PP_More>+{0} more</KMH_PP_More>
+  <KMH_PP_RankOf>#{0} of {1}  {2}</KMH_PP_RankOf>
+  <KMH_PP_ReportedByGame>(reported by their game)</KMH_PP_ReportedByGame>
+  <KMH_PP_TotalsSinceReset>Totals on this server since its standings were last reset.</KMH_PP_TotalsSinceReset>
+  <KMH_PP_RankTipPlace>#{0} of {1} on {2}.</KMH_PP_RankTipPlace>
+  <KMH_PP_RankTipCounted>Counted on this server since its standings were last reset; the Season Archive keeps each season's leaders.</KMH_PP_RankTipCounted>
+  <KMH_PP_RankTipReported>Reported by the player's own game; the server only checks it is plausible.</KMH_PP_RankTipReported>
+  <KMH_PP_RankTipMeasured>Measured by the server itself.</KMH_PP_RankTipMeasured>
+  <KMH_PP_FootWaiting>waiting for the server</KMH_PP_FootWaiting>
+  <KMH_PP_FootJustNow>updated just now</KMH_PP_FootJustNow>
+  <KMH_PP_FootAgo>updated {0} ago</KMH_PP_FootAgo>
+  <KMH_PP_Footer>Stats {0}  ·  totals on this server</KMH_PP_Footer>
+  <KMH_PP_NoRep>no reputation yet</KMH_PP_NoRep>
+  <KMH_PP_Rep>{0} rep</KMH_PP_Rep>
+  <KMH_PP_NotReported>not reported</KMH_PP_NotReported>
+  <KMH_PP_DayOne>1 day</KMH_PP_DayOne>
+  <KMH_PP_DayMany>{0} days</KMH_PP_DayMany>
+  <KMH_PP_DaysShort>{0}d</KMH_PP_DaysShort>
+  <KMH_PP_TileWealth>Total wealth</KMH_PP_TileWealth>
+  <KMH_PP_TileWealthTip>{0} in settlements (reported by their game) and {1} held in Colony Nexus (measured by the server).</KMH_PP_TileWealthTip>
+  <KMH_PP_TileKills>Kills</KMH_PP_TileKills>
+  <KMH_PP_TileKillsTip>Reported by their game: everything the colony's people have killed.</KMH_PP_TileKillsTip>
+  <KMH_PP_TileContractsTip>Contracts completed on this server.</KMH_PP_TileContractsTip>
+  <KMH_PP_TileRep>Reputation</KMH_PP_TileRep>
+  <KMH_PP_TileRepNone>No reputation recorded yet.</KMH_PP_TileRepNone>
+  <KMH_PP_TileTrade>Trade volume</KMH_PP_TileTrade>
+  <KMH_PP_TileTradeTip>{0} earned from sales, {1} spent on purchases.</KMH_PP_TileTradeTip>
+  <KMH_PP_TileDonated>Donated</KMH_PP_TileDonated>
+  <KMH_PP_TileDonatedTip>Silver given to guild vaults and server projects.</KMH_PP_TileDonatedTip>
+  <KMH_PP_TileTime>Time played</KMH_PP_TileTime>
+  <KMH_PP_TileTimeTip>This colony's own play clock, reported by their game.</KMH_PP_TileTimeTip>
+  <KMH_PP_TileAge>Colony age</KMH_PP_TileAge>
+  <KMH_PP_TileAgeTip>In-game days since the colony was founded.</KMH_PP_TileAgeTip>
+  <KMH_PP_NoReport>Their game has not sent a colony report to this server yet, so these figures are unknown.</KMH_PP_NoReport>
+  <KMH_PP_NoReportCadence>Reports arrive every two minutes while they play with Colony Nexus.</KMH_PP_NoReportCadence>
+  <KMH_PP_Holdings>Colony Nexus holdings: {0}</KMH_PP_Holdings>
+  <KMH_PP_ByServer>(measured by the server)</KMH_PP_ByServer>
+  <KMH_PP_Name>Name: {0}</KMH_PP_Name>
+  <KMH_PP_TotalWealth>Total wealth: {0}</KMH_PP_TotalWealth>
+  <KMH_PP_ColonistOne>1 colonist</KMH_PP_ColonistOne>
+  <KMH_PP_ColonistMany>{0} colonists</KMH_PP_ColonistMany>
+  <KMH_PP_Settlements>Settlements: {0}</KMH_PP_Settlements>
+  <KMH_PP_Age>Age: {0}</KMH_PP_Age>
+  <KMH_PP_Population>Population: {0}</KMH_PP_Population>
+  <KMH_PP_PopulationShort>Population {0}</KMH_PP_PopulationShort>
+  <KMH_PP_DevScore>Development score: {0}</KMH_PP_DevScore>
+  <KMH_PP_DefScore>Defense score: {0}</KMH_PP_DefScore>
+  <KMH_PP_Raids>Raids survived: {0}</KMH_PP_Raids>
+  <KMH_PP_RaidsLower>raids survived {0}</KMH_PP_RaidsLower>
+  <KMH_PP_ColonyKills>Colony kills: {0}</KMH_PP_ColonyKills>
+  <KMH_PP_KillsHuman>Humanlike {0}</KMH_PP_KillsHuman>
+  <KMH_PP_KillsMech>mechanoid {0}</KMH_PP_KillsMech>
+  <KMH_PP_KillsAnimal>animal {0}</KMH_PP_KillsAnimal>
+  <KMH_PP_KillOne>1 kill</KMH_PP_KillOne>
+  <KMH_PP_KillMany>{0} kills</KMH_PP_KillMany>
+  <KMH_PP_TopColonist>Top colonist: {0}</KMH_PP_TopColonist>
+  <KMH_PP_TopColonistHead>Top colonist</KMH_PP_TopColonistHead>
+  <KMH_PP_Lost>Colonists lost: {0}</KMH_PP_Lost>
+  <KMH_PP_Completed>Completed: {0}</KMH_PP_Completed>
+  <KMH_PP_Posted>Posted: {0}</KMH_PP_Posted>
+  <KMH_PP_Bounties>Bounties {0}</KMH_PP_Bounties>
+  <KMH_PP_Deliveries>deliveries {0}</KMH_PP_Deliveries>
+  <KMH_PP_Hunts>hunts {0}</KMH_PP_Hunts>
+  <KMH_PP_Defenses>defenses {0}</KMH_PP_Defenses>
+  <KMH_PP_Failed>Failed: {0}</KMH_PP_Failed>
+  <KMH_PP_Streak>Current streak: {0}</KMH_PP_Streak>
+  <KMH_PP_Earned>Silver earned from sales: {0}</KMH_PP_Earned>
+  <KMH_PP_Spent>Silver spent: {0}</KMH_PP_Spent>
+  <KMH_PP_Sales>Sales {0}</KMH_PP_Sales>
+  <KMH_PP_ItemsSold>items sold {0}</KMH_PP_ItemsSold>
+  <KMH_PP_ItemsBought>items bought {0}</KMH_PP_ItemsBought>
+  <KMH_PP_LargestSale>Largest sale: {0}</KMH_PP_LargestSale>
+  <KMH_PP_TradeVolume>Trade volume: {0}</KMH_PP_TradeVolume>
+  <KMH_PP_Guild>Guild: {0}</KMH_PP_Guild>
+  <KMH_PP_Donated>Silver donated: {0}</KMH_PP_Donated>
+  <KMH_PP_SitesBuilt>Sites built: {0}</KMH_PP_SitesBuilt>
+  <KMH_PP_SitesBuiltLower>sites built: {0}</KMH_PP_SitesBuiltLower>
+  <KMH_PP_SiteProduction>Site production: {0}</KMH_PP_SiteProduction>
+  <KMH_PP_WorkerXp>Worker XP: {0}</KMH_PP_WorkerXp>
+  <KMH_PP_OnServer>On this server</KMH_PP_OnServer>
+  <KMH_PP_FirstSeen>First seen: {0}</KMH_PP_FirstSeen>
+  <KMH_PP_LastSeenLine>Last seen: {0}</KMH_PP_LastSeenLine>
+  <KMH_PP_Connected>Connected: {0}</KMH_PP_Connected>
+  <KMH_PP_ConnectedShort>Connected {0}</KMH_PP_ConnectedShort>
+  <KMH_PP_Active>actively playing {0}</KMH_PP_Active>
+  <KMH_PP_FrontierWon>Frontier claims won: {0}</KMH_PP_FrontierWon>
+  <KMH_PP_BestStreak>Best contract streak: {0}</KMH_PP_BestStreak>
+  <KMH_PP_SeasonsLoading>Season records are still loading…</KMH_PP_SeasonsLoading>
+  <KMH_PP_RecordsHeld>All-time server records held</KMH_PP_RecordsHeld>
+  <KMH_PP_Season>Season {0}</KMH_PP_Season>
+  <KMH_PP_SeasonLower>season {0}</KMH_PP_SeasonLower>
+  <KMH_PP_NoneYet>None yet.</KMH_PP_NoneYet>
+  <KMH_PP_Placements>Season placements</KMH_PP_Placements>
+  <KMH_PP_NoSeasonDone>No season has finished on this server yet.</KMH_PP_NoSeasonDone>
+  <KMH_PP_NoCategoryLed>No category led in a finished season.</KMH_PP_NoCategoryLed>
+  <KMH_PP_InSettlements>{0} in settlements</KMH_PP_InSettlements>
+  <KMH_PP_HeldInNexus>{0} held in Colony Nexus</KMH_PP_HeldInNexus>
+  <KMH_PP_NoneReported>none reported</KMH_PP_NoneReported>
+  <KMH_PP_FullProfile>Full colonist profile</KMH_PP_FullProfile>
+  <KMH_PP_AllColonists>All colonists</KMH_PP_AllColonists>
+  <KMH_PP_OtherOne>1 other</KMH_PP_OtherOne>
+  <KMH_PP_OtherMany>{0} others</KMH_PP_OtherMany>
+  <KMH_PP_InMemory>{0} in memory</KMH_PP_InMemory>
+  <KMH_PP_LoadingColonists>Loading colonists…</KMH_PP_LoadingColonists>
+  <KMH_PP_NoOtherColonists>No other colonists reported for this player.</KMH_PP_NoOtherColonists>
+  <KMH_PP_Fell>fell</KMH_PP_Fell>
+  <KMH_PP_FellOnDay>fell on day {0}</KMH_PP_FellOnDay>
+  <KMH_PP_AgeShort>age {0}</KMH_PP_AgeShort>
+  <KMH_PP_DaysServed>{0}d served</KMH_PP_DaysServed>
+
+  <!-- Server Standings -->
+  <KMH_St_Title>Server Standings</KMH_St_Title>
+  <KMH_St_Subtitle>Season {0} · totals are cumulative on this server; each season's leaders are kept in the Season Archive.</KMH_St_Subtitle>
+  <KMH_St_NavLeaderboards>Leaderboards</KMH_St_NavLeaderboards>
+  <KMH_St_NavPlayer>Player Standings</KMH_St_NavPlayer>
+  <KMH_St_NavGuild>Guild Standings</KMH_St_NavGuild>
+  <KMH_St_NavMembers>Member Contributions</KMH_St_NavMembers>
+  <KMH_St_NavColony>Colony Records</KMH_St_NavColony>
+  <KMH_St_NavColonist>Colonist Records</KMH_St_NavColonist>
+  <KMH_St_NavTrade>Trade Records</KMH_St_NavTrade>
+  <KMH_St_NavContract>Contract Records</KMH_St_NavContract>
+  <KMH_St_NavBattle>Battle Records</KMH_St_NavBattle>
+  <KMH_St_NavSite>Site Records</KMH_St_NavSite>
+  <KMH_St_NavActivity>Activity Records</KMH_St_NavActivity>
+  <KMH_St_NavReputation>Reputation Records</KMH_St_NavReputation>
+  <KMH_St_NavSeason>Season Archive</KMH_St_NavSeason>
+  <KMH_St_C_Player>Player</KMH_St_C_Player>
+  <KMH_St_C_Colony>Colony</KMH_St_C_Colony>
+  <KMH_St_C_Guild>Guild</KMH_St_C_Guild>
+  <KMH_St_C_Colonist>Colonist</KMH_St_C_Colonist>
+  <KMH_St_C_Contribution>Contribution</KMH_St_C_Contribution>
+  <KMH_St_C_Donated>Donated</KMH_St_C_Donated>
+  <KMH_St_C_Contracts>Contracts</KMH_St_C_Contracts>
+  <KMH_St_C_SiteWork>Site Work</KMH_St_C_SiteWork>
+  <KMH_St_C_Trade>Trade</KMH_St_C_Trade>
+  <KMH_St_C_Settlements>Settlements</KMH_St_C_Settlements>
+  <KMH_St_C_Age>Age</KMH_St_C_Age>
+  <KMH_St_C_Pop>Pop</KMH_St_C_Pop>
+  <KMH_St_C_Dev>Dev</KMH_St_C_Dev>
+  <KMH_St_C_Defense>Defense</KMH_St_C_Defense>
+  <KMH_St_C_Raids>Raids</KMH_St_C_Raids>
+  <KMH_St_C_Earned>Earned</KMH_St_C_Earned>
+  <KMH_St_C_Spent>Spent</KMH_St_C_Spent>
+  <KMH_St_C_Sold>Sold</KMH_St_C_Sold>
+  <KMH_St_C_Bought>Bought</KMH_St_C_Bought>
+  <KMH_St_C_Largest>Largest</KMH_St_C_Largest>
+  <KMH_St_C_Volume>Volume</KMH_St_C_Volume>
+  <KMH_St_C_Completed>Completed</KMH_St_C_Completed>
+  <KMH_St_C_Bounties>Bounties</KMH_St_C_Bounties>
+  <KMH_St_C_Deliveries>Deliveries</KMH_St_C_Deliveries>
+  <KMH_St_C_Hunts>Hunts</KMH_St_C_Hunts>
+  <KMH_St_C_Failed>Failed</KMH_St_C_Failed>
+  <KMH_St_C_Streak>Streak</KMH_St_C_Streak>
+  <KMH_St_C_Kills>Kills</KMH_St_C_Kills>
+  <KMH_St_C_Human>Human</KMH_St_C_Human>
+  <KMH_St_C_Mech>Mech</KMH_St_C_Mech>
+  <KMH_St_C_Animal>Animal</KMH_St_C_Animal>
+  <KMH_St_C_Losses>Losses</KMH_St_C_Losses>
+  <KMH_St_C_Status>Status</KMH_St_C_Status>
+  <KMH_St_C_Active>Active</KMH_St_C_Active>
+  <KMH_St_C_Connected>Connected</KMH_St_C_Connected>
+  <KMH_St_C_Focus>Focus</KMH_St_C_Focus>
+  <KMH_St_C_LastSeen>Last Seen</KMH_St_C_LastSeen>
+  <KMH_St_C_Sites>Sites</KMH_St_C_Sites>
+  <KMH_St_C_Produced>Produced</KMH_St_C_Produced>
+  <KMH_St_C_WorkerXp>Worker XP</KMH_St_C_WorkerXp>
+  <KMH_St_C_Outposts>Outposts</KMH_St_C_Outposts>
+  <KMH_St_C_Time>Time</KMH_St_C_Time>
+  <KMH_St_C_Wealth>Wealth</KMH_St_C_Wealth>
+  <KMH_St_C_Rep>Rep</KMH_St_C_Rep>
+  <KMH_St_C_Top>Top</KMH_St_C_Top>
+  <KMH_St_C_Members>Members</KMH_St_C_Members>
+  <KMH_St_C_Treasury>Treasury</KMH_St_C_Treasury>
+  <KMH_St_C_Shoot>Shoot</KMH_St_C_Shoot>
+  <KMH_St_C_Melee>Melee</KMH_St_C_Melee>
+  <KMH_St_C_Doctor>Doctor</KMH_St_C_Doctor>
+  <KMH_St_C_Craft>Craft</KMH_St_C_Craft>
+  <KMH_St_C_Build>Build</KMH_St_C_Build>
+  <KMH_St_C_Fell>Fell</KMH_St_C_Fell>
+  <KMH_St_C_AgeDays>Age/Days</KMH_St_C_AgeDays>
+  <KMH_St_T_Donations>Donations</KMH_St_T_Donations>
+  <KMH_St_T_Richest>Richest</KMH_St_T_Richest>
+  <KMH_St_T_Oldest>Oldest</KMH_St_T_Oldest>
+  <KMH_St_T_Largest>Largest</KMH_St_T_Largest>
+  <KMH_St_T_MostDeveloped>Most Developed</KMH_St_T_MostDeveloped>
+  <KMH_St_T_BestDefended>Best Defended</KMH_St_T_BestDefended>
+  <KMH_St_T_TopSellers>Top Sellers</KMH_St_T_TopSellers>
+  <KMH_St_T_TopBuyers>Top Buyers</KMH_St_T_TopBuyers>
+  <KMH_St_T_MostSold>Most Sold</KMH_St_T_MostSold>
+  <KMH_St_T_LargestSale>Largest Sale</KMH_St_T_LargestSale>
+  <KMH_St_T_TopContractors>Top Contractors</KMH_St_T_TopContractors>
+  <KMH_St_T_Streaks>Streaks</KMH_St_T_Streaks>
+  <KMH_St_T_Deadliest>Deadliest</KMH_St_T_Deadliest>
+  <KMH_St_T_Mechanoid>Mechanoid</KMH_St_T_Mechanoid>
+  <KMH_St_T_Humanlike>Humanlike</KMH_St_T_Humanlike>
+  <KMH_St_T_MostActive>Most Active</KMH_St_T_MostActive>
+  <KMH_St_T_RecentlySeen>Recently Seen</KMH_St_T_RecentlySeen>
+  <KMH_St_T_TopOwners>Top Owners</KMH_St_T_TopOwners>
+  <KMH_St_T_Production>Production</KMH_St_T_Production>
+  <KMH_St_T_Frontier>Frontier</KMH_St_T_Frontier>
+  <KMH_St_T_Combat>Combat</KMH_St_T_Combat>
+  <KMH_St_T_Reputation>Reputation</KMH_St_T_Reputation>
+  <KMH_St_T_ColonyAge>Colony Age</KMH_St_T_ColonyAge>
+  <KMH_St_T_TopColonist>Top Colonist</KMH_St_T_TopColonist>
+  <KMH_St_T_TotalWealth>Total Wealth</KMH_St_T_TotalWealth>
+  <KMH_St_T_MostTrusted>Most Trusted</KMH_St_T_MostTrusted>
+  <KMH_St_T_Lowest>Lowest</KMH_St_T_Lowest>
+  <KMH_St_T_MyGuild>My Guild</KMH_St_T_MyGuild>
+  <KMH_St_T_BestShooter>Best Shooter</KMH_St_T_BestShooter>
+  <KMH_St_T_BestMelee>Best Melee</KMH_St_T_BestMelee>
+  <KMH_St_T_BestDoctor>Best Doctor</KMH_St_T_BestDoctor>
+  <KMH_St_T_BestCrafter>Best Crafter</KMH_St_T_BestCrafter>
+  <KMH_St_T_BestBuilder>Best Builder</KMH_St_T_BestBuilder>
+  <KMH_St_T_LongestServing>Longest Serving</KMH_St_T_LongestServing>
+  <KMH_St_T_InMemory>In Memory</KMH_St_T_InMemory>
+  <KMH_St_T_CurrentSeason>Current Season</KMH_St_T_CurrentSeason>
+  <KMH_St_T_ServerRecords>Server Records</KMH_St_T_ServerRecords>
+  <KMH_St_T_PastSeasons>Past Seasons</KMH_St_T_PastSeasons>
+  <KMH_St_Online>Online</KMH_St_Online>
+  <KMH_St_Offline>Offline</KMH_St_Offline>
+  <KMH_St_OutpostsCell>{0} ({1} taken)</KMH_St_OutpostsCell>
+  <KMH_St_AgeDaysCell>{0}y · {1}d</KMH_St_AgeDaysCell>
+  <KMH_St_DayN>day {0}</KMH_St_DayN>
+  <KMH_St_SeasonLoading>Loading season archive…</KMH_St_SeasonLoading>
+  <KMH_St_SeasonInProgress>Season {0} — in progress</KMH_St_SeasonInProgress>
+  <KMH_St_NoLeaders>No leaders yet this season.</KMH_St_NoLeaders>
+  <KMH_St_AllTimeRecords>All-time server records</KMH_St_AllTimeRecords>
+  <KMH_St_NoRecords>No records yet - an admin rolls the season with 'kmh season roll'.</KMH_St_NoRecords>
+  <KMH_St_NoPastSeasons>No past seasons yet. Each season is archived when an admin runs 'kmh season roll'.</KMH_St_NoPastSeasons>
+  <KMH_St_SeasonEnded>Season {0} — ended {1}</KMH_St_SeasonEnded>
+  <KMH_St_NotReportedYet>not reported yet</KMH_St_NotReportedYet>
+  <KMH_St_TierTrusted>Trusted</KMH_St_TierTrusted>
+  <KMH_St_TierUnreliable>Unreliable</KMH_St_TierUnreliable>
+  <KMH_St_TierNeutral>Neutral</KMH_St_TierNeutral>
+  <KMH_St_Info>Info</KMH_St_Info>
+  <KMH_St_NoEntries>No entries yet.</KMH_St_NoEntries>
+  <KMH_Lb_NotSent>This server does not send leaderboards yet (its Colony Nexus server addon needs an update). The other sections on the left still work.</KMH_Lb_NotSent>
+  <KMH_Lb_Asking>Asking the server for its leaderboards…</KMH_Lb_Asking>
+  <KMH_Lb_BadgeReported>Reported by players' games</KMH_Lb_BadgeReported>
+  <KMH_Lb_BadgeVerified>Verified by the server</KMH_Lb_BadgeVerified>
+  <KMH_Lb_BadgeReportedTip>Each player's game sends this number; the server only checks it is plausible.</KMH_Lb_BadgeReportedTip>
+  <KMH_Lb_BadgeVerifiedTip>The server measured this itself; no game can change it.</KMH_Lb_BadgeVerifiedTip>
+  <KMH_Lb_FindGuild>Find a guild…</KMH_Lb_FindGuild>
+  <KMH_Lb_FindPlayer>Find a player or guild…</KMH_Lb_FindPlayer>
+  <KMH_Lb_OpenWebsite>Open on the website</KMH_Lb_OpenWebsite>
+  <KMH_Lb_Meta>{0} ranked · Season {1}</KMH_Lb_Meta>
+  <KMH_Lb_NoRankings>No rankings yet</KMH_Lb_NoRankings>
+  <KMH_Lb_OpenSpot>Open spot</KMH_Lb_OpenSpot>
+  <KMH_Lb_TopOfBoard>Top of the board</KMH_Lb_TopOfBoard>
+  <KMH_Lb_Tied>Tied for first</KMH_Lb_Tied>
+  <KMH_Lb_Leads>Leads #2 by {0}</KMH_Lb_Leads>
+  <KMH_Lb_OfFirst>{0}% of #1</KMH_Lb_OfFirst>
+  <KMH_Lb_NobodyRanked>Nobody is ranked on this board yet.</KMH_Lb_NobodyRanked>
+  <KMH_Lb_NobodyMatches>Nobody on this board matches.</KMH_Lb_NobodyMatches>
+  <KMH_LbG_Economy>Economy</KMH_LbG_Economy>
+  <KMH_LbG_Trade>Trade</KMH_LbG_Trade>
+  <KMH_LbG_Contracts>Contracts</KMH_LbG_Contracts>
+  <KMH_LbG_Sites>Sites</KMH_LbG_Sites>
+  <KMH_LbG_Activity>Activity</KMH_LbG_Activity>
+  <KMH_LbG_Colony>Colony</KMH_LbG_Colony>
+  <KMH_LbG_Guilds>Guilds</KMH_LbG_Guilds>
+  <KMH_LbT_Economy>Economy score</KMH_LbT_Economy>
+  <KMH_LbT_Donated>Silver donated</KMH_LbT_Donated>
+  <KMH_LbT_Vault>Vault value</KMH_LbT_Vault>
+  <KMH_LbT_Trade>Trade earnings</KMH_LbT_Trade>
+  <KMH_LbT_LargestSale>Largest sale</KMH_LbT_LargestSale>
+  <KMH_LbT_Purchases>Purchases</KMH_LbT_Purchases>
+  <KMH_LbT_Contracts>Contracts completed</KMH_LbT_Contracts>
+  <KMH_LbT_Streak>Contract streak</KMH_LbT_Streak>
+  <KMH_LbT_Posted>Contracts posted</KMH_LbT_Posted>
+  <KMH_LbT_SitesBuilt>Sites built</KMH_LbT_SitesBuilt>
+  <KMH_LbT_SitesHeld>Sites held</KMH_LbT_SitesHeld>
+  <KMH_LbT_SiteOutput>Site production</KMH_LbT_SiteOutput>
+  <KMH_LbT_Frontier>Frontier captures</KMH_LbT_Frontier>
+  <KMH_LbT_WorkerXp>Worker XP</KMH_LbT_WorkerXp>
+  <KMH_LbT_Active>Active time</KMH_LbT_Active>
+  <KMH_LbT_Reputation>Reputation</KMH_LbT_Reputation>
+  <KMH_LbT_ColonyWealth>Colony wealth</KMH_LbT_ColonyWealth>
+  <KMH_LbT_Kills>Kills</KMH_LbT_Kills>
+  <KMH_LbT_Raids>Raids survived</KMH_LbT_Raids>
+  <KMH_LbT_ColonyAge>Colony age</KMH_LbT_ColonyAge>
+  <KMH_LbT_GuildMembers>Guild members</KMH_LbT_GuildMembers>
+  <KMH_LbT_GuildTreasury>Guild treasury</KMH_LbT_GuildTreasury>
+  <KMH_LbD_Economy>Silver donated, half of trade earnings, 100 per contract, 50 per site built and a tenth of worker XP.</KMH_LbD_Economy>
+  <KMH_LbD_Donated>Silver given to guilds, net of withdrawals.</KMH_LbD_Donated>
+  <KMH_LbD_Vault>What the player holds in Colony Nexus storage on this server, valued by the server.</KMH_LbD_Vault>
+  <KMH_LbD_Trade>Silver earned from marketplace and auction sales.</KMH_LbD_Trade>
+  <KMH_LbD_LargestSale>The single most valuable sale.</KMH_LbD_LargestSale>
+  <KMH_LbD_Purchases>Silver spent buying from other players.</KMH_LbD_Purchases>
+  <KMH_LbD_Contracts>Bounties, deliveries, hunts and defences completed.</KMH_LbD_Contracts>
+  <KMH_LbD_Streak>Contracts completed in a row since the last failure.</KMH_LbD_Streak>
+  <KMH_LbD_Posted>Contracts offered to other players.</KMH_LbD_Posted>
+  <KMH_LbD_SitesBuilt>New sites established.</KMH_LbD_SitesBuilt>
+  <KMH_LbD_SitesHeld>Sites the player owns right now.</KMH_LbD_SitesHeld>
+  <KMH_LbD_SiteOutput>Silver produced by the player's sites.</KMH_LbD_SiteOutput>
+  <KMH_LbD_Frontier>Sites captured on the frontier.</KMH_LbD_Frontier>
+  <KMH_LbD_WorkerXp>Experience the player's colonists earned working sites.</KMH_LbD_WorkerXp>
+  <KMH_LbD_Active>Time spent actively playing on this server.</KMH_LbD_Active>
+  <KMH_LbD_Reputation>Contracts honoured, less contracts rejected or abandoned.</KMH_LbD_Reputation>
+  <KMH_LbD_ColonyWealth>The colony's wealth as the player's game reports it.</KMH_LbD_ColonyWealth>
+  <KMH_LbD_Kills>Kills by the colony's colonists, hunted animals included, as its game reports.</KMH_LbD_Kills>
+  <KMH_LbD_Raids>Raids the colony has survived, as its game reports.</KMH_LbD_Raids>
+  <KMH_LbD_ColonyAge>Days since the colony was founded, as its game reports.</KMH_LbD_ColonyAge>
+  <KMH_LbD_GuildMembers>Members in each guild.</KMH_LbD_GuildMembers>
+  <KMH_LbD_GuildTreasury>Silver in each guild's vault.</KMH_LbD_GuildTreasury>
+
+  <!-- Colony Nexus tab -->
+  <KMH_Tab_DrawError>The Colony Nexus tab hit an error and couldn't draw. See Colony Nexus log.</KMH_Tab_DrawError>
+  <KMH_Tab_DrawFailed>Colony Nexus tab failed to finish drawing. See Colony Nexus log.</KMH_Tab_DrawFailed>
+  <KMH_Tab_DashboardUnavailable>(dashboard unavailable - see Colony Nexus log)</KMH_Tab_DashboardUnavailable>
+  <KMH_Tab_Reconnecting>Reconnecting to Colony Nexus… showing your last known features.</KMH_Tab_Reconnecting>
+  <KMH_Tab_Marketplace>Marketplace</KMH_Tab_Marketplace>
+  <KMH_Tab_MarketplaceTip>Browse and buy from open listings; post your own from a selected caravan.</KMH_Tab_MarketplaceTip>
+  <KMH_Tab_Treasury>Treasury</KMH_Tab_Treasury>
+  <KMH_Tab_TreasuryTip>View your personal or guild treasury; deposit and withdraw silver and items.</KMH_Tab_TreasuryTip>
+  <KMH_Tab_GuildHall>Guild Hall</KMH_Tab_GuildHall>
+  <KMH_Tab_GuildHallTip>Manage your guild - members, ranks, alliances, perks, MOTD.</KMH_Tab_GuildHallTip>
+  <KMH_Tab_QuestBoard>Quest Board</KMH_Tab_QuestBoard>
+  <KMH_Tab_QuestBoardTip>Browse, claim, post, and submit cross-server quests.</KMH_Tab_QuestBoardTip>
+  <KMH_Tab_World>World</KMH_Tab_World>
+  <KMH_Tab_WorldTip>Living World: active server-wide events and the full set of co-op / competitive global quests.</KMH_Tab_WorldTip>
+  <KMH_Tab_Sites>Sites</KMH_Tab_Sites>
+  <KMH_Tab_SitesTip>Build production sites, join others as a worker, and set where rewards go.</KMH_Tab_SitesTip>
+  <KMH_Tab_Roadworks>Roadworks</KMH_Tab_Roadworks>
+  <KMH_Tab_RoadworksTip>Plan and track road projects built from your Roadworks site.</KMH_Tab_RoadworksTip>
+  <KMH_Tab_Comms>Communications</KMH_Tab_Comms>
+  <KMH_Tab_CommsUnread>Communications ({0} unread)</KMH_Tab_CommsUnread>
+  <KMH_Tab_CommsTip>Live server chat and player mail in one place. Pick mail recipients from the standings roster - online or offline.</KMH_Tab_CommsTip>
+  <KMH_Tab_StandingsTip>Player &amp; guild standings plus colony, colonist, trade, contract, battle, site and reputation records.</KMH_Tab_StandingsTip>
+  <KMH_Tab_ConnectedTreasury>Connected Treasury</KMH_Tab_ConnectedTreasury>
+  <KMH_Tab_ConnectedTreasuryTip>Silver held by your Colony Nexus account, which follows you between servers.</KMH_Tab_ConnectedTreasuryTip>
+  <KMH_Tab_ConnectedGuildTreasury>Connected Guild Treasury</KMH_Tab_ConnectedGuildTreasury>
+  <KMH_Tab_ConnectedGuildTreasuryTip>Silver held by your guild at Colony Nexus Global, reachable from every server the guild has linked.</KMH_Tab_ConnectedGuildTreasuryTip>
+  <KMH_Tab_ConnectFirst>Connect to a Colony Nexus server to use its features.</KMH_Tab_ConnectFirst>
+  <KMH_Tab_DiscordNotLinked>Discord not linked - link it under Account &amp; links.</KMH_Tab_DiscordNotLinked>
+  <KMH_Tab_Account>Account &amp; links</KMH_Tab_Account>
+  <KMH_Tab_AccountTip>Your Colony Nexus player identity, and the Steam and Discord accounts linked to it.</KMH_Tab_AccountTip>
+  <KMH_Tab_Advanced>Advanced &amp; tools</KMH_Tab_Advanced>
+  <KMH_Tab_AdvancedTip>Colony Nexus log, known servers, ping, performance and config enforcement.</KMH_Tab_AdvancedTip>
+  <KMH_Tab_HowItWorks>How Colony Nexus works</KMH_Tab_HowItWorks>
+  <KMH_Tab_HowItWorksTip>Plain-language guide to every Colony Nexus system: treasury, marketplace, auctions, wants, quests, sites, guilds, events, standings.</KMH_Tab_HowItWorksTip>
+  <KMH_Tab_About>About Colony Nexus</KMH_Tab_About>
+  <KMH_Tab_AboutTip>Welcome dialog with Colony Nexus overview + links.</KMH_Tab_AboutTip>
+  <KMH_Tab_Off>{0} (off)</KMH_Tab_Off>
+  <KMH_Tab_OffTip>This server has turned {0} off.</KMH_Tab_OffTip>
+  <KMH_Tab_NotConnected>Not connected to any server</KMH_Tab_NotConnected>
+  <KMH_Tab_ConnectedTo>Connected to {0}</KMH_Tab_ConnectedTo>
+  <KMH_Tab_SharingLog>Sharing your Colony Nexus log with this server - stop it under Advanced &amp; tools.</KMH_Tab_SharingLog>
+  <KMH_Tab_NoHandshake>Connected to {0} - no Colony Nexus handshake</KMH_Tab_NoHandshake>
+  <KMH_Tab_NoHandshakeWhy>This is normal for stock RimWorld Together servers. Colony Nexus features stay hidden until the server completes the handshake.</KMH_Tab_NoHandshakeWhy>
+
+  <!-- Shared dialog layout -->
+  <KMH_Dialog_NeedsNewerServer>{0} need a newer server (Colony Nexus {1}+).</KMH_Dialog_NeedsNewerServer>
+  <KMH_Dialog_Closing>closing…</KMH_Dialog_Closing>
+  <KMH_Dialog_Never>never</KMH_Dialog_Never>
+  <KMH_Dialog_Expired>expired</KMH_Dialog_Expired>
+  <KMH_Dialog_LiveWaiting>○ waiting…</KMH_Dialog_LiveWaiting>
+  <KMH_Dialog_LiveStale>◐ stale · {0}s ago</KMH_Dialog_LiveStale>
+  <KMH_Dialog_LiveJustNow>● live · just now</KMH_Dialog_LiveJustNow>
+  <KMH_Dialog_LiveAgo>● live · {0}s ago</KMH_Dialog_LiveAgo>
+
+  <!-- Marketplace -->
+  <KMH_Market_SortPriceAsc>Price ↑</KMH_Market_SortPriceAsc>
+  <KMH_Market_SortPriceDesc>Price ↓</KMH_Market_SortPriceDesc>
+  <KMH_Market_SortQtyDesc>Qty ↓</KMH_Market_SortQtyDesc>
+  <KMH_Market_SortNameAsc>Name A-Z</KMH_Market_SortNameAsc>
+  <KMH_Market_SortNewest>Newest</KMH_Market_SortNewest>
+  <KMH_Market_CatAll>All categories</KMH_Market_CatAll>
+  <KMH_Market_CatResources>Resources</KMH_Market_CatResources>
+  <KMH_Market_CatManufactured>Manufactured</KMH_Market_CatManufactured>
+  <KMH_Market_CatFoods>Foods</KMH_Market_CatFoods>
+  <KMH_Market_CatDrugs>Drugs</KMH_Market_CatDrugs>
+  <KMH_Market_CatMedicine>Medicine</KMH_Market_CatMedicine>
+  <KMH_Market_CatWeapons>Weapons</KMH_Market_CatWeapons>
+  <KMH_Market_CatApparel>Apparel</KMH_Market_CatApparel>
+  <KMH_Market_CatPlants>Plants</KMH_Market_CatPlants>
+  <KMH_Market_CatBodyParts>Body parts</KMH_Market_CatBodyParts>
+  <KMH_Market_CatOther>Other</KMH_Market_CatOther>
+  <KMH_Market_Title>Player Marketplace</KMH_Market_Title>
+  <KMH_Market_Loading>Loading marketplace…</KMH_Market_Loading>
+  <KMH_Market_Stats>House pool: {0}  |  Lifetime trades: {1}  |  Lifetime silver traded: {2}</KMH_Market_Stats>
+  <KMH_Market_OnlyMine>Only mine</KMH_Market_OnlyMine>
+  <KMH_Market_MyGuildOnly>My guild only</KMH_Market_MyGuildOnly>
+  <KMH_Market_FilterHint>Filter by item or seller</KMH_Market_FilterHint>
+  <KMH_Market_PostListing>Post listing</KMH_Market_PostListing>
+  <KMH_Market_ColItem>Item</KMH_Market_ColItem>
+  <KMH_Market_ColQty>Qty</KMH_Market_ColQty>
+  <KMH_Market_ColUnit>Unit</KMH_Market_ColUnit>
+  <KMH_Market_ColTotal>Total</KMH_Market_ColTotal>
+  <KMH_Market_ColSeller>Seller</KMH_Market_ColSeller>
+  <KMH_Market_ColListed>Listed</KMH_Market_ColListed>
+  <KMH_Market_EmptyNone>No open listings. Be the first to sell something!</KMH_Market_EmptyNone>
+  <KMH_Market_FilterSearch>the search "{0}"</KMH_Market_FilterSearch>
+  <KMH_Market_FilterCategory>category {0}</KMH_Market_FilterCategory>
+  <KMH_Market_EmptyFiltered>No listings to show.</KMH_Market_EmptyFiltered>
+  <KMH_Market_NoMatchOne>1 listing open, but it does not match {0}.</KMH_Market_NoMatchOne>
+  <KMH_Market_NoMatchMany>{0} listings open, but none match {1}.</KMH_Market_NoMatchMany>
+  <KMH_Market_AutoTag>[auto]</KMH_Market_AutoTag>
+  <KMH_Market_BuyTitle>Buy {0} from {1}</KMH_Market_BuyTitle>
+  <KMH_Market_Units>units</KMH_Market_Units>
+  <KMH_Market_ExpiresIn>in {0}</KMH_Market_ExpiresIn>
+
+  <!-- Post listing -->
+  <KMH_PostListing_PendingOne>You have 1 item pending in your treasury - save your game to finalize it before listing</KMH_PostListing_PendingOne>
+  <KMH_PostListing_PendingMany>You have {0} items pending in your treasury - save your game to finalize them before listing</KMH_PostListing_PendingMany>
+  <KMH_PostListing_NoItems>Your treasury has no items to list - deposit some to your vault first</KMH_PostListing_NoItems>
+  <KMH_PostListing_Title>Post listing - from your treasury</KMH_PostListing_Title>
+  <KMH_PostListing_PickFromTreasury>(pick from treasury)</KMH_PostListing_PickFromTreasury>
+  <KMH_PostListing_Available>(available x{0})</KMH_PostListing_Available>
+  <KMH_PostListing_PickTitle>Pick item to list</KMH_PostListing_PickTitle>
+  <KMH_PostListing_Select>Select</KMH_PostListing_Select>
+  <KMH_PostListing_Quantity>Quantity</KMH_PostListing_Quantity>
+  <KMH_PostListing_UnitPrice>Unit price (silver, e.g. 0.55)</KMH_PostListing_UnitPrice>
+  <KMH_PostListing_ExpiresHours>Expires in (hours, 0 = longest allowed)</KMH_PostListing_ExpiresHours>
+  <KMH_PostListing_Visibility>Visibility</KMH_PostListing_Visibility>
+  <KMH_PostListing_VisPublic>Public (all servers)</KMH_PostListing_VisPublic>
+  <KMH_PostListing_VisGuild>Guild + allies only</KMH_PostListing_VisGuild>
+  <KMH_PostListing_Payout>If it fully sells: buyer pays {0}, you receive ~{1} after the {2}% server tax.</KMH_PostListing_Payout>
+  <KMH_PostListing_Post>Post</KMH_PostListing_Post>
+  <KMH_PostListing_PickItemFirst>Pick an item first</KMH_PostListing_PickItemFirst>
+  <KMH_PostListing_BadQty>Quantity: enter a positive whole number</KMH_PostListing_BadQty>
+  <KMH_PostListing_NoLongerHeld>{0} is no longer in your treasury</KMH_PostListing_NoLongerHeld>
+  <KMH_PostListing_OnlyHave>You only have {0} of that to list</KMH_PostListing_OnlyHave>
+  <KMH_PostListing_BadPrice>Unit price: enter a positive amount (e.g. 0.55 or 12)</KMH_PostListing_BadPrice>
+  <KMH_PostListing_BadExpires>Expires in: enter 0 (the longest allowed) or a positive whole number of hours</KMH_PostListing_BadExpires>
+
+  <!-- Treasury -->
+  <KMH_Treasury_GuildTitle>Guild Treasury - {0}</KMH_Treasury_GuildTitle>
+  <KMH_Treasury_PersonalVault>Personal Vault</KMH_Treasury_PersonalVault>
+  <KMH_Treasury_NoResponse>No response from the server yet.</KMH_Treasury_NoResponse>
+  <KMH_Treasury_NoResponseWhy>Your treasury may be too large for one message, or the connection dropped. Try Refresh.</KMH_Treasury_NoResponseWhy>
+  <KMH_Treasury_Loading>Loading treasury…</KMH_Treasury_Loading>
+  <KMH_Treasury_Silver>Silver:</KMH_Treasury_Silver>
+  <KMH_Treasury_InOut>(in: {0} | out: {1})</KMH_Treasury_InOut>
+  <KMH_Treasury_Pending>Pending: {0} - save your game to finalize (not spendable yet).</KMH_Treasury_Pending>
+  <KMH_Treasury_SaveNow>Save now</KMH_Treasury_SaveNow>
+  <KMH_Treasury_Saving>Saved</KMH_Treasury_Saving>
+  <KMH_Treasury_SaveNowTip>Saves your colony the way RimWorld Together does, without quitting, so pending deposits become spendable.</KMH_Treasury_SaveNowTip>
+  <KMH_Treasury_RankDepositOnly>Your rank can deposit here, but not withdraw.</KMH_Treasury_RankDepositOnly>
+  <KMH_Treasury_RankWithdrawOnly>Your rank can withdraw here, but not deposit.</KMH_Treasury_RankWithdrawOnly>
+  <KMH_Treasury_RankReadOnly>Read-only for your rank.</KMH_Treasury_RankReadOnly>
+  <KMH_Treasury_Items>Items</KMH_Treasury_Items>
+  <KMH_Treasury_RecentActivity>Recent Activity</KMH_Treasury_RecentActivity>
+  <KMH_Treasury_DepositMenu>Deposit ▾</KMH_Treasury_DepositMenu>
+  <KMH_Treasury_WithdrawMenu>Withdraw ▾</KMH_Treasury_WithdrawMenu>
+  <KMH_Treasury_NoItems>No items in vault.</KMH_Treasury_NoItems>
+  <KMH_Treasury_NoActivity>No recent activity.</KMH_Treasury_NoActivity>
+  <KMH_Treasury_NoDepositSource>No colony or caravan to deposit from</KMH_Treasury_NoDepositSource>
+  <KMH_Treasury_PickerFrom>{0} - from {1}</KMH_Treasury_PickerFrom>
+  <KMH_Treasury_YourColony>your colony</KMH_Treasury_YourColony>
+  <KMH_Treasury_DepositSilver>Deposit silver</KMH_Treasury_DepositSilver>
+  <KMH_Treasury_DepositItems>Deposit items</KMH_Treasury_DepositItems>
+  <KMH_Treasury_Deposit>Deposit</KMH_Treasury_Deposit>
+  <KMH_Treasury_UnitSilver>silver</KMH_Treasury_UnitSilver>
+  <KMH_Treasury_DepositAllSilver>Deposit all silver ({0})</KMH_Treasury_DepositAllSilver>
+  <KMH_Treasury_WithdrawAllSilver>Withdraw all silver ({0})</KMH_Treasury_WithdrawAllSilver>
+  <KMH_Treasury_WithdrawItems>Withdraw items</KMH_Treasury_WithdrawItems>
+  <KMH_Treasury_WithdrawFromGuild>Withdraw from Guild Treasury</KMH_Treasury_WithdrawFromGuild>
+  <KMH_Treasury_WithdrawFromPersonal>Withdraw from Personal Vault</KMH_Treasury_WithdrawFromPersonal>
+  <KMH_Treasury_DepositReversed>Deposit reversed - {0}</KMH_Treasury_DepositReversed>
+  <KMH_Treasury_KindDeposit>Deposit</KMH_Treasury_KindDeposit>
+  <KMH_Treasury_KindWithdraw>Withdraw</KMH_Treasury_KindWithdraw>
+  <KMH_Treasury_KindSiteReward>Site Reward</KMH_Treasury_KindSiteReward>
+  <KMH_Treasury_KindSale>Sale</KMH_Treasury_KindSale>
+  <KMH_Treasury_KindMarketTax>Market Tax</KMH_Treasury_KindMarketTax>
+  <KMH_Treasury_KindRefund>Refund</KMH_Treasury_KindRefund>
+  <KMH_Treasury_KindUnknown>Unknown</KMH_Treasury_KindUnknown>
+  <KMH_Treasury_SilverAmount>{0} silver</KMH_Treasury_SilverAmount>
+  <KMH_Treasury_ItemOne>1 item</KMH_Treasury_ItemOne>
+  <KMH_Treasury_ItemMany>{0} items</KMH_Treasury_ItemMany>
+  <KMH_Treasury_UnknownOwner>(unknown)</KMH_Treasury_UnknownOwner>
+
+  <!-- Auction House -->
+  <KMH_Auction_SortBidAsc>Bid ↑</KMH_Auction_SortBidAsc>
+  <KMH_Auction_SortBidDesc>Bid ↓</KMH_Auction_SortBidDesc>
+  <KMH_Auction_SortMostBids>Most bids</KMH_Auction_SortMostBids>
+  <KMH_Auction_SortEndingSoon>Ending soon</KMH_Auction_SortEndingSoon>
+  <KMH_Auction_Title>Auction House</KMH_Auction_Title>
+  <KMH_Auction_PostAuction>Post auction</KMH_Auction_PostAuction>
+  <KMH_Auction_FilterHint>Filter by item or player</KMH_Auction_FilterHint>
+  <KMH_Auction_Mine>Mine</KMH_Auction_Mine>
+  <KMH_Auction_Loading>Loading auctions…</KMH_Auction_Loading>
+  <KMH_Auction_NoMatch>No auctions match.</KMH_Auction_NoMatch>
+  <KMH_Auction_Empty>No live auctions. Post one!</KMH_Auction_Empty>
+  <KMH_Auction_RowTitle>{0}  by {1}</KMH_Auction_RowTitle>
+  <KMH_Auction_You>(you)</KMH_Auction_You>
+  <KMH_Auction_TopBidOne>Top bid: {0} by {1}{2}  · 1 bid</KMH_Auction_TopBidOne>
+  <KMH_Auction_TopBidMany>Top bid: {0} by {1}{2}  · {3} bids</KMH_Auction_TopBidMany>
+  <KMH_Auction_NoBids>No bids · starts at {0}</KMH_Auction_NoBids>
+  <KMH_Auction_EndsBuyout>Buyout {0}  ·  ends in {1}  ·  +{2} min raise</KMH_Auction_EndsBuyout>
+  <KMH_Auction_Ends>ends in {0}  ·  +{1} min raise</KMH_Auction_Ends>
+  <KMH_Auction_Bid>Bid</KMH_Auction_Bid>
+  <KMH_Auction_Buyout>Buyout</KMH_Auction_Buyout>
+  <KMH_Auction_BidTitle>Bid on {0}x {1}</KMH_Auction_BidTitle>
+  <KMH_Auction_PlaceBid>Place bid</KMH_Auction_PlaceBid>
+  <KMH_Auction_BidUnit>silver (min {0})</KMH_Auction_BidUnit>
+  <KMH_Auction_BuyoutConfirm>Buy out this auction for {0} now?</KMH_Auction_BuyoutConfirm>
+
+  <!-- Post auction -->
+  <KMH_PostAuction_PendingOne>You have 1 item pending in your treasury - save your game to finalize it before auctioning</KMH_PostAuction_PendingOne>
+  <KMH_PostAuction_PendingMany>You have {0} items pending in your treasury - save your game to finalize them before auctioning</KMH_PostAuction_PendingMany>
+  <KMH_PostAuction_NoItems>Your treasury has no items to auction - deposit some to your vault first</KMH_PostAuction_NoItems>
+  <KMH_PostAuction_Title>Post auction - from your treasury</KMH_PostAuction_Title>
+  <KMH_PostAuction_PickTitle>Pick item to auction</KMH_PostAuction_PickTitle>
+  <KMH_PostAuction_StartingBid>Starting bid (silver)</KMH_PostAuction_StartingBid>
+  <KMH_PostAuction_MinRaise>Min raise (silver)</KMH_PostAuction_MinRaise>
+  <KMH_PostAuction_Buyout>Buyout (silver, 0=none)</KMH_PostAuction_Buyout>
+  <KMH_PostAuction_Duration>Duration (hours)</KMH_PostAuction_Duration>
+  <KMH_PostAuction_BadQty>Quantity: positive whole number</KMH_PostAuction_BadQty>
+  <KMH_PostAuction_OnlyHave>You only have {0} of that to auction</KMH_PostAuction_OnlyHave>
+  <KMH_PostAuction_BadStart>Starting bid: positive whole number</KMH_PostAuction_BadStart>
+  <KMH_PostAuction_BadRaise>Min raise: positive whole number</KMH_PostAuction_BadRaise>
+  <KMH_PostAuction_BadBuyout>Buyout: 0 (none) or a positive whole number</KMH_PostAuction_BadBuyout>
+  <KMH_PostAuction_BuyoutBelowStart>Buyout must be at least the starting bid</KMH_PostAuction_BuyoutBelowStart>
+  <KMH_PostAuction_BadDuration>Duration: positive whole number of hours</KMH_PostAuction_BadDuration>
+
+  <!-- Want Board -->
+  <KMH_Want_PostWant>Post want</KMH_Want_PostWant>
+  <KMH_Want_Hint>Deliver from your treasury (deposit the goods to your vault first) to fulfill a want for its posted price.</KMH_Want_Hint>
+  <KMH_Want_Loading>Loading wants…</KMH_Want_Loading>
+  <KMH_Want_FeatureName>Wants</KMH_Want_FeatureName>
+  <KMH_Want_NoMatch>No wants match.</KMH_Want_NoMatch>
+  <KMH_Want_Empty>No open wants. Post one!</KMH_Want_Empty>
+  <KMH_Want_RowTitle>{0}  · {1}/{2} filled  · wanted by {3}</KMH_Want_RowTitle>
+  <KMH_Want_RowPays>Pays {0} each  · {1} left in escrow</KMH_Want_RowPays>
+  <KMH_Want_RowEnds>ends in {0}{1}</KMH_Want_RowEnds>
+  <KMH_Want_Fulfill>Fulfill</KMH_Want_Fulfill>
+  <KMH_Want_DepositFirst>Deposit {0} to your treasury first to fulfill this want.</KMH_Want_DepositFirst>
+  <KMH_Want_FulfillTitle>Fulfill: deliver {0}</KMH_Want_FulfillTitle>
+  <KMH_Want_Deliver>Deliver</KMH_Want_Deliver>
+  <KMH_Want_FulfillUnit>units (you have {0}, want needs {1})</KMH_Want_FulfillUnit>
+  <KMH_Want_UsedGear>used gear</KMH_Want_UsedGear>
+  <KMH_Want_Damaged>damaged</KMH_Want_Damaged>
+  <KMH_Want_Tainted>tainted</KMH_Want_Tainted>
+  <KMH_Want_Requires>· requires {0}</KMH_Want_Requires>
+  <KMH_Want_Accepts>· accepts {0}</KMH_Want_Accepts>
+  <KMH_Want_QualityOrBetter>{0} or better</KMH_Want_QualityOrBetter>
+
+  <!-- Post want -->
+  <KMH_PostWant_Title>Post want - escrowed from your treasury</KMH_PostWant_Title>
+  <KMH_PostWant_PickAnItem>(pick an item)</KMH_PostWant_PickAnItem>
+  <KMH_PostWant_PickTitle>Pick item to buy</KMH_PostWant_PickTitle>
+  <KMH_PostWant_PricePerUnit>Price per unit (silver)</KMH_PostWant_PricePerUnit>
+  <KMH_PostWant_AcceptUsed>Accept used gear (weapons/apparel, full state)</KMH_PostWant_AcceptUsed>
+  <KMH_PostWant_EvenDamaged>...even if damaged</KMH_PostWant_EvenDamaged>
+  <KMH_PostWant_EvenTainted>...even if tainted (worn by the dead)</KMH_PostWant_EvenTainted>
+  <KMH_PostWant_EscrowOnPost>Escrow on post: {0} silver</KMH_PostWant_EscrowOnPost>
+  <KMH_PostWant_MinQuality>Minimum quality</KMH_PostWant_MinQuality>
+  <KMH_PostWant_Any>Any</KMH_PostWant_Any>
+  <KMH_PostWant_RequiredMaterial>Required material</KMH_PostWant_RequiredMaterial>
+  <KMH_PostWant_BadPrice>Price per unit: positive whole number</KMH_PostWant_BadPrice>
+  <KMH_PostWant_PricePerUnitDecimal>Price per unit (silver, e.g. 0.55)</KMH_PostWant_PricePerUnitDecimal>
+  <KMH_PostWant_BadPriceDecimal>Price per unit: enter a positive amount (e.g. 0.55 or 12)</KMH_PostWant_BadPriceDecimal>
+  <KMH_PostWant_WholeOnly>This server takes whole silver for wants.</KMH_PostWant_WholeOnly>
+
+  <!-- World -->
+  <KMH_World_Waiting>Waiting for the server…</KMH_World_Waiting>
+  <KMH_World_GlobalQuests>Global Quests</KMH_World_GlobalQuests>
+  <KMH_World_NoQuests>No global quests are running right now.</KMH_World_NoQuests>
+  <KMH_World_ActiveEvents>Active world events</KMH_World_ActiveEvents>
+  <KMH_World_NoEvents>No events are active right now.</KMH_World_NoEvents>
+  <KMH_World_NoDescription>No description supplied.</KMH_World_NoDescription>
+  <KMH_World_TimeLeft>{0} left</KMH_World_TimeLeft>
+  <KMH_World_Event>Event</KMH_World_Event>
+  <KMH_World_Race>RACE</KMH_World_Race>
+  <KMH_World_Coop>CO-OP</KMH_World_Coop>
+  <KMH_World_Glory>glory</KMH_World_Glory>
+  <KMH_World_ProgressBuild>{0}/{1} Build {2}</KMH_World_ProgressBuild>
+  <KMH_World_ProgressDeliver>{0}/{1} Deliver {2}</KMH_World_ProgressDeliver>
+  <KMH_World_ProgressHunt>{0}/{1} Hunt {2}</KMH_World_ProgressHunt>
+  <KMH_World_You>you: {0}</KMH_World_You>
+  <KMH_World_YouNone>you: 0</KMH_World_YouNone>
+  <KMH_World_DepositFirst>Deposit {0} into your treasury first - deliveries are paid out of it.</KMH_World_DepositFirst>
+  <KMH_World_DeliverTo>Deliver to {0}</KMH_World_DeliverTo>
+
+  <!-- Mod settings -->
+  <KMH_Settings_VideoQualityDefault>Server default ({0}p)</KMH_Settings_VideoQualityDefault>
+  <KMH_Settings_ColAccent>Accent</KMH_Settings_ColAccent>
+  <KMH_Settings_ServerChat>Server chat</KMH_Settings_ServerChat>
+  <KMH_Settings_GuildChat>Guild chat</KMH_Settings_GuildChat>
+  <KMH_Settings_DirectMessages>Direct messages</KMH_Settings_DirectMessages>
+  <KMH_Settings_ColDiscordMark>Discord mark</KMH_Settings_ColDiscordMark>
+  <KMH_Settings_ColPlayerName>Player name</KMH_Settings_ColPlayerName>
+  <KMH_Settings_ColMessageText>Message text</KMH_Settings_ColMessageText>
+  <KMH_Settings_ColDiscordName>Discord name</KMH_Settings_ColDiscordName>
+  <KMH_Settings_ColDiscordText>Discord text</KMH_Settings_ColDiscordText>
+  <KMH_Settings_MarkerYours>Yours</KMH_Settings_MarkerYours>
+  <KMH_Settings_MarkerOthers>Other players</KMH_Settings_MarkerOthers>
+  <KMH_Settings_NotifySilent>Silent (badge only)</KMH_Settings_NotifySilent>
+  <KMH_Settings_NotifyPopupSound>Popup + sound</KMH_Settings_NotifyPopupSound>
+  <KMH_Settings_NotifyPopup>Popup</KMH_Settings_NotifyPopup>
+  <KMH_Settings_ShowWhatsNew>Show Colony Nexus What's New after an update</KMH_Settings_ShowWhatsNew>
+  <KMH_Settings_ShowWhatsNewTip>If enabled, the What's New changelog appears once after each new version. Reopen it any time from the Colony Nexus About panel.</KMH_Settings_ShowWhatsNewTip>
+  <KMH_Settings_ShowWelcome>Show the Colony Nexus welcome on first launch</KMH_Settings_ShowWelcome>
+  <KMH_Settings_ShowWelcomeTip>If enabled, the welcome appears the first time Colony Nexus starts. You can always reopen it from the Colony Nexus About panel.</KMH_Settings_ShowWelcomeTip>
+  <KMH_Settings_WelcomeAgain>Show the welcome again next launch</KMH_Settings_WelcomeAgain>
+  <KMH_Settings_CommsHeader>Colony Nexus Communications</KMH_Settings_CommsHeader>
+  <KMH_Settings_MuteChat>Mute all Colony Nexus chat notifications</KMH_Settings_MuteChat>
+  <KMH_Settings_MuteChatTip>When on, no chat popups or sounds appear - the unread badge and tab glow still update. You can also toggle this from the Communications window.</KMH_Settings_MuteChatTip>
+  <KMH_Settings_GlobalChat>Global chat</KMH_Settings_GlobalChat>
+  <KMH_Settings_DiscordHeader>Discord status</KMH_Settings_DiscordHeader>
+  <KMH_Settings_DiscordPresence>Show your Colony Nexus activity in Discord</KMH_Settings_DiscordPresence>
+  <KMH_Settings_DiscordPresenceTip>Replaces RimWorld Together's own 'Playing Multiplayer' with what you are doing - defending a raid, weathering a toxic fallout, out with a caravan - and the server you are on. Anyone who can see your Discord status can see this.</KMH_Settings_DiscordPresenceTip>
+  <KMH_Settings_DiscordGameplay>Show what is happening in your colony</KMH_Settings_DiscordGameplay>
+  <KMH_Settings_DiscordGameplayTip>Raids, disasters, caravans, research and ceremonies, worded generally. Never names, items, amounts or quest details.</KMH_Settings_DiscordGameplayTip>
+  <KMH_Settings_DiscordDetail>Activity detail</KMH_Settings_DiscordDetail>
+  <KMH_Settings_DiscordDetailed>Detailed - raids, disasters, caravans</KMH_Settings_DiscordDetailed>
+  <KMH_Settings_DiscordSimple>Simple - in a colony, or multiplayer</KMH_Settings_DiscordSimple>
+  <KMH_Settings_DiscordMultiplayer>Show that you are playing multiplayer</KMH_Settings_DiscordMultiplayer>
+  <KMH_Settings_DiscordMultiplayerTip>Off: a multiplayer game reads like any other colony, with no server, player count or Join.</KMH_Settings_DiscordMultiplayerTip>
+  <KMH_Settings_DiscordServerName>Name public servers</KMH_Settings_DiscordServerName>
+  <KMH_Settings_DiscordServerNameTip>A publicly listed server's name. Off shows 'Colony Nexus multiplayer' instead.</KMH_Settings_DiscordServerNameTip>
+  <KMH_Settings_DiscordColonyInfo>Show colony size and day</KMH_Settings_DiscordColonyInfo>
+  <KMH_Settings_DiscordColonyInfoTip>Adds how many colonists you have and which day it is.</KMH_Settings_DiscordColonyInfoTip>
+  <KMH_Settings_DiscordElapsed>Show time played</KMH_Settings_DiscordElapsed>
+  <KMH_Settings_DiscordElapsedTip>Discord's elapsed clock, restarting with each colony or server.</KMH_Settings_DiscordElapsedTip>
+  <KMH_Settings_DiscordUpdate>Update Discord at most every</KMH_Settings_DiscordUpdate>
+  <KMH_Settings_DiscordSeconds>{0} s</KMH_Settings_DiscordSeconds>
+  <KMH_Settings_DiscordUpdateHelp>A raid starting is sent within seconds whatever this says; everything else waits its turn.</KMH_Settings_DiscordUpdateHelp>
+  <KMH_Settings_DiscordAppId>Discord application ID</KMH_Settings_DiscordAppId>
+  <KMH_Settings_DiscordAppIdHelp>Colony Nexus's own Discord application by default. Leave it blank and Colony Nexus sets no status at all - RimWorld Together's own is left exactly as it is. Only change it if you run your own Discord application with the Colony Nexus artwork uploaded to it.</KMH_Settings_DiscordAppIdHelp>
+  <KMH_Settings_DiscordUseOwnApp>Use the Colony Nexus application</KMH_Settings_DiscordUseOwnApp>
+  <KMH_Settings_DiscordAllowJoin>Let friends join from your Discord status</KMH_Settings_DiscordAllowJoin>
+  <KMH_Settings_DiscordAllowJoinTip>Adds a Join button, but only for a server that is publicly listed AND has no password. Joining always reconnects through your own Colony Nexus server list, never an address someone sent you. Registers one per-user entry so Discord can start RimWorld through Steam.</KMH_Settings_DiscordAllowJoinTip>
+  <KMH_Settings_DiscordStatusLine>Status: {0}</KMH_Settings_DiscordStatusLine>
+  <KMH_Settings_DiscordJoinLine>Join: {0}</KMH_Settings_DiscordJoinLine>
+  <KMH_Settings_DiscordArtLine>Pictures: {0}</KMH_Settings_DiscordArtLine>
+  <KMH_Settings_DiscordNamePrivate>Name private servers in your Discord status</KMH_Settings_DiscordNamePrivate>
+  <KMH_Settings_DiscordNamePrivateTip>Off by default: a server that is not publicly listed shows as 'On a private server'. Turn this on to show its name instead.</KMH_Settings_DiscordNamePrivateTip>
+  <KMH_Settings_DiscordActivity>Show which Colony Nexus screen you are on</KMH_Settings_DiscordActivity>
+  <KMH_Settings_DiscordActivityTip>Shows which Colony Nexus screen you are on - the marketplace, the auction house, the frontier - and nothing else. Never amounts, item names, other players or private names. Never on a private server.</KMH_Settings_DiscordActivityTip>
+  <KMH_Settings_ResetWindows>Reset Colony Nexus window sizes and positions</KMH_Settings_ResetWindows>
+  <KMH_Settings_VideoInfo>Video links are fetched and served by the Colony Nexus server you are on - nothing to install here. Quality is capped by that server.</KMH_Settings_VideoInfo>
+  <KMH_Settings_VideoKeep>Keep watched videos</KMH_Settings_VideoKeep>
+  <KMH_Settings_ClearVideoCache>Clear video cache ({0} MB)</KMH_Settings_ClearVideoCache>
+  <KMH_Settings_VideoQuality>Video quality</KMH_Settings_VideoQuality>
+  <KMH_Settings_AutoLoadImages>Load chat images automatically</KMH_Settings_AutoLoadImages>
+  <KMH_Settings_AutoLoadImagesTip>Images and GIFs shared in chat load as soon as they appear. Off shows a placeholder naming the host until you click it.</KMH_Settings_AutoLoadImagesTip>
+  <KMH_Settings_AutoLoadImagesPrivacy>Loading an image contacts that host directly, which tells it your IP address. Only hosts the server owner trusts (Discord, Giphy, Tenor, Imgur and the like) are ever offered.</KMH_Settings_AutoLoadImagesPrivacy>
+  <KMH_Settings_ChatOverlay>Show new chat over the map</KMH_Settings_ChatOverlay>
+  <KMH_Settings_ChatOverlayTip>New server, guild and Global Chat lines appear at the bottom left of the map for a few seconds while no chat window is open. They never block a click. Direct messages are left out.</KMH_Settings_ChatOverlayTip>
+  <KMH_Settings_ChatOpacity>Chat window opacity</KMH_Settings_ChatOpacity>
+  <KMH_Chat_OpacityTip>How solid the chat windows are. Click to let more of the map show through; the text stays readable.</KMH_Chat_OpacityTip>
+  <KMH_Settings_MuteVideos>Mute chat videos</KMH_Settings_MuteVideos>
+  <KMH_Settings_MuteVideosTip>Play videos silently. The volume below is remembered either way, so unmuting returns to it.</KMH_Settings_MuteVideosTip>
+  <KMH_Settings_RepeatVideos>Repeat chat videos</KMH_Settings_RepeatVideos>
+  <KMH_Settings_RepeatVideosTip>When on, a video restarts when it reaches the end instead of stopping on the last frame.</KMH_Settings_RepeatVideosTip>
+  <KMH_Settings_VideoVolume>Chat video volume</KMH_Settings_VideoVolume>
+  <KMH_Settings_ColoursHeader>Colours</KMH_Settings_ColoursHeader>
+  <KMH_Settings_TagDiscord>Tag Discord messages</KMH_Settings_TagDiscord>
+  <KMH_Settings_TagDiscordTip>Adds a compact [D] after the Discord mark on relayed messages - [D?] when the sender has no linked Colony Nexus account, so their name is only a Discord display name. The mark itself always shows.</KMH_Settings_TagDiscordTip>
+  <KMH_Settings_UseServerColours>Use this server's colours</KMH_Settings_UseServerColours>
+  <KMH_Settings_UseServerColoursTip>Server owners can set a small palette for the Colony Nexus accent and chat channels. Turn this off to use your own colours instead. Colours are decoration only - unread counts, warnings and the Discord mark are always labelled in text as well.</KMH_Settings_UseServerColoursTip>
+  <KMH_Settings_ShowingServerColours>Showing this server's colours (Colony Nexus defaults where the owner set none).</KMH_Settings_ShowingServerColours>
+  <KMH_Settings_HexHelp>Six-digit hex, e.g. E2C16B. Blank uses the Colony Nexus default. Very dark values are lightened so text stays readable.</KMH_Settings_HexHelp>
+  <KMH_Settings_ChatText>Chat text</KMH_Settings_ChatText>
+  <KMH_Settings_BadHex>Not a six-digit hex colour: {0}. The Colony Nexus default is being used for these.</KMH_Settings_BadHex>
+  <KMH_Settings_ClearColours>Clear my colours</KMH_Settings_ClearColours>
+  <KMH_Settings_MarkersHeader>World map markers</KMH_Settings_MarkersHeader>
+  <KMH_Settings_MarkerOutline>Outline Colony Nexus places on the world map</KMH_Settings_MarkerOutline>
+  <KMH_Settings_MarkerOutlineTip>Draws the same coloured border RimWorld puts on a settlement you own, around Colony Nexus sites, outposts and your guild hall. The border is the only colour applied - the icon itself always keeps its own artwork.</KMH_Settings_MarkerOutlineTip>
+  <KMH_Settings_UseServerMarkers>Use this server's marker colours</KMH_Settings_UseServerMarkers>
+  <KMH_Settings_UseServerMarkersTip>Server owners can suggest which colours mark your own places and other players'. Turn this off to pick your own. Outpost states - claimable, hostile, derelict - always keep the Colony Nexus colours so a warning cannot be styled into something calm.</KMH_Settings_UseServerMarkersTip>
+  <KMH_Settings_MarkerHexHelp>Six-digit hex, e.g. 6BE26B. Blank uses the Colony Nexus default.</KMH_Settings_MarkerHexHelp>
+  <KMH_Settings_ClearMarkerColours>Clear my marker colours</KMH_Settings_ClearMarkerColours>
+  <KMH_Settings_DiagnosticsHeader>Diagnostics</KMH_Settings_DiagnosticsHeader>
+  <KMH_Settings_OpenLogFolder>Open Colony Nexus log folder</KMH_Settings_OpenLogFolder>
+  <KMH_Settings_VerboseLogging>Verbose debug logging</KMH_Settings_VerboseLogging>
+  <KMH_Settings_VerboseLoggingTip>Logs detailed Colony Nexus diagnostics. Off by default so normal play stays quiet. Each session writes its own timestamped file under Colony Nexus/Logs, rotated at 10 MB and kept for 14 days.</KMH_Settings_VerboseLoggingTip>
+  <KMH_Settings_ProtocolLogging>Also log every packet (protocol tracing)</KMH_Settings_ProtocolLogging>
+  <KMH_Settings_ProtocolLoggingTip>Adds a line for every packet, including the 15-second heartbeat. Only turn this on when asked for it - it produces megabytes over a long session. With it off, heartbeats are summarised once an hour.</KMH_Settings_ProtocolLoggingTip>
+  <KMH_Settings_LogShareNever>Never</KMH_Settings_LogShareNever>
+  <KMH_Settings_LogShareAuto>Automatically share</KMH_Settings_LogShareAuto>
+  <KMH_Settings_LogShareAsk>Ask me each server</KMH_Settings_LogShareAsk>
+  <KMH_Settings_LogShareLabel>When a server asks for my log</KMH_Settings_LogShareLabel>
+  <KMH_Settings_LogShareNeverOption>Never - refuse without asking me</KMH_Settings_LogShareNeverOption>
+  <KMH_Settings_LogShareAskOption>Ask me each server (recommended)</KMH_Settings_LogShareAskOption>
+  <KMH_Settings_LogShareAutoOption>Automatically share with any server that asks</KMH_Settings_LogShareAutoOption>
+  <KMH_Settings_LogShareNeverHelp>Nothing is ever sent, and you are not prompted.</KMH_Settings_LogShareNeverHelp>
+  <KMH_Settings_LogShareAutoHelp>Sharing starts as soon as a server asks. It ends when you disconnect, or when you stop it here.</KMH_Settings_LogShareAutoHelp>
+  <KMH_Settings_LogShareAskHelp>You get one prompt per server, per session. Nothing is sent unless you say yes, and that answer is dropped when you disconnect.</KMH_Settings_LogShareAskHelp>
+  <KMH_Settings_LogShareScope>Colony Nexus log lines only - never chat, saves, or hardware/system information.</KMH_Settings_LogShareScope>
+  <KMH_Settings_GlobalHeader>Colony Nexus Global</KMH_Settings_GlobalHeader>
+  <KMH_Settings_DirectoryAddress>Directory address (blank = the official one)</KMH_Settings_DirectoryAddress>
+  <KMH_Settings_DirectoryOfficial>Browsing the official Colony Nexus directory.</KMH_Settings_DirectoryOfficial>
+  <KMH_Settings_DirectoryCustom>Browsing {0} - set this back to blank for the official one.</KMH_Settings_DirectoryCustom>
+  <KMH_Settings_DirectoryAddressPlaytest>Directory address (blank = the playtest directory)</KMH_Settings_DirectoryAddressPlaytest>
+  <KMH_Settings_DirectoryPlaytest>Playtest build: browsing the playtest directory, {0}. The full release uses the official one.</KMH_Settings_DirectoryPlaytest>
+  <KMH_Settings_DirectoryCustomPlaytest>Browsing {0} - set this back to blank for the playtest directory.</KMH_Settings_DirectoryCustomPlaytest>
+  <KMH_Settings_TransportHeader>Colony Nexus API transport</KMH_Settings_TransportHeader>
+  <KMH_Settings_UseApiTransport>Use Colony Nexus API transport</KMH_Settings_UseApiTransport>
+  <KMH_Settings_UseApiTransportTip>On by default - the recommended path for newer RWT builds. Falls back to chat if the port can't be reached. Reconnect for changes to take effect.</KMH_Settings_UseApiTransportTip>
+  <KMH_Settings_AllowChatFallback>Allow chat fallback</KMH_Settings_AllowChatFallback>
+  <KMH_Settings_AllowChatFallbackTip>If the Colony Nexus API port can't be reached, keep using the RWT-chat transport so Colony Nexus still works.</KMH_Settings_AllowChatFallbackTip>
+  <KMH_Settings_FallbackPort>Fallback port (only if a server advertises none)</KMH_Settings_FallbackPort>
+  <KMH_Settings_HostOverride>Host override, every server (blank = the one you joined)</KMH_Settings_HostOverride>
+  <KMH_Settings_ConnectedTo>Currently connected to: {0}</KMH_Settings_ConnectedTo>
+  <KMH_Settings_LastAttemptFailed>Last attempt failed: {0}</KMH_Settings_LastAttemptFailed>
+  <KMH_Settings_EnforcementHeader>Server config enforcement</KMH_Settings_EnforcementHeader>
+  <KMH_Settings_EnforcementApplied>A server config profile is applied to your Config folder. Restoring puts your personal configs back (it re-applies if you rejoin an enforcing server).</KMH_Settings_EnforcementApplied>
+  <KMH_Settings_RestoreConfigs>Restore my original configs</KMH_Settings_RestoreConfigs>
+  <KMH_Settings_RestoredConfigs>Colony Nexus: restored your personal config files. Restart RimWorld to load them.</KMH_Settings_RestoredConfigs>
+  <KMH_Settings_NoEnforcement>No server config profile is applied.</KMH_Settings_NoEnforcement>
+  <KMH_Settings_Version>Version: {0} ({1})</KMH_Settings_Version>
+  <KMH_Settings_Package>Package: {0}</KMH_Settings_Package>
+
+  <!-- Buy and bid messages -->
+  <KMH_Market_QtyAboveZero>Quantity must be greater than 0</KMH_Market_QtyAboveZero>
+  <KMH_Market_Buying>Buying ×{0} (request sent)</KMH_Market_Buying>
+  <KMH_Market_CancelSent>Cancel request sent</KMH_Market_CancelSent>
+  <KMH_Auction_Bidding>Bidding {0}…</KMH_Auction_Bidding>
+  <KMH_Amount_Available>Available: {0}</KMH_Amount_Available>
+  <KMH_Amount_AvailableUnit>Available: {0} {1}</KMH_Amount_AvailableUnit>
+  <KMH_Amount_BadNumber>Enter a positive whole number</KMH_Amount_BadNumber>
+  <KMH_Recover_Title>Recover your own mod list</KMH_Recover_Title>
+  <KMH_Recover_None>There is no other mod list on this computer that Colony Nexus can offer. Your current list stays as it is; you can change it on RimWorld's Mods page.</KMH_Recover_None>
+  <KMH_Recover_Intro>These lists were saved on this computer before a server changed yours. Choose one to use it, or close this window to keep your current list. Your current list is kept too, so this can be undone the same way.</KMH_Recover_Intro>
+  <KMH_Recover_Keep>Keep my current list</KMH_Recover_Keep>
+  <KMH_Recover_Count>{0} mods</KMH_Recover_Count>
+  <KMH_Recover_On>Switches on: {0}</KMH_Recover_On>
+  <KMH_Recover_Off>Switches off: {0}</KMH_Recover_Off>
+  <KMH_Recover_Use>Use this list</KMH_Recover_Use>
+  <KMH_Recover_Confirm>Use the {0} list from {1}? Your current list is saved first, and RimWorld has to restart to load the change.</KMH_Recover_Confirm>
+  <KMH_Recover_Failed>That mod list could not be used: {0}</KMH_Recover_Failed>
+  <KMH_Recover_Nothing>nothing</KMH_Recover_Nothing>
+  <KMH_Recover_More>{0} and {1} more</KMH_Recover_More>
+  <KMH_Recover_Saved>Your saved list</KMH_Recover_Saved>
+  <KMH_Recover_Archive>A list Colony Nexus kept</KMH_Recover_Archive>
+  <KMH_Recover_ModSync>Your list before the last server change</KMH_Recover_ModSync>
+  <KMH_Recover_RimWorld>RimWorld's own backup</KMH_Recover_RimWorld>
+  <KMH_Restore_KeptChange>You changed your mod list after Colony Nexus set it, so your current list was kept. The list from before is still saved: "Recover an older mod list" in Colony Nexus's settings can bring it back.</KMH_Restore_KeptChange>
+  <KMH_Restore_CopyWasServers>The copy Colony Nexus kept of your own mod list turned out to be a server's list: an earlier Colony Nexus build replaced it. Your current list was kept; the lists that can still be recovered are shown next.</KMH_Restore_CopyWasServers>
+  <KMH_Enf_AwaitRestart_Title>Restart to load your own settings</KMH_Enf_AwaitRestart_Title>
+  <KMH_Enf_AwaitRestart_Body>Your own settings for {0} are back on disk, but RimWorld still holds the server's in memory. They load when RimWorld restarts; until then they can't be changed here, because saving now would write the server's values over yours.</KMH_Enf_AwaitRestart_Body>
+  <KMH_Enf_AwaitRestart_Button>Restart RimWorld now</KMH_Enf_AwaitRestart_Button>
+  <KMH_Enf_StillApplied>The mod settings of the last server you played on that enforces them are still in place. Put your own settings back now? RimWorld restarts to load them. Keep the server's if you are going back there - they can be restored later from the main menu.</KMH_Enf_StillApplied>
+  <KMH_Enf_StillApplied_Restore>Restore mine</KMH_Enf_StillApplied_Restore>
+  <KMH_Enf_StillApplied_Keep>Keep the server's for now</KMH_Enf_StillApplied_Keep>
+  <KMH_Enf_Restored_Title>Your own mod settings are back on disk.</KMH_Enf_Restored_Title>
+  <KMH_Enf_Restored_Tip>RimWorld still holds the server's settings in memory until it restarts, so those mods' options stay locked until then.</KMH_Enf_Restored_Tip>
+  <KMH_Enf_Leftovers_Title>{0} mod setting file(s) still hold a server's settings.</KMH_Enf_Leftovers_Title>
+  <KMH_Enf_Leftovers_Why>An older Colony Nexus kept no copy of yours to put back.</KMH_Enf_Leftovers_Why>
+  <KMH_Enf_Leftovers_Keep>Keep them</KMH_Enf_Leftovers_Keep>
+  <KMH_Enf_Leftovers_Reset>Use the mods' defaults</KMH_Enf_Leftovers_Reset>
+  <KMH_Enf_Leftovers_Confirm>Remove these {0} file(s) so those mods start from their own defaults? A file you have changed since is kept. RimWorld restarts afterwards.</KMH_Enf_Leftovers_Confirm>
+  <KMH_Enf_Leftovers_Failed>Those settings could not be reset: {0}</KMH_Enf_Leftovers_Failed>
+  <KMH_Enf_RestoredOnJoin>Colony Nexus put your own mod settings back. They load the next time RimWorld starts; until then those mods' options stay locked.</KMH_Enf_RestoredOnJoin>
+  <KMH_Settings_RecoverModList>Recover an older mod list…</KMH_Settings_RecoverModList>
+  <KMH_Consent_BootFailed>Last time these settings were applied, RimWorld did not reach the main menu, and your own were put back. Applying them again may do the same.</KMH_Consent_BootFailed>
+  <KMH_Consent_OrderRefused>This server's mod list will be refused: {0}</KMH_Consent_OrderRefused>
+  <KMH_Consent_ReviewNext>Before anything is written you are shown which mods' settings change.</KMH_Consent_ReviewNext>
+  <KMH_Consent_WillDisable>Switched off: {0}</KMH_Consent_WillDisable>
+  <KMH_Consent_WillEnable>Switched on: {0}</KMH_Consent_WillEnable>
+  <KMH_Enf_BootRestored>RimWorld did not reach the main menu after the last server's mod settings were applied, so Colony Nexus put your own settings and mod list back. Restart RimWorld to load them.</KMH_Enf_BootRestored>
+  <KMH_Enf_Release_Button>Keep the current files and release the lock</KMH_Enf_Release_Button>
+  <KMH_Enf_Release_Confirm>Colony Nexus cannot put your own settings back because its copy of them is missing or damaged. Release the lock and keep the files as they are now? The damaged copy is set aside, not deleted, and any file still exactly the server's is listed on the main menu so you can keep it or reset it.</KMH_Enf_Release_Confirm>
+  <KMH_Enf_Release_Failed>The lock could not be released: {0}</KMH_Enf_Release_Failed>
+  <KMH_Enf_RestartAsk>This server's mod settings are in place, but RimWorld has to restart before every mod reads them. Restart now?</KMH_Enf_RestartAsk>
+  <KMH_Enf_RestartLater>Later</KMH_Enf_RestartLater>
+  <KMH_Enf_UnsafeRestored>The last server's mod settings named code a settings file never needs ({0}), so Colony Nexus put your own settings and mod list back. Restart RimWorld to load them.</KMH_Enf_UnsafeRestored>
+  <KMH_Prep_ChangedSinceApproval>This server changed what it asks for since you accepted ({0}). Nothing more was changed on this computer. Cancel, then open Prepare and join again to see the new plan.</KMH_Prep_ChangedSinceApproval>
+  <KMH_Prep_Changed_List>its mod list</KMH_Prep_Changed_List>
+  <KMH_Prep_Changed_Old>this preparation was started by an older Colony Nexus</KMH_Prep_Changed_Old>
+  <KMH_Prep_Changed_Policy>its mod rules</KMH_Prep_Changed_Policy>
+  <KMH_Prep_Changed_Rwt>RimWorld Together {0} instead of {1}</KMH_Prep_Changed_Rwt>
+  <KMH_Prep_ReviewRwtOptIn>Install this RimWorld Together version anyway</KMH_Prep_ReviewRwtOptIn>
+  <KMH_Prep_RwtOld>RimWorld Together {0} is not one of its {2} newest releases (published {1}).</KMH_Prep_RwtOld>
+  <KMH_Prep_RwtOptInAgain>Start again from the browser and accept installing it, or install it yourself.</KMH_Prep_RwtOptInAgain>
+  <KMH_Prep_RwtPrerelease>RimWorld Together {0} is marked as a pre-release (published {1}).</KMH_Prep_RwtPrerelease>
+  <KMH_Prep_RwtPublished>Published on GitHub on {0}.</KMH_Prep_RwtPublished>
+  <KMH_Prep_SteamNew>published less than two weeks ago</KMH_Prep_SteamNew>
+  <KMH_Prep_SteamRefused>Steam does not list this number as a RimWorld mod</KMH_Prep_SteamRefused>
+  <KMH_Prep_SteamTitle>Steam calls it "{0}"</KMH_Prep_SteamTitle>
+  <KMH_Prep_SteamTitlesUnread>Steam's own titles for these items could not be read, so only the server's names are shown. Check the Workshop numbers on Steam before you start.</KMH_Prep_SteamTitlesUnread>
+  <KMH_Prep_SteamUnlisted>not public on the Workshop</KMH_Prep_SteamUnlisted>
+  <KMH_Prep_WaitForList>Waiting for the server's mod list, so you can see what would change before agreeing to it.</KMH_Prep_WaitForList>
+  <KMH_Prep_WaitForSteam>Checking the Workshop items with Steam...</KMH_Prep_WaitForSteam>
+  <KMH_Prep_WorkshopRefused>Steam does not list {0} (Workshop {1}) as a RimWorld mod, so it cannot be subscribed.</KMH_Prep_WorkshopRefused>
+  <KMH_Restore_ListOnly>Your mod list was put back, but the RimWorld Together copy could not be: {0}</KMH_Restore_ListOnly>
+  <KMH_Review_Adds>Adds settings for</KMH_Review_Adds>
+  <KMH_Review_Apply>Apply these settings</KMH_Review_Apply>
+  <KMH_Review_Intro>Colony Nexus has the server's settings and has not written anything yet. Your own copies are backed up first and can be put back at any time from the Colony Nexus tab, Mod Options, or the main menu.</KMH_Review_Intro>
+  <KMH_Review_Merges>Sets the gameplay settings, keeping your personal ones, for</KMH_Review_Merges>
+  <KMH_Review_ModList>Your mod list</KMH_Review_ModList>
+  <KMH_Review_ModListSame>No mod is switched on or off.</KMH_Review_ModListSame>
+  <KMH_Review_More>and {0} more mod(s)</KMH_Review_More>
+  <KMH_Review_Nothing>Every file already matches what you have.</KMH_Review_Nothing>
+  <KMH_Review_Replaces>Replaces your settings for</KMH_Review_Replaces>
+  <KMH_Review_Restart>RimWorld restarts once afterwards so every mod reads its new settings.</KMH_Review_Restart>
+  <KMH_Review_Title>What this server's settings change</KMH_Review_Title>
+  <KMH_Review_Unused>{0} file(s) are for mods you do not have running; they are stored but nothing reads them.</KMH_Review_Unused>
+</LanguageData>

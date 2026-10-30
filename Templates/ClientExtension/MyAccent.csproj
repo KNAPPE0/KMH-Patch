@@ -9,11 +9,11 @@
     To install:
       1. Copy the entire mod folder (About/ + 1.6/) into RimWorld's
          Mods folder, OR publish to Steam Workshop.
-      2. In-game Mods menu: enable KMH Patch THEN My KMH Accent.
+      2. In-game Mods menu: enable KMH: Colony Nexus THEN My KMH Accent.
       3. Restart RimWorld.
 
     Adjust the SDK HintPath to wherever you keep KMH.Sdk.Client.dll
-    (typically inside an installed KMH-Patch's 1.6/Assemblies).
+    (typically inside an installed Colony Nexus's 1.6/Assemblies).
   -->
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
@@ -41,7 +41,7 @@
 
   <ItemGroup>
     <!-- Reference KMH.Sdk.Client (NOT KMHPatch.dll). The SDK is the
-         stable contract; KMHPatch internals can shift between
+         stable contract; Colony Nexus internals can shift between
          releases. -->
     <Reference Include="KMH.Sdk.Client">
       <HintPath>..\..\1.6\Assemblies\KMH.Sdk.Client.dll</HintPath>

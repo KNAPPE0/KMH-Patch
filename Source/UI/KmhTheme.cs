@@ -6,12 +6,15 @@ namespace KMHPatch.UI
     // Presentation only: nothing here affects permission or identity, and colour is never the sole signal for a state.
     internal static class KmhTheme
     {
+        // First, so any field below that ever formats a colour finds it built.
+        private static readonly System.Collections.Generic.Dictionary<int, string> _hex = new System.Collections.Generic.Dictionary<int, string>();
+
         // Built-in fallbacks, picked to stay legible on RimWorld's dark panels.
-        private static readonly Color FallbackAccent  = new Color(0.886f, 0.757f, 0.420f);   // KMH amber
-        private static readonly Color FallbackServer  = new Color(0.62f,  0.69f,  0.79f);    // cool slate
-        private static readonly Color FallbackGuild   = new Color(0.49f,  0.83f,  0.49f);    // green
-        private static readonly Color FallbackDm      = new Color(0.80f,  0.70f,  0.95f);    // violet
-        private static readonly Color FallbackDiscord = new Color(0.549f, 0.620f, 1.000f);   // Discord blurple-ish
+        private static readonly Color FallbackAccent  = new Color(0.886f, 0.757f, 0.420f);
+        private static readonly Color FallbackServer  = new Color(0.62f,  0.69f,  0.79f);
+        private static readonly Color FallbackGuild   = new Color(0.49f,  0.83f,  0.49f);
+        private static readonly Color FallbackDm      = new Color(0.80f,  0.70f,  0.95f);
+        private static readonly Color FallbackDiscord = new Color(0.549f, 0.620f, 1.000f);
 
         // The glyph and tag carry a relayed line's meaning; the tint only reinforces it.
         private static readonly Color FallbackNameNormal  = new Color(0.94f, 0.94f, 0.94f);
@@ -25,7 +28,7 @@ namespace KMHPatch.UI
         public static readonly Color Warning = new Color(0.96f, 0.80f, 0.35f);
         public static readonly Color Error   = new Color(1.00f, 0.50f, 0.50f);
 
-        // Server-provided defaults, set from the hello. Blank = owner expressed no preference.
+        // Blank means the owner expressed no preference.
         public static string ServerAccent  { get; private set; } = "";
         public static string ServerServer  { get; private set; } = "";
         public static string ServerGuild   { get; private set; } = "";
@@ -42,7 +45,16 @@ namespace KMHPatch.UI
             m = m.Trim();
             // Refused whole, not stripped: mangling markup would leave the owner's mistake on screen looking deliberate.
             if (m.IndexOf('<') >= 0 || m.IndexOf('>') >= 0) return DefaultDiscordMarker;
-            return m.Length > 4 ? m.Substring(0, 4) : m;
+            m = m.Length > 4 ? m.Substring(0, 4) : m;
+            // An invisible or official-looking marker would pass a relayed line off as a player's, or as Colony Nexus's.
+            if (KmhBrandWords.StripMarks(m) != m) return DefaultDiscordMarker;
+            foreach (char ch in m)
+            {
+                UnicodeCategory cat = CharUnicodeInfo.GetUnicodeCategory(ch);
+                if (!char.IsWhiteSpace(ch) && cat != UnicodeCategory.Format && cat != UnicodeCategory.Control
+                    && cat != UnicodeCategory.NonSpacingMark && cat != UnicodeCategory.EnclosingMark) return m;
+            }
+            return DefaultDiscordMarker;
         }
 
         public static string ServerNameNormal  { get; private set; } = "";
@@ -83,6 +95,11 @@ namespace KMHPatch.UI
         public static Color NameDiscord  => Resolve(Settings?.ThemeNameDiscord,  ServerNameDiscord, FallbackNameDiscord);
         public static Color TextDiscord  => Resolve(Settings?.ThemeTextDiscord,  ServerTextDiscord, FallbackTextDiscord);
 
+        // Global lines are not the server's to style: the player's own choice or the built-in palette only.
+        public static Color GlobalName(bool discord)  => Resolve(discord ? Settings?.ThemeNameDiscord : Settings?.ThemeNameNormal, "", discord ? FallbackNameDiscord : FallbackNameNormal);
+        public static Color GlobalText(bool discord)  => Resolve(discord ? Settings?.ThemeTextDiscord : Settings?.ThemeTextNormal, "", discord ? FallbackTextDiscord : FallbackTextNormal);
+        public static Color GlobalDiscordSrc          => Resolve(Settings?.ThemeDiscord, "", FallbackDiscord);
+
         private static KMHPatchSettings Settings => KMHPatchMod.Settings;
 
         // A server can never quietly override a deliberate local choice, nor the reverse.
@@ -118,11 +135,19 @@ namespace KMHPatch.UI
             return new Color(Mathf.Min(1f, c.r * k), Mathf.Min(1f, c.g * k), Mathf.Min(1f, c.b * k));
         }
 
-        // "#RRGGBB" for rich-text tags. KMH builds these from trusted config, never from message text.
+        // From trusted config, never message text; cached because every coloured span calls it each frame.
         public static string Hex(Color c)
-            => "#" + Mathf.RoundToInt(Mathf.Clamp01(c.r) * 255f).ToString("X2")
-                   + Mathf.RoundToInt(Mathf.Clamp01(c.g) * 255f).ToString("X2")
-                   + Mathf.RoundToInt(Mathf.Clamp01(c.b) * 255f).ToString("X2");
+        {
+            int r = Mathf.RoundToInt(Mathf.Clamp01(c.r) * 255f), g = Mathf.RoundToInt(Mathf.Clamp01(c.g) * 255f), b = Mathf.RoundToInt(Mathf.Clamp01(c.b) * 255f);
+            int key = (r << 16) | (g << 8) | b;
+            lock (_hex)
+            {
+                if (_hex.TryGetValue(key, out string s)) return s;
+                s = "#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2");
+                if (_hex.Count < 4096) _hex[key] = s;
+                return s;
+            }
+        }
 
         public static string Accented(string text) => "<color=" + Hex(Accent) + ">" + text + "</color>";
 

@@ -10,6 +10,8 @@ namespace KMHPatch.UI
         private static readonly Dictionary<string, string> Cache
             = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
 
+        internal static int CachedCountForTest => Cache.Count;
+
         public static string ResolveLabel(string defName)
         {
             if (string.IsNullOrEmpty(defName)) return "?";
@@ -19,6 +21,8 @@ namespace KMHPatch.UI
             if (Cache.TryGetValue(defName, out string cached)) return cached;
 
             string resolved = ResolveUncached(defName);
+            // A name no def has is another player's text: drawn inert and never kept, or each new one grew the cache.
+            if (resolved == null) return KmhDisplayText.Inert(defName, 64);
             // Lock-free cache write; races only repeat the same lookup, not bad data.
             Cache[defName] = resolved;
             return resolved;
@@ -35,13 +39,13 @@ namespace KMHPatch.UI
             try
             {
                 ThingDef td = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
-                if (td != null && !string.IsNullOrEmpty(td.label)) return td.label;
+                if (td != null) return string.IsNullOrEmpty(td.label) ? defName : td.label;
             }
             catch
             {
-                // DefDatabase can fail before game load finishes, so fall back to the raw defName.
+                // DefDatabase can fail before game load finishes; the caller shows the name inert and retries later.
             }
-            return defName;
+            return null;
         }
 
         public static void DrawIcon(Rect rect, string defName) => KmhIconResolver.Draw(rect, defName);

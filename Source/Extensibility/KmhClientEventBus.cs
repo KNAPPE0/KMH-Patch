@@ -42,6 +42,9 @@ namespace KMHPatch.Extensibility
             Features.Chat.ChatCache.Updated           += () => SafeRaise(ChatCacheUpdated,           new ChatCacheUpdatedEvent(),           nameof(ChatCacheUpdated));
             Features.Chat.ChatModerationCache.Updated += () => SafeRaise(ChatModerationCacheUpdated, new ChatModerationCacheUpdatedEvent(), nameof(ChatModerationCacheUpdated));
             Features.Mail.MailCache.Updated           += () => SafeRaise(MailCacheUpdated,           new MailCacheUpdatedEvent(),           nameof(MailCacheUpdated));
+            Features.ConnectedTreasury.ConnectedTreasuryCache.Updated += () => SafeRaise(ConnectedTreasuryUpdated, new ConnectedTreasuryUpdatedEvent(), nameof(ConnectedTreasuryUpdated));
+            Features.ConnectedGuild.ConnectedGuildCache.Updated       += () => SafeRaise(ConnectedGuildUpdated,    new ConnectedGuildUpdatedEvent(),    nameof(ConnectedGuildUpdated));
+            Features.Federation.FederationCache.Updated               += () => SafeRaise(FederationUpdated,        new FederationUpdatedEvent(),        nameof(FederationUpdated));
         }
 
         public event Action<KmhServerConnectedEvent>             KmhServerConnected;
@@ -63,6 +66,9 @@ namespace KMHPatch.Extensibility
         public event Action<ChatCacheUpdatedEvent>              ChatCacheUpdated;
         public event Action<ChatModerationCacheUpdatedEvent>    ChatModerationCacheUpdated;
         public event Action<MailCacheUpdatedEvent>              MailCacheUpdated;
+        public event Action<ConnectedTreasuryUpdatedEvent>      ConnectedTreasuryUpdated;
+        public event Action<ConnectedGuildUpdatedEvent>        ConnectedGuildUpdated;
+        public event Action<FederationUpdatedEvent>            FederationUpdated;
         public event Action<KmhGrantReceivedEvent>              GrantReceived;
         public event Action<KmhNotificationReceivedEvent>      NotificationReceived;
         public event Action<KmhWorldEventFiredEvent>           WorldEventFired;

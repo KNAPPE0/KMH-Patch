@@ -22,7 +22,7 @@ namespace KMHPatch.UI
 
         public float LabelRow => LabelRowHeight(Text.LineHeight);
 
-        // A raw row. Callers that draw their own widgets use this and honour Measuring themselves.
+        // Callers drawing their own widgets in this row must honour Measuring themselves.
         public Rect Row(float h)
         {
             Rect r = new Rect(0f, Y, Width, h);
@@ -71,7 +71,7 @@ namespace KMHPatch.UI
             Y += 8f;
         }
 
-        // Wrapping text. Height comes from Text.CalcHeight at the real width, so it can never be clipped.
+        // Height comes from Text.CalcHeight at the real width, so it can never be clipped.
         public void Label(string text, Color? color = null)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -123,16 +123,20 @@ namespace KMHPatch.UI
             return clicked;
         }
 
+        // A label longer than its column wraps and the row grows, rather than cutting "Directory address (blank = …)".
         public string TextField(string label, string value, float labelW = 0f, float height = 28f)
         {
             if (labelW <= 0f) labelW = Mathf.Min(220f, Width * 0.45f);
             string result = value ?? "";
+            float labelH = Text.CalcHeight(label ?? "", labelW);
+            float rowH = Mathf.Max(height, labelH);
             if (!Measuring)
             {
-                DialogLayout.LabelTrunc(new Rect(0f, Y, labelW, height), label, TextAnchor.MiddleLeft);
-                result = Widgets.TextField(new Rect(labelW + 6f, Y, Mathf.Max(40f, Width - labelW - 6f), height), result);
+                if (labelH <= height) DialogLayout.LabelTrunc(new Rect(0f, Y, labelW, height), label, TextAnchor.MiddleLeft);
+                else Widgets.Label(new Rect(0f, Y, labelW, labelH), label);
+                result = Widgets.TextField(new Rect(labelW + 6f, Y + (rowH - height) / 2f, Mathf.Max(40f, Width - labelW - 6f), height), result);
             }
-            Y += height + Pad;
+            Y += rowH + Pad;
             return result;
         }
 

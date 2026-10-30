@@ -89,6 +89,13 @@ namespace KMHPatch.Items
                     p.ScribeXml = xml;
                     p.Fidelity  = KmhThingPayload.FidelityFull;
                 }
+                // Without the blob there is nothing to restore but an empty crate, so refuse rather than degrade.
+                else if (thing is MinifiedThing)
+                {
+                    KmhLog.Warn($"KMH: refused to capture minified '{thing.def?.defName}' - its full state could not be written, "
+                              + "and a partial copy would restore as an empty crate.");
+                    return null;
+                }
                 else
                 {
                     p.Fidelity = KmhThingPayload.FidelityMetadata;
@@ -103,10 +110,15 @@ namespace KMHPatch.Items
         public static Thing Restore(KmhThingPayload p)
         {
             if (p == null) return null;
+            if (!KmhItemSafety.IsDeliverable(ColonyGoods.Def(p.DefName)))
+            {
+                KmhLog.Warn($"KMH: refused to restore '{p.DefName}' - it is not an item.");
+                return null;
+            }
 
             if (!string.IsNullOrEmpty(p.ScribeXml))
             {
-                Thing t = KmhThingScribe.Load(p.ScribeXml);
+                Thing t = KmhThingScribe.Load(p.ScribeXml, p.DefName);
                 if (t != null)
                 {
                     if (p.StackCount > 1 && t.def != null && t.def.stackLimit >= p.StackCount) t.stackCount = p.StackCount;
@@ -119,9 +131,20 @@ namespace KMHPatch.Items
 
             ThingDef def = ColonyGoods.Def(p.DefName);
             if (def == null) { KmhLog.Warn($"KMH: cannot restore unknown item '{p.DefName}'."); return null; }
+            // The metadata rebuild below cannot reconstruct an inner building; an empty crate reads as a loss.
+            if (KmhItemSafety.IsMinifiedDef(def))
+            {
+                KmhLog.Warn($"KMH: refused to rebuild minified '{p.DefName}' from metadata - the deep blob is the only faithful copy.");
+                return null;
+            }
             try
             {
                 ThingDef stuff = string.IsNullOrEmpty(p.StuffDefName) ? null : DefDatabase<ThingDef>.GetNamedSilentFail(p.StuffDefName);
+                if (!string.IsNullOrEmpty(p.StuffDefName) && stuff == null)
+                {
+                    KmhLog.Warn($"KMH: cannot rebuild {p.DefName} - its material '{p.StuffDefName}' is not loaded.");
+                    return null;
+                }
                 Thing t = ThingMaker.MakeThing(def, def.MadeFromStuff ? (stuff ?? GenStuff.DefaultStuffFor(def)) : null);
                 t.stackCount = Math.Max(1, Math.Min(p.StackCount, def.stackLimit));
                 if (p.Quality > 0) ItemKeys.ApplyQuality(t, p.Quality);

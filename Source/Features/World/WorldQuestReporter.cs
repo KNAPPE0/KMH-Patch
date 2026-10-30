@@ -12,12 +12,12 @@ namespace KMHPatch.Features.World
     // Auto-reports global quest progress; cumulative and safe to resend since the server keeps each player's max.
     public class WorldQuestReporter : GameComponent
     {
-        private const int IntervalTicks = 250; // ~4s at 1x
+        private const int IntervalTicks = 250;
 
         private int _next;
-        private Dictionary<long, int> _huntBaseline  = new Dictionary<long, int>(); // kills-at-first-sight per quest
-        private Dictionary<long, int> _buildBaseline = new Dictionary<long, int>(); // standing count at first sight per quest
-        private Dictionary<long, int> _lastSent      = new Dictionary<long, int>(); // last value we reported per quest
+        private Dictionary<long, int> _huntBaseline  = new Dictionary<long, int>();
+        private Dictionary<long, int> _buildBaseline = new Dictionary<long, int>();
+        private Dictionary<long, int> _lastSent      = new Dictionary<long, int>();
 
         public WorldQuestReporter(Game game) { }
 
@@ -62,10 +62,10 @@ namespace KMHPatch.Features.World
                     total = HuntContribution(q);
                 else if (string.Equals(q.Objective, ServerQuestDto.ObjBuild, StringComparison.OrdinalIgnoreCase))
                     total = BuildContribution(q);
-                else continue; // deliver isn't auto-reported yet
+                else continue;
 
-                if (total <= 0) continue;                                          // nothing to contribute
-                if (_lastSent.TryGetValue(q.Id, out int prev) && total <= prev) continue; // only resend on growth
+                if (total <= 0) continue;
+                if (_lastSent.TryGetValue(q.Id, out int prev) && total <= prev) continue;
                 if (WorldHandler.SendContribution(q.Id, total))
                 {
                     _lastSent[q.Id] = total;
@@ -89,11 +89,11 @@ namespace KMHPatch.Features.World
             return delta < 0 ? 0 : delta;
         }
 
-        // Structures built since this quest first appeared (baseline = standing count at first sight), so pre-existing ones never count.
+        // Counted from the standing total at first sight, so structures built before the quest never count.
         private int BuildContribution(ServerQuestDto q)
         {
             if (string.IsNullOrEmpty(q.TargetDefName)) return -1;
-            // Case-insensitive fallback: the server has no def DB, so a "sandbags" vs "Sandbags" typo in the quest command still tracks.
+            // Case-insensitive fallback: the server has no def DB, so a "sandbags" typo in the quest command still tracks.
             ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(q.TargetDefName)
                         ?? DefDatabase<ThingDef>.AllDefsListForReading.Find(d => string.Equals(d.defName, q.TargetDefName, StringComparison.OrdinalIgnoreCase));
             if (def == null) return -1;
@@ -104,7 +104,6 @@ namespace KMHPatch.Features.World
             return delta < 0 ? 0 : delta;
         }
 
-        // Player-faction structures of the def currently standing across all our maps.
         private static int CountStanding(ThingDef def)
         {
             int count = 0;
@@ -112,7 +111,7 @@ namespace KMHPatch.Features.World
             for (int i = 0; i < maps.Count; i++)
             {
                 Map map = maps[i];
-                // own colonies only - a visited/hosted player's map renders their structures as Faction.OfPlayer too, so they'd wrongly count toward our quest
+                // Own colonies only: a visited player's map shows their structures as Faction.OfPlayer too.
                 if (map?.listerThings == null || !map.IsPlayerHome) continue;
                 List<Thing> things = map.listerThings.ThingsOfDef(def);
                 for (int j = 0; j < things.Count; j++)

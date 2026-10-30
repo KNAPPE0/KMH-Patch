@@ -14,7 +14,11 @@ namespace KMHPatch.Features.Chat
 
         private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
-        // One frame, still in png form. Kept out of Unity so the hard part is checkable headless.
+        // A palette is 768 bytes and transparency 256; nothing a frame needs comes near this.
+        internal const int MaxSharedBytes = 16 * 1024;
+        private static readonly HashSet<string> SharedChunks = new HashSet<string>(StringComparer.Ordinal)
+            { "PLTE", "tRNS", "gAMA", "cHRM", "sRGB", "sBIT" };
+
         internal sealed class Part
         {
             public byte[] Png;
@@ -48,7 +52,6 @@ namespace KMHPatch.Features.Chat
             return false;
         }
 
-        // Every frame as its own png, in order. Never throws; a truncated file yields what was readable.
         internal static Sheet Split(byte[] d)
         {
             try { return SplitCore(d); }
@@ -66,10 +69,11 @@ namespace KMHPatch.Features.Chat
             var sheet = new Sheet();
             var shared = new List<byte[]>();       // IHDR aside, the chunks every frame needs (palette, transparency…)
             byte[] header = null;
-            var chunks = new List<byte[]>();       // data chunks of the frame being read
+            var chunks = new List<byte[]>();
             Part current = null;
             bool defaultIsFrame = false, sawIdat = false;
             long pixelBudget = 0;
+            int sharedBytes = 0;
 
             int p = 8;
             while (p + 8 <= d.Length)
@@ -114,7 +118,9 @@ namespace KMHPatch.Features.Chat
                         return sheet;
 
                     default:
-                        if (!sawIdat && type != "acTL") shared.Add(Chunk(type, Slice(d, dataAt, len)));
+                        // Copied into every frame, so only what decoding needs, and only a little of it.
+                        if (!sawIdat && SharedChunks.Contains(type) && sharedBytes + len <= MaxSharedBytes)
+                        { shared.Add(Chunk(type, Slice(d, dataAt, len))); sharedBytes += len; }
                         break;
                 }
 
@@ -154,7 +160,8 @@ namespace KMHPatch.Features.Chat
                                   List<byte[]> shared, ref long pixelBudget)
         {
             if (current == null || header == null || chunks.Count == 0) return;
-            long cost = (long)current.Width * current.Height;
+            // Charged at the sheet's size: every frame becomes a full texture, however small its patch.
+            long cost = (long)sheet.Width * sheet.Height;
             if (pixelBudget + cost > MaxTotalDecodedPixels) return;
             pixelBudget += cost;
 
@@ -312,7 +319,7 @@ namespace KMHPatch.Features.Chat
                     if (row >= 0 && col >= 0) canvas[row * cw + col] = clear;
         }
 
-        // One scratch buffer for the whole animation: a 25-frame sticker was allocating and dropping 400KB a frame.
+        // One scratch buffer for the whole animation, or a 25-frame sticker allocates and drops 400KB a frame.
         private static Texture2D ToTexture(Color32[] canvas, int w, int h, Color32[] scratch)
         {
             for (int y = 0; y < h; y++)
@@ -320,7 +327,8 @@ namespace KMHPatch.Features.Chat
 
             var t = new Texture2D(w, h, TextureFormat.RGBA32, false);
             t.SetPixels32(scratch);
-            t.Apply(false, false);
+            // Uploaded once and never read back, so the CPU copy of every frame is let go.
+            t.Apply(false, true);
             return t;
         }
     }

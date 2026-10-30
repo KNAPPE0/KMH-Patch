@@ -24,7 +24,7 @@ namespace KMHPatch.UI
             ("Buildings / Furniture",     new[]{ "Buildings", "BuildingsFurniture", "BuildingsMisc", "BuildingsArt", "BuildingsPower", "BuildingsProduction" }),
         };
 
-        // Dropdown order (All + Misc bracket the buckets). Matches the buckets above plus the catch-all.
+        // Must list every bucket above, bracketed by All and the Misc catch-all.
         public static readonly string[] Dropdown =
         {
             "All", "Raw Food / Crops", "Meat", "Animal Products", "Meals / Prepared Food",

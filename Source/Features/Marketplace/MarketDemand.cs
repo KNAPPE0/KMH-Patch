@@ -7,13 +7,11 @@ using KMHPatch.Features.WantBoard.Dto;
 namespace KMHPatch.Features.Marketplace
 {
     // Client-side demand hint from cached listings + wants; advisory only, never pricing authority.
-
     internal static class MarketDemand
     {
         private static Dictionary<string, int> _supply, _demand;
         private static DateTime _mpStamp = DateTime.MinValue, _wbStamp = DateTime.MinValue;
 
-        // Refresh only when marketplace or want-board snapshots change.
         private static void EnsureFresh()
         {
             DateTime mp = MarketplaceCache.LastUpdatedUtc, wb = WantCache.LastUpdatedUtc;
@@ -50,16 +48,14 @@ namespace KMHPatch.Features.Marketplace
             return denom <= 0 ? 0 : (demand - supply) / (double)denom;
         }
 
-        // Compact row arrow; empty when balanced or unknown.
         public static string Arrow(string itemDefName)
         {
             double f = Factor(itemDefName, out _, out _);
-            if (f >=  0.34) return " <color=#7CD37C>↑</color>";
+            if (f >=  0.34) return " <color=#4cc38a>↑</color>";
             if (f <= -0.34) return " <color=#E0A24A>↓</color>";
             return "";
         }
 
-        // Hover detail; empty when there is no useful signal.
         public static string Tip(string itemDefName)
         {
             double f = Factor(itemDefName, out int supply, out int demand);

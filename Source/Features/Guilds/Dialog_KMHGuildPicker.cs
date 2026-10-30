@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Join picker: every guild (from the leaderboard snapshot) - open ones join in one click, invite-only tagged.
     public class Dialog_KMHGuildPicker : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(480f, 560f);
@@ -30,13 +29,12 @@ namespace KMHPatch.Features.Guilds
         {
             float y = DialogLayout.DrawTitle(rect, "Join a guild");
 
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                // Never promises "instantly": an owner can require proximity to the hall, and that rule is not on the snapshot.
-                "<color=grey>Open guilds take you without an invite; invite-only guilds need one from their officers. " +
-                "Some servers also require you to be near the guild's hall.</color>");
-            y += 24f;
+            // Never promises "instantly": an owner can require proximity to the hall, and that rule is not on the snapshot.
+            y += DialogLayout.LabelWrapped(0f, y, rect.width,
+                "<color=#A9AFB9>Open guilds take you without an invite; invite-only guilds need one from their officers. " +
+                "Some servers also require you to be near the guild's hall.</color>") + 4f;
 
-            _search = Widgets.TextField(new Rect(0f, y, rect.width, 28f), _search ?? "");
+            _search = DialogLayout.SearchField(new Rect(0f, y, rect.width, 28f), _search, "Search guilds");
             y += 34f;
 
             List<GuildLeaderboardEntry> all = GuildLeaderboardCache.Snapshot?.Guilds;
@@ -48,7 +46,6 @@ namespace KMHPatch.Features.Guilds
                     foreach (GuildLeaderboardEntry g in all)
                         if (q.Length == 0 || g.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
                             outList.Add(g);
-                // Open (joinable) guilds first, then by size.
                 outList.Sort((a, b) => a.OpenJoin != b.OpenJoin ? (a.OpenJoin ? -1 : 1) : b.MemberCount.CompareTo(a.MemberCount));
                 return outList;
             });
@@ -63,9 +60,9 @@ namespace KMHPatch.Features.Guilds
                 Rect row = new Rect(0f, yy, inner.width, rowH - 2f);
                 if (yy % (rowH * 2) < rowH) Widgets.DrawLightHighlight(row);
 
-                string tag = g.OpenJoin ? "<color=#7CD37C>open</color>" : "<color=grey>invite-only</color>";
+                string tag = g.OpenJoin ? "<color=#4cc38a>open</color>" : "<color=#A9AFB9>invite-only</color>";
                 DialogLayout.LabelTrunc(new Rect(6f, yy + 6f, inner.width - 100f, 22f),
-                    $"<b>{g.Name}</b>  <color=grey>({g.MemberCount} member{(g.MemberCount == 1 ? "" : "s")})</color>  {tag}");
+                    $"<b>{KmhDisplayText.GuildName(g.Name)}</b>  <color=#A9AFB9>({g.MemberCount} member{(g.MemberCount == 1 ? "" : "s")})</color>  {tag}");
                 if (g.OpenJoin)
                 {
                     if (Widgets.ButtonText(new Rect(inner.width - 84f, yy + 3f, 80f, 26f), "Join"))
@@ -77,12 +74,16 @@ namespace KMHPatch.Features.Guilds
                 yy += rowH;
             }
             if (shown.Count == 0)
-                DialogLayout.LabelTrunc(new Rect(6f, 4f, inner.width - 12f, 22f),
-                    all.Count == 0 ? "<color=grey>Loading guilds…</color>"
-                                   : "<color=grey>No guild matches that search.</color>");
+                DialogLayout.LabelTrunc(new Rect(6f, 4f, inner.width - 12f, 22f), EmptyLabel(all));
             Widgets.EndScrollView();
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
+
+        // Null means still loading; reading Count on it would throw and swap the dialog for the error panel.
+        internal static string EmptyLabel(List<GuildLeaderboardEntry> all)
+            => all == null ? "<color=#A9AFB9>Loading guilds…</color>"
+             : all.Count == 0 ? "<color=#A9AFB9>" + KmhText.Get("KMH_Guild_PickerNone", "No guilds on this server yet. Create one in the Guild Hall.") + "</color>"
+             : "<color=#A9AFB9>No guild matches that search.</color>";
     }
 }

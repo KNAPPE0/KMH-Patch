@@ -5,7 +5,6 @@ namespace KMHPatch.UI
 {
     internal static class KmhItemPickerService
     {
-        // All safe, pickable item defs (already safety-filtered by ItemDefBrowser). -1 count = unlimited.
         public static Dictionary<string, int> AllPickableItems() => ItemDefBrowser.AllPickableItems();
 
         // Re-filtered even though callers filter too, so a source built elsewhere cannot smuggle a blocked def in.
@@ -24,12 +23,18 @@ namespace KMHPatch.UI
                                 IList<Items.KmhThingPayload> payloads = null,
                                 Action<Items.KmhThingPayload, int> onPickPayload = null,
                                 Func<IList<Items.KmhThingPayload>> refreshPayloads = null,
-                                bool closeOnPick = false)
+                                bool closeOnPick = false, bool intoThisGame = false)
         {
+            // A withdraw keeps owned rows this game cannot load, greyed with the reason, rather than hiding them.
+            Func<Dictionary<string, int>, Dictionary<string, int>> filter = intoThisGame ? (Func<Dictionary<string, int>, Dictionary<string, int>>)Owned : SafeSource;
             Verse.Find.WindowStack.Add(new Dialog_KMHItemPicker(
-                title, pickActionLabel, SafeSource(source), onPick,
-                refreshSource == null ? (Func<Dictionary<string, int>>)null : () => SafeSource(refreshSource()),
-                payloads, onPickPayload, refreshPayloads, closeOnPick));
+                title, pickActionLabel, filter(source), onPick,
+                refreshSource == null ? (Func<Dictionary<string, int>>)null : () => filter(refreshSource()),
+                payloads, onPickPayload, refreshPayloads, closeOnPick, intoThisGame));
         }
+
+        private static Dictionary<string, int> Owned(Dictionary<string, int> source)
+            => source == null ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                              : new Dictionary<string, int>(source, StringComparer.OrdinalIgnoreCase);
     }
 }

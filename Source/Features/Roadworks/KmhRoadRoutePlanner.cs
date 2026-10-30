@@ -22,7 +22,7 @@ namespace KMHPatch.Features.Roadworks
             if (nodes.Count - 1 > maxSegments)
             { reason = $"That route is too long ({nodes.Count - 1} segments, max {maxSegments})."; return false; }
 
-            // Trusted for cost, not for the shape KMH persists: a gap would key a segment between tiles that do not touch, and the server cannot catch it.
+            // Re-checked: a gap would key a segment between tiles that do not touch, and the server cannot catch it.
             WorldGrid grid = Find.WorldGrid;
             for (int i = 0; i + 1 < nodes.Count; i++)
                 if (grid == null || !grid.IsNeighbor(nodes[i], nodes[i + 1]))
@@ -53,7 +53,6 @@ namespace KMHPatch.Features.Roadworks
             finally { try { path?.ReleaseToPool(); } catch { } }
         }
 
-        // Flat (layer, tile) form used by the quote and the wire.
         public static List<(int layer, int tile)> Flatten(List<PlanetTile> route)
         {
             var outp = new List<(int, int)>();

@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.World
 {
-    // The full set of active global quests and world events; the Quest Board only banners the first few.
     public class Dialog_KMHWorld : Window_KMHBase
     {
         // An event or quest can expire with no new snapshot arriving, so re-filter on a slow timer too.
@@ -58,13 +57,13 @@ namespace KMHPatch.Features.World
         {
             if (DateTime.UtcNow - _lastRebuildUtc >= RefilterInterval) Rebuild();
 
-            float y = DialogLayout.DrawTitle(rect, "World");
+            float y = DialogLayout.DrawTitle(rect, KmhText.Get("KMH_Tab_World", "World"), DialogLayout.LiveBadgeReserve);
             DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!WorldCache.HasSnapshot)
             {
-                DialogLayout.DrawMutedLabel(new Rect(0f, y, rect.width, 24f), "Waiting for the server…");
+                DialogLayout.DrawWaiting(new Rect(0f, y, rect.width, 32f), KmhText.Get("KMH_World_Waiting", "Waiting for the server…"));
                 if (DialogLayout.DrawCloseButton(rect)) Close();
                 return;
             }
@@ -100,12 +99,14 @@ namespace KMHPatch.Features.World
 
         private float DrawQuests(float width, float y)
         {
-            Header(new Rect(0f, y, width, SectionHeaderHeight), "Global Quests", new Color(0.886f, 0.757f, 0.420f));
+            Header(new Rect(0f, y, width, SectionHeaderHeight), KmhText.Get("KMH_World_GlobalQuests", "Global Quests"),
+                   new Color(0.886f, 0.757f, 0.420f));
             y += SectionHeaderHeight;
 
             if (_quests.Count == 0)
             {
-                DialogLayout.DrawMutedLabel(new Rect(0f, y, width, 24f), "No global quests are running right now.");
+                DialogLayout.DrawMutedLabel(new Rect(0f, y, width, 24f),
+                    KmhText.Get("KMH_World_NoQuests", "No global quests are running right now."));
                 return y + 24f;
             }
 
@@ -121,12 +122,14 @@ namespace KMHPatch.Features.World
 
         private void DrawEvents(float width, float y)
         {
-            Header(new Rect(0f, y, width, SectionHeaderHeight), "Active world events", new Color(0.486f, 0.827f, 0.486f));
+            Header(new Rect(0f, y, width, SectionHeaderHeight), KmhText.Get("KMH_World_ActiveEvents", "Active world events"),
+                   new Color(0.486f, 0.827f, 0.486f));
             y += SectionHeaderHeight;
 
             if (_events.Count == 0)
             {
-                DialogLayout.DrawMutedLabel(new Rect(0f, y, width, 24f), "No events are active right now.");
+                DialogLayout.DrawMutedLabel(new Rect(0f, y, width, 24f),
+                    KmhText.Get("KMH_World_NoEvents", "No events are active right now."));
                 return;
             }
 
@@ -154,13 +157,13 @@ namespace KMHPatch.Features.World
             float x = r.x + 8f, w = r.width - 16f, y = r.y + 6f;
             float lineH = DialogLayout.TextRowH;
 
-            // The countdown needs its own rect: right-anchoring inside the title's full-width rect only separates them while it stays short.
+            // Own rect for the countdown: right-anchoring inside the title's rect only works while the title stays short.
             float remW  = Mathf.Min(RemainingW, w);
             DialogLayout.LabelTrunc(new Rect(x + w - remW, y, remW, lineH), Remaining(e), TextAnchor.UpperRight);
 
-            // Truncate, don't wrap: a long event title in a fixed one-line box wrapped and had its second line cut.
+            // Truncate, don't wrap: a long title would wrap in this one-line box and lose its second line.
             DialogLayout.LabelTrunc(new Rect(x, y, Mathf.Max(0f, w - remW - 8f), lineH),
-                $"<b><color=#7CD37C>{WorldEventText.Title(e)}</color></b>");
+                $"<b><color=#4cc38a>{WorldEventText.Title(e)}</color></b>");
             y += lineH;
 
             string body = Body(e);
@@ -174,13 +177,13 @@ namespace KMHPatch.Features.World
         private static string Body(WorldEventDto e)
         {
             string desc = (e?.Description ?? "").Trim();
-            return desc.Length > 0 ? desc : "<color=grey>No description supplied.</color>";
+            return desc.Length > 0 ? desc : "<color=#A9AFB9>" + KmhText.Get("KMH_World_NoDescription", "No description supplied.") + "</color>";
         }
 
         private static string Remaining(WorldEventDto e)
         {
             string t = WorldEventText.Remaining(e);
-            return t.Length == 0 ? "" : $"<color=grey>{t} left</color>";
+            return t.Length == 0 ? "" : "<color=#A9AFB9>" + KmhText.Get("KMH_World_TimeLeft", "{0} left", t) + "</color>";
         }
     }
 }

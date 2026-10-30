@@ -43,19 +43,7 @@ namespace KMHPatch.UI
             try { matches = CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => t?.def == def).ToList(); }
             catch { return false; }
 
-            int total = matches.Sum(t => t.stackCount);
-            if (total < qty) return false; // never partial-remove
-
-            int remaining = qty;
-            foreach (Thing t in matches)
-            {
-                if (remaining <= 0) break;
-                int take = Math.Min(t.stackCount, remaining);
-                remaining -= take;
-                if (take >= t.stackCount) t.Destroy(DestroyMode.Vanish);
-                else                      t.stackCount -= take;
-            }
-            return remaining <= 0;
+            return RemoveExactFromCaravan(matches, qty);
         }
 
         public static bool TryRemoveSilver(Caravan caravan, int amount) => TryRemove(caravan, Silver, amount);
@@ -117,12 +105,12 @@ namespace KMHPatch.UI
         public static int CountKey(Caravan caravan, string key)
         {
             if (caravan == null || string.IsNullOrEmpty(key)) return 0;
-            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            ItemKeys.Split(key, out string defName, out string stuff, out int q, out string inner);
             int total = 0;
             try
             {
                 foreach (Thing t in CaravanInventoryUtility.AllInventoryItems(caravan))
-                    if (MatchesKey(t, defName, stuff, q)) total += t.stackCount;
+                    if (MatchesKey(t, defName, stuff, q, inner)) total += t.stackCount;
             }
             catch { /* weird container - treat as 0 */ }
             return total;
@@ -132,12 +120,18 @@ namespace KMHPatch.UI
         public static bool TryRemoveKey(Caravan caravan, string key, int qty)
         {
             if (caravan == null || string.IsNullOrEmpty(key) || qty <= 0) return false;
-            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            ItemKeys.Split(key, out string defName, out string stuff, out int q, out string inner);
 
             List<Thing> matches;
-            try { matches = CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q)).ToList(); }
+            try { matches = CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q, inner)).ToList(); }
             catch { return false; }
 
+            return RemoveExactFromCaravan(matches, qty);
+        }
+
+        // All-or-nothing; caravan items are unspawned, so a partial take only lowers the stack count.
+        private static bool RemoveExactFromCaravan(List<Thing> matches, int qty)
+        {
             int total = matches.Sum(t => t.stackCount);
             if (total < qty) return false;
 
@@ -164,14 +158,14 @@ namespace KMHPatch.UI
             captured = new List<Items.KmhThingPayload>();
             refusal = null;
             if (string.IsNullOrEmpty(key) || qty <= 0) return false;
-            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            ItemKeys.Split(key, out string defName, out string stuff, out int q, out string inner);
 
             List<Thing> matches;
             try
             {
                 matches = caravan != null
-                    ? CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q)).ToList()
-                    : StoredOnMap(map, Def(defName)).Where(t => MatchesKey(t, defName, stuff, q)).ToList();
+                    ? CaravanInventoryUtility.AllInventoryItems(caravan).Where(t => MatchesKey(t, defName, stuff, q, inner)).ToList()
+                    : StoredOnMap(map, Def(defName)).Where(t => MatchesKey(t, defName, stuff, q, inner)).ToList();
             }
             catch { return false; }
 
@@ -212,7 +206,7 @@ namespace KMHPatch.UI
 
             if (!ok)
             {
-                foreach ((Thing piece, bool split) in taken) if (split) DeliverThing(piece);   // give the split pieces back
+                foreach ((Thing piece, bool split) in taken) if (split) DeliverThing(piece);
                 // Payload count is the diagnosis: a fungible def should fold to one, so a large number means it did not.
                 Diagnostics.KmhLog.Warn($"KMH capture ABORTED for {defName} x{qty} - {failReason}; {caps.Count} payload(s) from {taken.Count} stack(s); items kept (nothing removed).");
                 refusal = totalBytes > MaxPayloadBytesPerTransaction
@@ -227,11 +221,19 @@ namespace KMHPatch.UI
             return true;
         }
 
-        // One restore per stack, so each keeps its own state; a payload that cannot rebuild falls back rather than vanishing.
         public static bool DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads)
+            => DeliverPayloads(payloads, out _, out _) == PayloadDelivery.Delivered;
+
+        internal enum PayloadDelivery { Delivered, Blocked, Partial, Failed }
+
+        // Every stack is rebuilt before any is placed, so one that cannot load never leaves others for a replay to place again.
+        // Blocked names what is missing; Partial means some landed before a failure.
+        internal static PayloadDelivery DeliverPayloads(IEnumerable<Items.KmhThingPayload> payloads, out string blocked, out string failed)
         {
-            if (payloads == null) return true;
-            bool allOk = true;
+            blocked = null; failed = null;
+            if (payloads == null) return PayloadDelivery.Delivered;
+            var built = new List<Thing>();
+            var keyed = new List<(string key, int qty)>();
             foreach (Items.KmhThingPayload p in payloads)
             {
                 if (p == null) continue;
@@ -244,17 +246,40 @@ namespace KMHPatch.UI
                     catch (Exception ex) { Diagnostics.KmhLog.Warn($"KMH restore threw for {p.DefName}: {ex.Message}"); }
                     if (t == null)
                     {
-                        if (!DeliverKey(ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality), remaining)) allOk = false;   // legacy path splits into stacks itself
+                        string key = ItemKeys.Compose(p.DefName, p.StuffDefName, p.Quality);
+                        blocked = WhyCannotDeliverKey(key);
+                        if (blocked != null) return PayloadDelivery.Blocked;
+                        keyed.Add((key, remaining));   // legacy path splits into stacks itself
                         break;
                     }
                     int lim  = t.def != null && t.def.stackLimit > 0 ? t.def.stackLimit : remaining;
                     int give = Math.Min(remaining, lim);
                     t.stackCount = give;
-                    if (!DeliverThing(t)) allOk = false;
+                    built.Add(t);
                     remaining -= give;
                 }
             }
-            return allOk;
+
+            int placed = 0, lost = 0;
+            foreach (Thing t in built) { if (DeliverThing(t)) placed++; else { lost++; failed = failed ?? t.LabelCap; } }
+            foreach ((string key, int qty) in keyed) { if (DeliverKey(key, qty)) placed++; else { lost++; failed = failed ?? ItemKeys.LabelForKey(key); } }
+            if (lost == 0) return PayloadDelivery.Delivered;
+            return placed > 0 ? PayloadDelivery.Partial : PayloadDelivery.Failed;
+        }
+
+        // A permanent reason (not "no room") a key can never be built here, or null.
+        internal static string WhyCannotDeliverKey(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return "no item";
+            ItemKeys.Split(key, out string defName, out string stuffName, out _);
+            string missing = KmhItemDisplayService.MissingHere(defName, stuffName);
+            if (missing != null) return missing;
+            ThingDef def = Def(defName);
+            if (Items.KmhItemSafety.IsMinifiedDef(def))
+                return KmhText.Get("KMH_Item_CrateUnbuildable", "A crated building whose saved copy could not be loaded here.");
+            if (!Items.KmhItemSafety.IsDeliverable(def))
+                return KmhText.Get("KMH_Item_CannotLoad", "Its saved copy cannot be loaded in this game.");
+            return null;
         }
 
         public static bool DeliverThing(Thing t)
@@ -267,7 +292,7 @@ namespace KMHPatch.UI
                 Map map = DeliveryMap();
                 if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.DeliverThing: no map for a drop pod"); return false; }
                 IntVec3 cell = BestDropCell(map, t, out string where);
-                DropPodUtility.DropThingsNear(cell, map, new List<Thing> { t }, forbid: false);
+                DropPodUtility.DropThingsNear(cell, map, new List<Thing> { t }, canRoofPunch: false, forbid: false);
                 NotifyLanded(map, cell, $"{t.LabelCap}", where);
                 return true;
             }
@@ -281,7 +306,25 @@ namespace KMHPatch.UI
             ItemKeys.Split(key, out string defName, out string stuffName, out int q);
             ThingDef def = Def(defName);
             if (def == null) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: unknown def '{defName}'"); return false; }
+            if (!Items.KmhItemSafety.IsDeliverable(def)) { Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: refused '{defName}' - not an item"); return false; }
+            // def+stuff+quality yields a crate with nothing inside; refusing keeps the payload owed and retryable.
+            if (Items.KmhItemSafety.IsMinifiedDef(def))
+            {
+                Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: refused to build minified '{defName}' from a key - it has no inner building.");
+                return false;
+            }
+            if (TooManyStacks(def.stackLimit, qty))
+            {
+                Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: refused {qty} {defName} - more than {MaxStacksPerDelivery} stacks in one delivery.");
+                return false;
+            }
             ThingDef stuff = string.IsNullOrEmpty(stuffName) ? null : Def(stuffName);
+            // Never another material: a steel copy of a bioferrite sword is a different item.
+            if (!string.IsNullOrEmpty(stuffName) && stuff == null)
+            {
+                Diagnostics.KmhLog.Warn($"ColonyGoods.DeliverKey: unknown material '{stuffName}' for '{defName}'");
+                return false;
+            }
 
             Caravan caravan = CaravanReader.GetSelectedCaravan();
             if (caravan != null)
@@ -336,11 +379,11 @@ namespace KMHPatch.UI
         public static int CountOnMapKey(Map map, string key)
         {
             if (string.IsNullOrEmpty(key)) return 0;
-            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            ItemKeys.Split(key, out string defName, out string stuff, out int q, out string inner);
             ThingDef def = Def(defName);
             if (def == null) return 0;
             int total = 0;
-            try { foreach (Thing t in StoredOnMap(map, def)) if (MatchesKey(t, defName, stuff, q)) total += t.stackCount; }
+            try { foreach (Thing t in StoredOnMap(map, def)) if (MatchesKey(t, defName, stuff, q, inner)) total += t.stackCount; }
             catch { /* weird storage - treat as 0 */ }
             return total;
         }
@@ -350,20 +393,20 @@ namespace KMHPatch.UI
         public static bool TryRemoveOnMapKey(Map map, string key, int qty)
         {
             if (map == null || string.IsNullOrEmpty(key) || qty <= 0) return false;
-            ItemKeys.Split(key, out string defName, out string stuff, out int q);
+            ItemKeys.Split(key, out string defName, out string stuff, out int q, out string inner);
             ThingDef def = Def(defName);
             if (def == null) return false;
             List<Thing> matches;
-            try { matches = StoredOnMap(map, def).Where(t => MatchesKey(t, defName, stuff, q)).ToList(); }
+            try { matches = StoredOnMap(map, def).Where(t => MatchesKey(t, defName, stuff, q, inner)).ToList(); }
             catch { return false; }
             return RemoveExactFromMap(matches, qty);
         }
 
-        // All-or-nothing removal across stacks. SplitOff (rather than a raw stackCount decrement) keeps the map's reservation + UI state consistent for spawned things.
+        // All-or-nothing. SplitOff, not a raw stackCount decrement, keeps a spawned thing's reservations and UI consistent.
         private static bool RemoveExactFromMap(List<Thing> matches, int qty)
         {
             int total = matches.Sum(t => t.stackCount);
-            if (total < qty) return false; // never partial-remove
+            if (total < qty) return false;
             int remaining = qty;
             foreach (Thing t in matches)
             {
@@ -387,7 +430,7 @@ namespace KMHPatch.UI
                 {
                     if (t?.def == null || !t.Spawned || !t.IsInValidStorage()) continue;
                     if (t.def.category != ThingCategory.Item) continue;
-                    string key = ItemKeys.Compose(t.def.defName, t.Stuff?.defName, ItemKeys.QualityIndexOf(t));
+                    string key = ItemKeys.KeyFor(t);
                     result[key] = (result.TryGetValue(key, out int cur) ? cur : 0) + t.stackCount;
                 }
             }
@@ -395,18 +438,29 @@ namespace KMHPatch.UI
             return result;
         }
 
-        private static bool MatchesKey(Thing t, string defName, string stuffName, int qualityIndex)
+        // innerDefName pins which minified building this is; they all share one minifiedDef.
+        private static bool MatchesKey(Thing t, string defName, string stuffName, int qualityIndex, string innerDefName)
         {
             if (t?.def == null || !string.Equals(t.def.defName, defName, StringComparison.Ordinal)) return false;
             string ts = t.Stuff?.defName ?? "";
             if (!string.Equals(ts, stuffName ?? "", StringComparison.Ordinal)) return false;
-            return ItemKeys.QualityIndexOf(t) == qualityIndex;
+            if (ItemKeys.QualityIndexOf(t) != qualityIndex) return false;
+            string inner = (t as MinifiedThing)?.InnerThing?.def?.defName ?? "";
+            return string.Equals(inner, innerDefName ?? "", StringComparison.Ordinal);
         }
+
+        // Far past any real withdrawal (100k silver is 200 stacks); a server's amount must not build millions of things.
+        internal const int MaxStacksPerDelivery = 1000;
+
+        internal static bool TooManyStacks(int stackLimit, int qty)
+            => ((long)qty + Math.Max(1, stackLimit) - 1) / Math.Max(1, stackLimit) > MaxStacksPerDelivery;
 
         private static List<Thing> MakeStacks(ThingDef def, ThingDef stuff, int qualityIndex, int qty)
         {
             List<Thing> things = new List<Thing>();
             int remaining = qty, stackLimit = Math.Max(1, def.stackLimit);
+            if (TooManyStacks(stackLimit, qty))
+                throw new InvalidOperationException($"{qty} {def.defName} would be more than {MaxStacksPerDelivery} stacks in one delivery");
             while (remaining > 0)
             {
                 int take = Math.Min(stackLimit, remaining);
@@ -429,14 +483,13 @@ namespace KMHPatch.UI
                 if (map == null) { Diagnostics.KmhLog.Warn("ColonyGoods.Deliver: no map for a drop pod"); return false; }
                 List<Thing> stacks = MakeStacks(def, stuff, qualityIndex, qty);
                 IntVec3 cell = BestDropCell(map, stacks.Count > 0 ? stacks[0] : null, out string where);
-                DropPodUtility.DropThingsNear(cell, map, stacks, forbid: false);
+                DropPodUtility.DropThingsNear(cell, map, stacks, canRoofPunch: false, forbid: false);
                 NotifyLanded(map, cell, $"{def.label} ×{qty}", where);
                 return true;
             }
             catch (Exception ex) { Diagnostics.KmhLog.Warn($"ColonyGoods drop pod failed for {def.defName} x{qty}: {ex.Message}"); return false; }
         }
 
-        // Preference order: a "KMH" stockpile, one that accepts the item, the beacon spot, home area, then map centre.
         private static IntVec3 BestDropCell(Map map, Thing sample, out string where)
         {
             try
@@ -447,12 +500,11 @@ namespace KMHPatch.UI
                     Zone_Stockpile kmhZone = null;
                     foreach (Zone z in map.zoneManager.AllZones)
                         if (z is Zone_Stockpile s && s.settings != null
-                            && !string.IsNullOrEmpty(s.label) && s.label.IndexOf("KMH", StringComparison.OrdinalIgnoreCase) >= 0
+                            && IsDeliveryStockpileName(s.label)
                             && (kmhZone == null || s.settings.Priority > kmhZone.settings.Priority))
                             kmhZone = s;
-                    if (kmhZone != null)
-                        foreach (IntVec3 c in kmhZone.Cells)
-                            if (ValidDropCell(map, c)) { where = $"your KMH zone '{kmhZone.label}'"; return c; }
+                    if (kmhZone != null && PickDropCell(kmhZone.Cells, c => ValidDropCell(map, c), c => c.Roofed(map), out IntVec3 kc, out bool kRoofed))
+                    { where = kRoofed ? $"beside your stockpile '{kmhZone.label}' (it is roofed)" : $"your stockpile '{kmhZone.label}'"; return kc; }
 
                     if (sample != null)
                     {
@@ -461,9 +513,8 @@ namespace KMHPatch.UI
                             if (z is Zone_Stockpile s && s.settings != null && s.settings.AllowedToAccept(sample)
                                 && (best == null || s.settings.Priority > best.settings.Priority))
                                 best = s;
-                        if (best != null)
-                            foreach (IntVec3 c in best.Cells)
-                                if (ValidDropCell(map, c)) { where = $"stockpile '{best.label}'"; return c; }
+                        if (best != null && PickDropCell(best.Cells, c => ValidDropCell(map, c), c => c.Roofed(map), out IntVec3 bc, out bool bRoofed))
+                        { where = bRoofed ? $"beside stockpile '{best.label}' (it is roofed)" : $"stockpile '{best.label}'"; return bc; }
                     }
                 }
 
@@ -480,8 +531,27 @@ namespace KMHPatch.UI
             return map.Center;
         }
 
+        // "Nexus" is the name players are told to use; "KMH" keeps stockpiles named before the rebrand working.
+        internal static bool IsDeliveryStockpileName(string label)
+            => !string.IsNullOrEmpty(label)
+               && (label.IndexOf("Nexus", StringComparison.OrdinalIgnoreCase) >= 0
+                   || label.IndexOf("KMH", StringComparison.OrdinalIgnoreCase) >= 0);
+
         private static bool ValidDropCell(Map map, IntVec3 c)
             => c.IsValid && c.InBounds(map) && c.Standable(map) && !c.Fogged(map);
+
+        // An open cell first: a pod aimed under a roof lands beside it, since every drop here forbids punching through.
+        internal static bool PickDropCell(IEnumerable<IntVec3> cells, Func<IntVec3, bool> valid, Func<IntVec3, bool> roofed, out IntVec3 cell, out bool isRoofed)
+        {
+            cell = IntVec3.Invalid; isRoofed = false;
+            foreach (IntVec3 c in cells)
+            {
+                if (!valid(c)) continue;
+                if (!roofed(c)) { cell = c; isRoofed = false; return true; }
+                if (!cell.IsValid) { cell = c; isRoofed = true; }
+            }
+            return cell.IsValid;
+        }
 
         // Repeats collapse, or a multi-stack withdrawal posts one message per pod.
         private static DateTime _lastLandedMsgUtc = DateTime.MinValue;
@@ -492,7 +562,7 @@ namespace KMHPatch.UI
             {
                 if (_lastLandedWhere == where && (DateTime.UtcNow - _lastLandedMsgUtc).TotalSeconds < 5) return;
                 _lastLandedMsgUtc = DateTime.UtcNow; _lastLandedWhere = where;
-                Messages.Message($"[KMH] {what} delivered to {where}.", new LookTargets(cell, map),
+                Messages.Message($"[Colony Nexus] {what} delivered to {where}.", new LookTargets(cell, map),
                     MessageTypeDefOf.PositiveEvent, historical: true);
             }
             catch { /* message is best-effort; the delivery already happened */ }

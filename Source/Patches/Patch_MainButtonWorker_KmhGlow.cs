@@ -14,7 +14,7 @@ namespace KMHPatch.Patches
             try
             {
                 if (__instance?.def == null || __instance.def.defName != "KMH") return;
-                int unread = Features.Chat.ChatCache.TotalUnread() + Features.Mail.MailCache.Unread;
+                int unread = Features.KmhUnread.Total();
                 if (unread <= 0) return;
 
                 Color old = GUI.color;

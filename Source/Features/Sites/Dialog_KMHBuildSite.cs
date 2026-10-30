@@ -8,13 +8,13 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Build a site on an off-map tile; the server re-validates every field and rejects with a chat reason.
+    // The server re-validates every field and rejects with a chat reason.
     public class Dialog_KMHBuildSite : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(600f, 600f);
 
         private string _itemDef    = "";
-        private string _skill      = "";   // server-classified, carried in with the picked catalog entry
+        private string _skill      = "";   // server-classified
         private float  _marketValue;
         private string _amount     = "10";
         private string _access     = SiteEntry.AccessGuildOnly;
@@ -22,9 +22,9 @@ namespace KMHPatch.Features.Sites
         private string _tax        = "10";
         private string _dest       = SiteEntry.DestTreasury;
         private string _mktPrice   = "1";
-        private int    _tile       = -1;   // chosen world tile; -1 = none picked yet (we never default to home)
+        private int    _tile       = -1;
 
-        // Setup mode: the same fields against an outpost that already exists, so no tile to pick and no build cost.
+        // Setup mode: an outpost that already exists, so no tile to pick and no build cost.
         private readonly bool _setup;
 
         public Dialog_KMHBuildSite(int capturedTile) : this()
@@ -36,7 +36,7 @@ namespace KMHPatch.Features.Sites
         public Dialog_KMHBuildSite()
         {
             doCloseX = true; absorbInputAroundWindow = true; draggable = true;
-            // Seeded from a selected caravan only. Never the home tile - defaulting to it dropped every site on the colony.
+            // Seeded from a selected caravan only, never the home tile, which dropped every site on the colony.
             Caravan car = CaravanReader.GetSelectedCaravan();
             if (car != null) _tile = car.Tile.tileId;
         }
@@ -46,16 +46,26 @@ namespace KMHPatch.Features.Sites
         private float   _contentH = 600f;
         private float   _measuredH = 600f;
         private int     _contentFrame = -1;
+        private string  _quote = "";
 
         protected override void DrawContents(Rect rect)
         {
-            // "Custom" is one of the site types, so calling the whole screen "custom" read as if it only built that one.
+            // Not "custom": that is one site type, and the title then read as if it built only that one.
             float top = DialogLayout.DrawTitle(rect, _setup ? "Set up the outpost" : "Build a site");
             DialogLayout.DrawSectionDivider(rect, ref top);
 
-            if (KmhScroll.NewFrame(ref _contentFrame)) _contentH = _measuredH;
+            // The quote sizes the footer and so the scroll viewport, so it is read once per frame like the content height.
+            if (KmhScroll.NewFrame(ref _contentFrame)) { _contentH = _measuredH; _quote = QuoteLine(); }
 
-            float footerH = 44f;
+            const float btnH = 32f;
+            float btnW = Mathf.Clamp((rect.width - 16f) / 3f, 70f, 120f);
+            float btnY = rect.height - btnH - 4f;
+            string quote = _quote;
+            float midW = Mathf.Max(0f, rect.width - btnW * 2f - 16f);
+            bool quoteFits = string.IsNullOrEmpty(quote) || Text.CalcSize(quote).x <= midW;
+            float quoteH = quoteFits ? 0f : Text.CalcHeight(quote, rect.width);
+
+            float footerH = 44f + (quoteFits ? 0f : quoteH + 4f);
             Rect  outRect = new Rect(0f, top, rect.width, Mathf.Max(DialogLayout.MinBodyHeight, rect.height - top - footerH));
             float viewW   = Mathf.Max(1f, outRect.width - DialogLayout.ScrollbarReserveWidth);
             Rect  viewRect = new Rect(0f, 0f, viewW, Mathf.Max(_contentH, outRect.height));
@@ -65,30 +75,33 @@ namespace KMHPatch.Features.Sites
             Widgets.EndScrollView();
             _measuredH = measured + 8f;
 
-            const float btnH = 32f;
-            float btnW = Mathf.Clamp((rect.width - 16f) / 3f, 70f, 120f);
-            float btnY = rect.height - btnH - 4f;
             if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, "Cancel")) Close();
-            DialogLayout.LabelTrunc(new Rect(btnW + 8f, btnY + 6f, Mathf.Max(0f, rect.width - btnW * 2f - 16f), 22f),
-                                    QuoteLine(), TextAnchor.MiddleCenter);
+            if (quoteFits)
+                DialogLayout.LabelTrunc(new Rect(btnW + 8f, btnY + 6f, midW, 22f), quote, TextAnchor.MiddleCenter);
+            else
+            {
+                TextAnchor a = Text.Anchor;
+                Text.Anchor = TextAnchor.UpperCenter;
+                Widgets.Label(new Rect(0f, btnY - quoteH - 4f, rect.width, quoteH), quote);
+                Text.Anchor = a;
+            }
             if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, _setup ? "Set up" : "Build")) Submit();
             PumpQuote();
         }
 
-        // Setting up a captured outpost is free, so there is nothing to price there.
         private string QuoteLine()
         {
-            if (_setup) return "<color=grey>No build cost - this outpost already exists.</color>";
+            if (_setup) return "<color=#A9AFB9>No build cost - this outpost already exists.</color>";
             if (string.IsNullOrEmpty(_itemDef)) return "";
             if (!int.TryParse((_amount ?? "").Trim(), out int amount) || amount <= 0) return "";
-            if (!SiteQuoteCache.Matches(_itemDef, amount, _archetype)) return "<color=grey>Pricing…</color>";
+            if (!SiteQuoteCache.Matches(_itemDef, amount, _archetype)) return "<color=#A9AFB9>Pricing…</color>";
 
             SiteBuildQuote q = SiteQuoteCache.Latest;
-            if (!q.Ok) return $"<color=#ff8080>{q.Reason}</color>";
+            if (!q.Ok) return $"<color=#f07167>{q.Reason}</color>";
             string cost = $"<b>{SilverFmt.Format(q.Cost)}</b> silver · ~{q.CycleMinutes} min/cycle";
             return q.Affordable
-                ? $"<color=#cccccc>{cost}</color>"
-                : $"<color=#ffcf59>{cost} - your treasury has {SilverFmt.Format(q.Balance)}</color>";
+                ? $"<color=#c4cad6>{cost}</color>"
+                : $"<color=#f0c04f>{cost} - your treasury has {SilverFmt.Format(q.Balance)}</color>";
         }
 
         // Debounced: amount is a text field, so quoting per keystroke or per frame would storm the server.
@@ -97,7 +110,6 @@ namespace KMHPatch.Features.Sites
         // A deadline, not a countdown: this is pumped from the draw, which runs more than once a frame.
         private float  _quoteReadyAt;
         private float  _quoteSentAt = -999f;
-        // How long a sent quote is treated as still coming, and how long to wait after a send that never left.
         private const float QuoteReplySeconds = 6f;
         private const float QuoteRetrySeconds = 2f;
 
@@ -108,15 +120,15 @@ namespace KMHPatch.Features.Sites
             string key = $"{_itemDef}|{amount}|{_archetype}";
             if (key != _quoteKey) { _quoteKey = key; _quoteReadyAt = Time.realtimeSinceStartup + 0.35f; }
 
-            // Latched only while an answer is still plausible; latching unconditionally stuck this on "Pricing…" forever.
+            // Latched only while a reply is plausible; latching for good stuck this on "Pricing…" forever.
             if (_quoteKey == _quoteSent && Time.realtimeSinceStartup - _quoteSentAt < QuoteReplySeconds) return;
             if (string.IsNullOrEmpty(_itemDef) || amount <= 0) return;
             if (Time.realtimeSinceStartup < _quoteReadyAt) return;
 
             if (!SiteHandler.RequestQuote(_tile, _itemDef, amount, Mathf.RoundToInt(_marketValue), _archetype))
             {
-                _quoteSent = "";              // nothing was asked, so nothing is pending
-                _quoteReadyAt = Time.realtimeSinceStartup + QuoteRetrySeconds;   // and no retry storm while offline
+                _quoteSent = "";
+                _quoteReadyAt = Time.realtimeSinceStartup + QuoteRetrySeconds;   // no retry storm while offline
                 return;
             }
             _quoteSent   = _quoteKey;
@@ -131,11 +143,11 @@ namespace KMHPatch.Features.Sites
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Location");
             // TileOk would refuse a captured outpost's own tile, because a site is already standing on it.
             string locText = _setup
-                ? $"<color=grey>{TileLabel(_tile)} - the outpost you captured</color>"
+                ? $"<color=#A9AFB9>{TileLabel(_tile)} - the outpost you captured</color>"
                 : _tile >= 0
-                    ? (TileOk(_tile, out _) ? $"<color=grey>{TileLabel(_tile)}</color>"
-                                            : $"<color=#ff8080>{TileLabel(_tile)} - not buildable here</color>")
-                    : "<color=#ff8080>(no tile chosen - use Select on map)</color>";
+                    ? (TileOk(_tile, out _) ? $"<color=#A9AFB9>{TileLabel(_tile)}</color>"
+                                            : $"<color=#f07167>{TileLabel(_tile)} - not buildable here</color>")
+                    : "<color=#f07167>(no tile chosen - use Select on map)</color>";
             DialogLayout.LabelTrunc(new Rect(labelW, y + 4f, rect.width - labelW, 22f), locText);
             y += 28f;
 
@@ -156,8 +168,7 @@ namespace KMHPatch.Features.Sites
             // Applied here, between frames: a mid-frame archetype change hands BeginScrollView two viewRects for one frame.
             if (_pendingArchetype != null) { _archetype = _pendingArchetype; _pendingArchetype = null; }
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "<b>1. Type of site</b>");
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), ArchetypeButtonLabel(catalog, _archetype)))
+            if (ButtonRow(rect, y, "<b>1. Type of site</b>", ArchetypeButtonLabel(catalog, _archetype)))
                 Find.WindowStack.Add(new FloatMenu(ArchetypeOptions(catalog)));
             y += 30f;
             y = Hint(rect, y, ArchetypeHint(catalog, _archetype));
@@ -169,17 +180,16 @@ namespace KMHPatch.Features.Sites
             }
 
             // The curated server catalog, not the all-def browser: a site can only produce what this list offers.
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "<b>2. Produces</b>");
             string itemDisplay = string.IsNullOrEmpty(_itemDef)
-                ? "<color=#ff8080>(required - choose a site output)</color>"
+                ? "<color=#f07167>(required - choose a site output)</color>"
                 : ItemLabels.ResolveLabel(_itemDef);
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
+            if (ButtonRow(rect, y, "<b>2. Produces</b>", itemDisplay))
             {
                 Find.WindowStack.Add(new Dialog_KMHSiteOutputPicker(entry =>
                 {
                     _itemDef = entry.DefName;
                     _amount  = Mathf.Max(1, entry.MaxAmount).ToString();
-                    // The server's own classification - the same one the built site will use.
+                    // The server's classification, the same one the built site will use.
                     _skill   = entry.RelevantSkill ?? "";
                     ThingDef td = DefDatabase<ThingDef>.GetNamedSilentFail(entry.DefName);
                     _marketValue = td?.BaseMarketValue ?? 0f;
@@ -193,7 +203,7 @@ namespace KMHPatch.Features.Sites
             if (picked != null && picked.CostMultiplier > 1.0001)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, DialogLayout.TextRowH),
-                    $"<color=#E2C16B>{picked.DisplayName} costs {picked.CostMultiplier:0.00}x to build - the price of picking from the whole pool.</color>");
+                    $"<color=#f0c04f>{picked.DisplayName} costs {picked.CostMultiplier:0.00}x to build - the price of picking from the whole pool.</color>");
                 y += DialogLayout.TextRowH + 2f;
             }
             else if (picked != null && !string.IsNullOrEmpty(picked.PerkText))
@@ -206,14 +216,13 @@ namespace KMHPatch.Features.Sites
             if (!string.IsNullOrEmpty(_itemDef))
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, DialogLayout.TextRowH),
-                    $"<color=grey>Market value ~{_marketValue:0} silver/unit{(string.IsNullOrEmpty(_skill) ? "" : $" · skill: {_skill}")}</color>");
+                    $"<color=#A9AFB9>Market value ~{_marketValue:0} silver/unit{(string.IsNullOrEmpty(_skill) ? "" : $" · skill: {_skill}")}</color>");
                 y += DialogLayout.TextRowH + 2f;
             }
 
             y = Row(rect, y, "Amount per cycle", ref _amount);
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Access");
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), AccessLabel(_access)))
+            if (ButtonRow(rect, y, "Access", AccessLabel(_access)))
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
                     new FloatMenuOption(AccessLabel(SiteEntry.AccessGuildOnly), () => _access = SiteEntry.AccessGuildOnly),
@@ -225,8 +234,7 @@ namespace KMHPatch.Features.Sites
             if (_access == SiteEntry.AccessPublic)
                 y = Row(rect, y, "Owner tax % (0-50)", ref _tax);
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Reward to");
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), DestLabel(_dest)))
+            if (ButtonRow(rect, y, "Reward to", DestLabel(_dest)))
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
                     new FloatMenuOption(DestLabel(SiteEntry.DestTreasury),    () => _dest = SiteEntry.DestTreasury),
@@ -272,12 +280,12 @@ namespace KMHPatch.Features.Sites
             int tile = target.Tile.tileId;
             if (!TileOk(tile, out string reason))
             {
-                Messages.Message($"KMH: can't build a site here - {reason}.", MessageTypeDefOf.RejectInput, false);
-                return false; // invalid - keep targeting
+                Messages.Message($"Can't build a site here - {reason}.", MessageTypeDefOf.RejectInput, false);
+                return false; // keeps targeting
             }
             _tile = tile;
-            Find.WindowStack.Add(this); // reopen the build dialog (same instance keeps every field)
-            return true;                // done targeting
+            Find.WindowStack.Add(this); // same instance keeps every field
+            return true;
         }
 
         // A caravan on the tile deliberately does NOT block, so "visit then build" works.
@@ -305,6 +313,13 @@ namespace KMHPatch.Features.Sites
             return y + 30f;
         }
 
+        private static bool ButtonRow(Rect rect, float y, string label, string value)
+        {
+            const float labelW = 170f;
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
+            return Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), value);
+        }
+
         private static string AccessLabel(string a)
             => a == SiteEntry.AccessPublic ? "Public (owner takes a cut)"
              : a == SiteEntry.AccessPrivate ? "Private (no workers)"
@@ -315,7 +330,7 @@ namespace KMHPatch.Features.Sites
              : d == SiteEntry.DestCaravan ? "Colony (delivered in-game)"
              : "Treasury";
 
-        // Server-supplied; the hardcoded fallback is only for a server too old to send the list, which would show an empty menu.
+        // Server-supplied; the hardcoded fallback is for a server too old to send the list.
         private static List<FloatMenuOption> ArchetypeOptions(SiteCatalogSnapshot cat)
         {
             var opts = new List<FloatMenuOption>();
@@ -379,7 +394,7 @@ namespace KMHPatch.Features.Sites
             return null;
         }
 
-        // Reads the server's own per-item answer, never re-derives one; true when the server has classified nothing yet.
+        // The server's own per-item answer, never re-derived; true until the server has classified anything.
         private static bool OutputFitsArchetype(SiteCatalogSnapshot cat, string defName, string archetype)
         {
             if (cat == null || !cat.ArchetypesReady || string.IsNullOrEmpty(defName)) return true;
@@ -390,7 +405,7 @@ namespace KMHPatch.Features.Sites
                     if (string.Equals(id.Trim(), archetype, System.StringComparison.OrdinalIgnoreCase)) return true;
                 return false;
             }
-            return true;   // not in the catalog at all - let the server be the one to refuse it
+            return true;   // not in the catalog: let the server refuse it
         }
 
         // Prefers the server's own description, so an owner-added archetype explains itself without a client build.
@@ -439,7 +454,7 @@ namespace KMHPatch.Features.Sites
                 : "Required. What this site makes each cycle. Its market value sets the build cost and the cycle time." + scope;
         }
 
-        // Muted explanation under a control. Wraps rather than truncates: a half sentence explains nothing.
+        // Wraps rather than truncates: half a sentence explains nothing.
         private static float Hint(Rect rect, float y, string text)
         {
             if (string.IsNullOrEmpty(text)) return y;
@@ -451,6 +466,5 @@ namespace KMHPatch.Features.Sites
             GUI.color = old;
             return y + h + 6f;
         }
-
     }
 }

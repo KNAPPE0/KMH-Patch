@@ -1,2 +1,3 @@
 KMH button icons are from Google Noto Emoji
-(https://github.com/googlefonts/noto-emoji), licensed under the Apache License 2.0.
+(https://github.com/googlefonts/noto-emoji), licensed under the Apache License 2.0
+(full text in Textures/KMHPatch/LICENSE-Apache-2.0.txt).

@@ -3,7 +3,6 @@ using KMHPatch.Features.Auctions.Dto;
 
 namespace KMHPatch.Features.Auctions
 {
-    // Client cache for the latest auction snapshot. Pushed on handshake, on every change, and on the dialog's auto-refresh tick.
     public static class AuctionCache
     {
         public static AuctionSnapshot Snapshot       { get; private set; }

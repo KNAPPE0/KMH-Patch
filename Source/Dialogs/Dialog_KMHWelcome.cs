@@ -20,27 +20,36 @@ namespace KMHPatch.Dialogs
 
         public Dialog_KMHWelcome() : this(Step.KMH) { }
 
+        // Seen once is enough; About reopens it.
+        public override void PostClose()
+        {
+            base.PostClose();
+            if (KMHPatchMod.Settings == null || KMHPatchMod.Settings.WelcomeSeen) return;
+            KMHPatchMod.Settings.WelcomeSeen = true;
+            KMHPatchMod.SaveSettings();
+        }
+
         public Dialog_KMHWelcome(Step step)
         {
             _step = step;
 
             if (step == Step.KMH)
             {
-                _title       = $"Welcome to {Constants.DisplayName}";
+                _title       = $"Welcome to {Constants.BrandName}";
                 _description =
                     "A community feature pack for the official RimWorld Together mod. It adds a " +
-                    "KMH tab with a marketplace, auctions and a want board, personal and guild " +
+                    "Colony Nexus tab with a marketplace, auctions and a want board, personal and guild " +
                     "treasuries, a quest board, guilds, production sites, roadworks, frontier " +
                     "outposts, chat and player mail, and server-wide events.\n\n" +
                     "It runs as a clean-room patch - no RWT files are modified or bundled - and " +
-                    "only activates on a KMH-enabled server.";
+                    "only activates on a Colony Nexus server.";
             }
             else
             {
                 _title       = "Built on the official RimWorld Together";
                 _description =
-                    "KMH Patch wouldn't exist without the original RimWorld " +
-                    "Together mod by Nova and Company. If you enjoy KMH, please " +
+                    "Colony Nexus wouldn't exist without the original RimWorld " +
+                    "Together mod by Nova and Company. If you enjoy Colony Nexus, please " +
                     "show the official team some love by visiting their links " +
                     "below.";
             }
@@ -79,7 +88,7 @@ namespace KMHPatch.Dialogs
             DrawBody(body);
 
             Rect okRect = new Rect((rect.width - 150f) / 2f, rect.height - 42f, 150f, 38f);
-            if (Widgets.ButtonText(okRect, "OK"))
+            if (Widgets.ButtonText(okRect, "OK".Translate()))
             {
                 Close();
                 if (_step == Step.KMH)
@@ -97,10 +106,10 @@ namespace KMHPatch.Dialogs
             (string label, string url)[] links = _step == Step.KMH
                 ? new[]
                   {
-                      ("KMH Discord",         Constants.DiscordUrl),
-                      ("KMH Patch (GitHub)",  Constants.GitHubUrl),
-                      ("KMH Server (GitHub)", Constants.GitHubServerUrl),
-                      ("KMH Steam Workshop",  Constants.SteamWorkshopUrl),
+                      ("Colony Nexus Discord",         Constants.DiscordUrl),
+                      ("Colony Nexus (GitHub)",        Constants.GitHubUrl),
+                      ("Colony Nexus Server (GitHub)", Constants.GitHubServerUrl),
+                      ("Colony Nexus on Steam",        Constants.SteamWorkshopUrl),
                   }
                 : new[]
                   {
@@ -131,7 +140,7 @@ namespace KMHPatch.Dialogs
             Widgets.EndScrollView();
         }
 
-        private static void OpenUrl(string url)
+        internal static void OpenUrl(string url)
         {
             try
             {

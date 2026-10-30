@@ -7,7 +7,7 @@ using Verse;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Output at my own sites is one button press from being mine, so it counts or a warehouse is a raid shelter; other players' sites are excluded even when visible.
+    // Own-site output counts, or a warehouse is a raid shelter; other players' sites are excluded even when visible.
     internal sealed class SiteStorageWealthSource : IKmhWealthSource
     {
         public string Name => "Site storage";
@@ -23,7 +23,7 @@ namespace KMHPatch.Features.Wealth.Sources
             {
                 if (s?.StoredItems == null) continue;
                 bool mineOutright = KmhSession.Same(s.OwnerUsername, me);
-                // A guild site's storage is one press away for any member, so it counts - as a share like the vault, or every member is credited the whole pile.
+                // Counted as a share like the vault, or every member is credited the whole pile.
                 bool guildHeld = !mineOutright && KmhGuildShare.ControlledByMyGuild(s.ControllingGuild);
                 if (!mineOutright && !guildHeld) continue;
 

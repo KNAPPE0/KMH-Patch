@@ -5,12 +5,12 @@ namespace KMHPatch.Features.Roadworks
     {
         internal enum Action
         {
-            None,       // already correct, or nothing here and nothing wanted
-            Add,        // no road on this pair - write ours
-            Upgrade,    // something lower-priority is here - write ours over it
-            Defer,      // a road at least as good is already here and is not ours - leave it alone
-            Remove,     // ours, nothing preceded it - delete the link
-            Restore,    // ours, it replaced another road - put that one back
+            None,
+            Add,
+            Upgrade,
+            Defer,
+            Remove,
+            Restore,
         }
 
         // What KMH wrote to a pair. No record = no claim.
@@ -25,9 +25,9 @@ namespace KMHPatch.Features.Roadworks
         {
             public Action Action;
             public Applied Record;
-            public string  WriteDefName;        // the def the executor should put on the tile pair (Add/Upgrade/Restore)
-            public bool    ReleasedStaleClaim;  // the world stopped showing what we wrote, so the claim went
-            public bool    Contested;           // and what replaced it was another road, not bare ground
+            public string  WriteDefName;
+            public bool    ReleasedStaleClaim;
+            public bool    Contested;
         }
 
         // A segment that keeps coming back as somebody else's belongs to another producer; stop trading writes with it.
@@ -36,7 +36,7 @@ namespace KMHPatch.Features.Roadworks
         internal static Verdict Decide(string wantTier, string wantDefName, int wantPriority, Applied applied,
                                        string existingDefName, int existingPriority, int rebuildsSoFar = 0)
         {
-            // RWT regenerates the planet on join, so every claim restored from the save is stale; releasing one must not drop the segment the server still wants.
+            // RWT regenerates the planet on join, so restored claims go stale; releasing one must not drop a wanted segment.
             bool stale = applied != null && !string.IsNullOrEmpty(applied.AppliedDefName)
                          && !string.Equals(existingDefName, applied.AppliedDefName);
             if (stale) applied = null;
@@ -76,7 +76,7 @@ namespace KMHPatch.Features.Roadworks
                                      Record = new Applied { AppliedDefName = wantDefName, PreviousDefName = applied.PreviousDefName } };
             }
 
-            // Paid for, so it gets laid over whatever is there and that road is remembered: vanilla's ancient roads outrank every KMH tier, and deferring left the route invisible.
+            // Paid for, so laid over whatever is there (and remembered): vanilla's ancient roads outrank every KMH tier.
             if (existingPriority >= wantPriority && rebuildsSoFar >= MaxRebuilds)
                 return new Verdict { Action = Action.Defer, Record = null };
             return new Verdict { Action = Action.Upgrade, WriteDefName = wantDefName,

@@ -1,11 +1,12 @@
-﻿# KMH Patch - build the official GitHub release assets.
-#
-# Usage:
-#   .\package-mod.ps1
-#   .\package-mod.ps1 -Stage "E:\RWT Related\KMH-Patch\Releases\KMHPatch"
+﻿# KMH: Colony Nexus - build the official GitHub release assets.
+# Usage: .\package-mod.ps1 [-Stage <folder>] [-Directory official|preview]   (preview = staging directory, ...-playtest.zip)
 param(
-    [string]$Stage = (Join-Path $PSScriptRoot "Releases\KMHPatch")
+    # The folder players unzip; the loader carries settings over from the old KMHPatch folder.
+    [string]$Stage = (Join-Path $PSScriptRoot "Releases\ColonyNexus"),
+    [ValidateSet("official", "preview")][string]$Directory = "official"
 )
+$dirArg = "-p:KmhDirectory=$Directory"
+$zipSuffix = if ($Directory -eq "preview") { "-playtest" } else { "" }
 
 $ErrorActionPreference = "Stop"
 
@@ -61,12 +62,11 @@ function Remove-IfExists {
     }
 }
 
-# Guards against the recurring failure mode where a stale flavor payload (e.g. an old RTClient) is left in the output
-# dir and ships silently inside the release. Every built KMH assembly must carry the current mod version.
+# A stale flavour payload left in the output dir would otherwise ship silently inside the release.
 function Assert-AssemblyVersions {
     param([string[]]$Paths, [string]$Expected)
 
-    # Compare all four components (unset -> 0) so 1.2.1 still matches its 1.2.1.0 assembly and 1.2.1.1 is exact.
+    # Unset components count as 0, so 1.2.1 matches its 1.2.1.0 assembly while 1.2.1.1 stays exact.
     $w = [version]$Expected
     $want = [version]::new($w.Major, $w.Minor, [Math]::Max($w.Build, 0), [Math]::Max($w.Revision, 0))
 
@@ -83,14 +83,22 @@ function Assert-AssemblyVersions {
     }
     Write-Host "[mod] Version check OK - all KMH assemblies are v$Expected."
 
-    # The tag the game shows so a player can tell a stale DLL from a fresh one. It is edited by hand, so print it
-    # here: a tag left on the previous build is invisible until someone reports the fix "not showing".
+    # Dev builds share one AssemblyVersion; only the release tag read from the BINARY tells fresh from stale.
     $protoPath = Join-Path $PSScriptRoot 'Source\SubProtocol\KmhProtocol.cs'
-    if (Test-Path -LiteralPath $protoPath) {
-        $tag = [regex]::Match([System.IO.File]::ReadAllText($protoPath), 'UiBuildTag\s*=\s*"([^"]*)"')
-        if ($tag.Success) { Write-Host "[mod] UI build tag: $($tag.Groups[1].Value) - the game shows this; bump it when you ship." -ForegroundColor Cyan }
-        else { Write-Host "[mod] warn: UiBuildTag not found - players cannot confirm which DLL is loaded." -ForegroundColor Yellow }
+    if (-not (Test-Path -LiteralPath $protoPath)) { throw "KmhProtocol.cs not found - cannot verify the release tag." }
+    $tag = [regex]::Match([System.IO.File]::ReadAllText($protoPath), 'UiBuildTag\s*=\s*"([^"]*)"')
+    if (-not $tag.Success) { throw "UiBuildTag not found in KmhProtocol.cs - cannot verify the release tag." }
+    $wantTag = $tag.Groups[1].Value
+    $wantInfo = "$Expected+$wantTag"
+
+    foreach ($p in $Paths) {
+        $got = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($p).ProductVersion
+        if ($got -ne $wantInfo) {
+            throw ("Release tag mismatch: $([System.IO.Path]::GetFileName($p)) reports '$got' but this source tree is " +
+                   "'$wantInfo'. Both are AssemblyVersion $Expected, so this is a stale build - rebuild every flavour.")
+        }
     }
+    Write-Host "[mod] Release tag OK - every assembly reports $wantInfo." -ForegroundColor Cyan
 }
 
 $project = Join-Path $PSScriptRoot "Source\KMHPatch.csproj"
@@ -105,7 +113,7 @@ if (-not (Test-Path $releases)) {
     New-Item -ItemType Directory -Path $releases -Force | Out-Null
 }
 
-Write-Host "[mod] Building KMH Patch v${version}:"
+Write-Host "[mod] Building KMH: Colony Nexus v${version}:"
 Write-Host "      $project"
 
 Write-Host "[mod] Building loader + SDK..."
@@ -119,20 +127,20 @@ if ($LASTEXITCODE -ne 0) {
     throw "Client SDK build failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "[mod] Building KMH Patch payload: Old/GameClient..."
-& dotnet build $project -c Release -p:RwtFlavor=Old | Out-Host
+Write-Host "[mod] Building Colony Nexus payload: Old/GameClient..."
+& dotnet build $project -c Release -p:RwtFlavor=Old $dirArg | Out-Host
 if ($LASTEXITCODE -ne 0) {
     throw "Old/GameClient build failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "[mod] Building KMH Patch payload: New/RTClient..."
-& dotnet build $project -c Release -p:RwtFlavor=New | Out-Host
+Write-Host "[mod] Building Colony Nexus payload: New/RTClient..."
+& dotnet build $project -c Release -p:RwtFlavor=New $dirArg | Out-Host
 if ($LASTEXITCODE -ne 0) {
     throw "New/RTClient build failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "[mod] Building KMH Patch payload: RT/RTClientV2..."
-& dotnet build $project -c Release -p:RwtFlavor=RT | Out-Host
+Write-Host "[mod] Building Colony Nexus payload: RT/RTClientV2..."
+& dotnet build $project -c Release -p:RwtFlavor=RT $dirArg | Out-Host
 if ($LASTEXITCODE -ne 0) {
     throw "RT/RTClientV2 build failed with exit code $LASTEXITCODE."
 }
@@ -157,9 +165,11 @@ Write-Host "[mod] Build outputs:" -ForegroundColor Green
 Get-Item $requiredBuilt | Select-Object FullName, LastWriteTime, Length | Format-Table -AutoSize
 
 Remove-IfExists $Stage
+# A stage left under the old folder name would otherwise sit beside the new one.
+Remove-IfExists (Join-Path $PSScriptRoot "Releases\KMHPatch")
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null
 
-foreach ($item in @("About", "1.6", "Textures", "LoadFolders.xml", "LICENSE")) {
+foreach ($item in @("About", "1.6", "1.7", "Textures", "Languages", "LoadFolders.xml", "LICENSE")) {
     $src = Join-Path $PSScriptRoot $item
     if (Test-Path $src) {
         Write-Host "[mod] Staging $item"
@@ -169,9 +179,10 @@ foreach ($item in @("About", "1.6", "Textures", "LoadFolders.xml", "LICENSE")) {
 
 Assert-OnlyExpectedBinaries -Path $Stage
 
-# Clean only current-version generated assets. Older release zips are left alone.
 Get-ChildItem $releases -File -ErrorAction SilentlyContinue |
     Where-Object {
+        $_.Name -eq "KMH-ColonyNexus-v$version$zipSuffix.zip" -or
+        # The pre-rebrand name, so a stale zip under it cannot be picked up by the bundle.
         $_.Name -eq "KMH-Patch-v$version.zip" -or
         $_.Name -eq "KMH-Sdk-Client-v$version.zip" -or
         $_.Name -eq "KMHPatch-mod-v$version.zip" -or
@@ -180,12 +191,10 @@ Get-ChildItem $releases -File -ErrorAction SilentlyContinue |
     } |
     Remove-Item -Force
 
-# Mod zip. This zips the folder itself so it extracts as a normal RimWorld mod folder. Written entry-by-entry rather
-# than with Compress-Archive: PowerShell 5.1 writes '\' entry names, which are not valid ZIP paths and unpack as one
-# literal filename on Linux and macOS - the mod would not load there at all.
+# Not Compress-Archive: PowerShell 5.1 writes '\' entry names, which unpack as one literal filename on Linux/macOS.
 Add-Type -AssemblyName System.IO.Compression             # ZipArchive / ZipArchiveMode
 Add-Type -AssemblyName System.IO.Compression.FileSystem  # ZipFile / ZipFileExtensions
-$modZip = Join-Path $releases "KMH-Patch-v$version.zip"
+$modZip = Join-Path $releases "KMH-ColonyNexus-v$version$zipSuffix.zip"
 if (Test-Path $modZip) { Remove-Item $modZip -Force }
 $stageParent = (Resolve-Path (Split-Path $Stage -Parent)).Path.TrimEnd('\') + '\'
 $modWriter = [System.IO.Compression.ZipFile]::Open($modZip, [System.IO.Compression.ZipArchiveMode]::Create)
@@ -200,7 +209,11 @@ finally { $modWriter.Dispose() }
 # RimWorld finds a mod by these paths, so verify the shipped archive rather than trusting the staged folder.
 $modCheck = [System.IO.Compression.ZipFile]::OpenRead($modZip)
 try {
-    foreach ($required in @("KMHPatch/About/About.xml", "KMHPatch/LoadFolders.xml", "KMHPatch/1.6/Assemblies/KMHPatch.dll")) {
+    # Languages included deliberately: a missing tree is invisible, because every string falls back to English.
+    $top = Split-Path $Stage -Leaf
+    foreach ($required in @("$top/About/About.xml", "$top/LoadFolders.xml", "$top/1.6/Assemblies/KMHPatch.dll",
+                            "$top/Languages/English/Keyed/KMH.xml", "$top/Languages/German/Keyed/KMH.xml",
+                            "$top/Languages/Spanish/Keyed/KMH.xml")) {
         if (-not ($modCheck.Entries | Where-Object { $_.FullName -eq $required })) {
             throw "Mod zip is missing $required - the archive layout is wrong and RimWorld will not load the mod."
         }
@@ -210,7 +223,6 @@ try {
 finally { $modCheck.Dispose() }
 $modKb = [Math]::Round((Get-Item $modZip).Length / 1KB, 1)
 
-# Client SDK zip for extension authors.
 $sdkStage = Join-Path ([System.IO.Path]::GetTempPath()) ("kmh_sdk_client_" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $sdkStage -Force | Out-Null
 
@@ -235,8 +247,17 @@ try {
         }
     }
 
+    # Entries written one by one, as for the mod zip, so the names are portable on every OS.
     $sdkZip = Join-Path $releases "KMH-Sdk-Client-v$version.zip"
-    Compress-Archive -Path (Join-Path $sdkStage "*") -DestinationPath $sdkZip -Force
+    if (Test-Path $sdkZip) { Remove-Item $sdkZip -Force }
+    $sdkWriter = [System.IO.Compression.ZipFile]::Open($sdkZip, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($item in (Get-ChildItem $sdkStage -Recurse -File)) {
+            $rel = $item.FullName.Substring($sdkStage.Length).TrimStart('\', '/').Replace('\', '/')
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($sdkWriter, $item.FullName, $rel)
+        }
+    }
+    finally { $sdkWriter.Dispose() }
     $sdkKb = [Math]::Round((Get-Item $sdkZip).Length / 1KB, 1)
 }
 finally {
@@ -252,5 +273,5 @@ Write-Host "[mod] Release asset:   $modZip ($modKb KB)"
 Write-Host "[mod] SDK asset:       $sdkZip ($sdkKb KB)"
 Write-Host ""
 Write-Host "[mod] Upload these manually to GitHub Releases:"
-Write-Host "       KMH-Patch-v$version.zip"
+Write-Host "       KMH-ColonyNexus-v$version$zipSuffix.zip"
 Write-Host "       KMH-Sdk-Client-v$version.zip"

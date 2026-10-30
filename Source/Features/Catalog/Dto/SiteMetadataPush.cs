@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Catalog.Dto
 {
-    // Wire DTO for kmh.site_meta. Chunked like the label push - a big modpack is thousands of defs.
+    // Chunked like the label push: a big modpack is thousands of defs.
     public class SiteMetadataPush
     {
         [JsonProperty("meta")]        public List<Sites.Dto.SiteOutputMetadata> Meta { get; set; } = new List<Sites.Dto.SiteOutputMetadata>();

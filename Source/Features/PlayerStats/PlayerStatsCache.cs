@@ -11,7 +11,6 @@ namespace KMHPatch.Features.PlayerStats
         public static List<PlayerLeaderboardEntry> Entries { get; private set; }
             = new List<PlayerLeaderboardEntry>();
 
-        // UTC timestamp of the last snapshot we received. DateTime.MinValue before any snapshot has arrived
         public static DateTime LastUpdatedUtc { get; private set; } = DateTime.MinValue;
 
         public static event Action Updated;
@@ -21,7 +20,6 @@ namespace KMHPatch.Features.PlayerStats
             Entries        = snapshot?.Entries ?? new List<PlayerLeaderboardEntry>();
             LastUpdatedUtc = DateTime.UtcNow;
 
-            // Wrap in try so a misbehaving subscriber can't poison the packet-receive thread.
             KmhCacheEvents.Raise(Updated, "Player stats");
         }
 

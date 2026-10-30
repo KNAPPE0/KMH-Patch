@@ -56,11 +56,7 @@ namespace KMHPatch.UI
                 float w = Mathf.Min(Mathf.Max(66f, Text.CalcSize(label).x + 18f), Mathf.Max(1f, width));
                 if (x > 0f && x + w > width) { x = 0f; y += TabHeight + TabGap; }
 
-                Color old = GUI.color;
-                if (i == selected) GUI.color = new Color(0.45f, 0.75f, 1f);
-                if (Widgets.ButtonText(new Rect(x, y, w, TabHeight), label)) onSelect?.Invoke(i);
-                GUI.color = old;
-
+                if (KmhBrand.Tab(new Rect(x, y, w, TabHeight), label, i == selected)) onSelect?.Invoke(i);
                 x += w + TabGap;
             }
             return y + TabHeight + 6f;
@@ -94,7 +90,7 @@ namespace KMHPatch.UI
             if (rowH <= 0f || count <= 0) { first = 0; last = 0; return; }
             first = Mathf.Max(0, (int)(scroll.y / rowH) - 1);
             if (first > count) first = count;
-            last = Mathf.Min(count, first + (int)(viewportHeight / rowH) + 2);
+            last = Mathf.Min(count, (int)((scroll.y + viewportHeight) / rowH) + 2);
         }
 
         // Draw any panel background around `box` before calling; this owns everything inside it.
@@ -123,14 +119,15 @@ namespace KMHPatch.UI
         // An empty ServerBuild means the snapshot will never arrive, so say so instead of spinning on "Loading…".
         public static string AwaitingSnapshot(string loadingLabel, string featureName)
             => string.IsNullOrEmpty(SubProtocol.KmhDispatcher.ServerBuild)
-                ? $"{featureName} need a newer server (KMH {SubProtocol.KmhProtocol.BuildVersion}+)."
+                ? KmhText.Get("KMH_Dialog_NeedsNewerServer", "{0} need a newer server (Colony Nexus {1}+).",
+                              featureName, SubProtocol.KmhProtocol.BuildVersion)
                 : loadingLabel;
 
         // Shared "ends in …" countdown label for expiry rows (auctions, want-board, etc.). "—" when there's no expiry.
         public static string TimeLeft(long endsTicks, long now)
         {
             if (endsTicks <= 0) return "—";
-            if (now >= endsTicks) return "<color=#ff8080>closing…</color>";
+            if (now >= endsTicks) return "<color=#f07167>" + KmhText.Get("KMH_Dialog_Closing", "closing…") + "</color>";
             System.TimeSpan s = System.TimeSpan.FromTicks(endsTicks - now);
             if (s.TotalDays    >= 1) return $"{(int)s.TotalDays}d {s.Hours}h";
             if (s.TotalHours   >= 1) return $"{(int)s.TotalHours}h {s.Minutes}m";
@@ -141,8 +138,8 @@ namespace KMHPatch.UI
         // Kept separate from TimeLeft: "never"/"expired" and "—"/"closing…" are both load-bearing wordings.
         public static string TimeRemainingShort(long expiresUtcTicks, long nowTicks)
         {
-            if (expiresUtcTicks <= 0) return "never";
-            if (nowTicks >= expiresUtcTicks) return "<color=#ff8080>expired</color>";
+            if (expiresUtcTicks <= 0) return KmhText.Get("KMH_Dialog_Never", "never");
+            if (nowTicks >= expiresUtcTicks) return "<color=#f07167>" + KmhText.Get("KMH_Dialog_Expired", "expired") + "</color>";
             try
             {
                 System.TimeSpan span = System.TimeSpan.FromTicks(expiresUtcTicks - nowTicks);
@@ -154,15 +151,41 @@ namespace KMHPatch.UI
             catch { return "?"; }
         }
 
-        public static float DrawTitle(Rect rect, string title)
+        // reserveRight keeps the title clear of whatever the window draws in the top-right corner (live badge, buttons).
+        public static float DrawTitle(Rect rect, string title, float reserveRight = 0f)
         {
             Text.Font = GameFont.Medium;
             // Sized to the Medium font's real line height, or the title's descenders clip.
             float h = Mathf.Max(TitleHeight, Text.LineHeight);
-            Widgets.Label(new Rect(0f, 2f, rect.width, h), title);
+            // Every Colony Nexus window carries the mark beside its title, one shared header instead of many.
+            float m = Mathf.Round(h * 0.82f);
+            KmhBrand.DrawMark(new Rect(0f, 2f + (h - m) / 2f, m, m));
+            // One line, cut with the whole title on hover: a wrapped title lost its second line under the header.
+            LabelTrunc(new Rect(m + 8f, 2f, Mathf.Max(0f, rect.width - m - 8f - Mathf.Max(0f, reserveRight)), h),
+                       title, TextAnchor.MiddleLeft);
             Text.Font = GameFont.Small;
             return 2f + h + 6f;
         }
+
+        // What DrawLiveBadge's longest wording takes, for a title on the same row to stop short of it.
+        public static float LiveBadgeReserve
+        {
+            get
+            {
+                // Keyed on the wording, so switching language re-measures instead of keeping the old width.
+                string stale = KmhText.Get("KMH_Dialog_LiveStale", "◐ stale · {0}s ago");
+                if (_liveBadgeReserve > 0f && stale == _liveBadgeReserveFor) return _liveBadgeReserve;
+                GameFont prev = Text.Font;
+                Text.Font = GameFont.Tiny;
+                _liveBadgeReserve = Mathf.Ceil(Text.CalcSize(KmhText.Get("KMH_Dialog_LiveStale", "◐ stale · {0}s ago", 9999)).x) + 16f;
+                _liveBadgeReserveFor = stale;
+                Text.Font = prev;
+                return _liveBadgeReserve;
+            }
+        }
+
+        private static float _liveBadgeReserve = -1f;
+        private static string _liveBadgeReserveFor;
 
         public static void DrawSectionDivider(Rect rect, ref float y)
         {
@@ -188,10 +211,10 @@ namespace KMHPatch.UI
                                   : LiveBadgeColor;
             Text.Anchor = TextAnchor.UpperRight;
             // The word carries the state, not the colour.
-            string text = !received ? "○ waiting…"
-                        : stale     ? $"◐ stale · {secondsSinceRefresh}s ago"
-                        : secondsSinceRefresh <= 1 ? "● live · just now"
-                                                   : $"● live · {secondsSinceRefresh}s ago";
+            string text = !received ? KmhText.Get("KMH_Dialog_LiveWaiting", "○ waiting…")
+                        : stale     ? KmhText.Get("KMH_Dialog_LiveStale", "◐ stale · {0}s ago", secondsSinceRefresh)
+                        : secondsSinceRefresh <= 1 ? KmhText.Get("KMH_Dialog_LiveJustNow", "● live · just now")
+                                                   : KmhText.Get("KMH_Dialog_LiveAgo", "● live · {0}s ago", secondsSinceRefresh);
             float right = rect.width - Mathf.Max(0f, reserveRight);
             float w     = Mathf.Min(LiveBadgeWidth, Mathf.Max(0f, right));
             if (w > 0f) Widgets.Label(new Rect(right - w, LiveBadgeY, w, LiveBadgeHeight), text);
@@ -207,7 +230,7 @@ namespace KMHPatch.UI
                          rect.height - FooterReserve + 4f,
                          CloseBtnWidth,
                          CloseBtnHeight),
-                "Close");
+                KmhText.Get("KMH_Common_Close", "Close"));
         }
 
         public static void DrawCenteredLabel(Rect r, string text)
@@ -221,19 +244,35 @@ namespace KMHPatch.UI
             GUI.color = old;
         }
 
-        // Truncated with an ellipsis rather than clipped mid-glyph, with the full text on hover.
-        public static void LabelTrunc(Rect r, string text, TextAnchor anchor = TextAnchor.UpperLeft)
+        // The one inline "waiting for an answer" look: muted text over a short travelling brand bar.
+        public static void DrawWaiting(Rect r, string text)
+        {
+            float rowH = Mathf.Min(TextRowH, r.height);
+            DrawMutedLabel(new Rect(r.x, r.y, r.width, rowH), text);
+            KmhLoadingPanel.DrawBar(new Rect(r.x, r.y + rowH + 4f, Mathf.Min(160f, r.width), 3f), -1f, KmhLoadingPanel.Motion.Now());
+        }
+
+        // Known progress in the brand bar, in place of vanilla's FillableBar.
+        public static void DrawProgress(Rect r, float fraction)
+            => KmhLoadingPanel.DrawBar(r, Mathf.Clamp01(fraction), KmhLoadingPanel.Motion.Now());
+
+        // Ellipsis rather than a mid-glyph clip, full text on hover; with no anchor given it keeps the caller's Text.Anchor.
+        public static void LabelTrunc(Rect r, string text, TextAnchor? anchor = null)
         {
             if (string.IsNullOrEmpty(text)) return;
             // A subtracted column width can go non-positive, and drawing into it throws or spills across neighbours.
             if (r.width <= 1f) return;
+            text = OneLine(text);
             TextAnchor oldAnchor = Text.Anchor;
+            bool oldWrap = Text.WordWrap;
             try
             {
                 // Grows DOWNWARD only: growing centred starts the text above its rect and draws over the row before it.
                 float lineH = Text.LineHeight;
                 if (r.height < lineH) r = new Rect(r.x, r.y, r.width, lineH);
-                Text.Anchor = ToMiddle(anchor);
+                Text.Anchor = ResolveAnchor(anchor, oldAnchor);
+                // Never wrapped: 1.7 draws bold wider than it measures, and a wrapped name fell below its row unseen.
+                Text.WordWrap = false;
 
                 if (Text.CalcSize(text).x <= r.width)
                 {
@@ -242,7 +281,7 @@ namespace KMHPatch.UI
                 else
                 {
                     string plain = StripTags(text);
-                    Widgets.Label(r, plain.Truncate(r.width));
+                    Widgets.Label(r, TruncateRich(text, r.width - TruncSlack));
                     if (Mouse.IsOver(r)) TooltipHandler.TipRegion(r, plain);
                 }
             }
@@ -251,7 +290,7 @@ namespace KMHPatch.UI
                 // One label must never blank a whole dialog - fall back to plain.
                 try { Widgets.Label(r, text); } catch { /* skip just this label */ }
             }
-            finally { Text.Anchor = oldAnchor; }
+            finally { Text.Anchor = oldAnchor; Text.WordWrap = oldWrap; }
         }
 
         public static string SearchField(Rect r, string current, string placeholder = "Filter")
@@ -275,6 +314,37 @@ namespace KMHPatch.UI
             return result;
         }
 
+        internal static TextAnchor ResolveAnchor(TextAnchor? asked, TextAnchor current) => ToMiddle(asked ?? current);
+
+        // A one-line row given a line break draws its second line over the row below.
+        public static string OneLine(string s)
+            => string.IsNullOrEmpty(s) || s.IndexOfAny(LineBreaks) < 0
+                ? s
+                : s.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
+
+        private static readonly char[] LineBreaks = { '\n', '\r' };
+
+        // Wraps where the rect holds the wrapped text; otherwise one truncated line with the whole text on hover.
+        public static void LabelFit(Rect r, string text)
+        {
+            if (string.IsNullOrEmpty(text) || r.width <= 1f) return;
+            if (Text.CalcHeight(text, r.width) <= r.height + 0.5f) Widgets.Label(r, text);
+            else LabelTrunc(r, text);
+        }
+
+        // Wraps rather than truncates: half an explanation explains nothing. Returns the height used.
+        public static float LabelWrapped(float x, float y, float width, string text)
+        {
+            if (string.IsNullOrEmpty(text) || width <= 1f) return 0f;
+            float h = Text.CalcHeight(text, width);
+            Widgets.Label(new Rect(x, y, width, h), text);
+            return h;
+        }
+
+        // From the measured label, so a longer translation widens the button instead of spilling out of it.
+        public static float ButtonW(string label, float min = 60f, float max = 10000f)
+            => Mathf.Clamp(IconButton.WidthFor(label, false), min, Mathf.Max(min, max));
+
         private static TextAnchor ToMiddle(TextAnchor a)
         {
             switch (a)
@@ -289,6 +359,50 @@ namespace KMHPatch.UI
         // Width measurement and truncation must see only the visible characters, not the markup.
         public static string StripTags(string s)
             => string.IsNullOrEmpty(s) ? s : System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty);
+
+        // Cuts the visible text, not the markup: stripping the tags first made every long status line lose its colour.
+        // Room for bold text, which measures narrower than it draws.
+        internal const float TruncSlack = 4f;
+
+        internal static string TruncateRich(string text, float width, System.Func<string, float> measure = null)
+        {
+            text = OneLine(text ?? "");
+            measure ??= t => Text.CalcSize(t).x;
+            int lo = 0, hi = StripTags(text).Length;
+            string best = "...";
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) / 2;
+                string cand = PrefixRich(text, mid);
+                if (measure(cand) <= width) { best = cand; lo = mid + 1; } else hi = mid - 1;
+            }
+            return best;
+        }
+
+        // The first `visible` characters with every tag kept, then "..." and the tags still open, closed in order.
+        internal static string PrefixRich(string text, int visible)
+        {
+            var sb = new System.Text.StringBuilder();
+            var open = new System.Collections.Generic.Stack<string>();
+            int seen = 0, i = 0;
+            while (i < text.Length && seen < visible)
+            {
+                int end = text[i] == '<' ? text.IndexOf('>', i) : -1;
+                if (end > i)
+                {
+                    string tag = text.Substring(i, end - i + 1);
+                    if (tag.StartsWith("</")) { if (open.Count > 0) open.Pop(); }
+                    else open.Push(tag.Substring(1).Split('=', '>', ' ')[0]);
+                    sb.Append(tag);
+                    i = end + 1;
+                    continue;
+                }
+                sb.Append(text[i]); seen++; i++;
+            }
+            sb.Append("...");
+            while (open.Count > 0) sb.Append("</").Append(open.Pop()).Append('>');
+            return sb.ToString();
+        }
 
         // Shared, or a checkbox row sits 2px higher in one dialog than the next.
         public const float ToolbarRowH = 32f;

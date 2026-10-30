@@ -12,15 +12,16 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Keeps assigned site workers honest; reports fire only when presence changes, so idle play adds no packets.
+    // Reports fire only when presence changes, so idle play adds no packets.
     public class GameComponent_KMHSiteWorkerSync : GameComponent
     {
-        private const int   IntervalTicks   = 2500;  // ~40s at 1x
-        private const float XpPerSyncAtSite = 90f;   // real skill XP per tick while inside the site (Learn saturation applies)
+        private const int   IntervalTicks   = 2500;
+        private const float XpPerSyncAtSite = 90f;   // RimWorld's Learn saturation still applies
 
         private int _next;
-        private readonly Dictionary<int, bool> _lastPresent  = new Dictionary<int, bool>();
-        private readonly HashSet<int>          _deadNotified = new HashSet<int>();
+        // Per colonist, not per site: a per-tile key lets one pawn's presence overwrite another's.
+        private readonly Dictionary<(int Tile, int PawnLoadId), bool> _lastPresent  = new Dictionary<(int, int), bool>();
+        private readonly HashSet<(int Tile, int PawnLoadId)>          _deadNotified = new HashSet<(int, int)>();
 
         public GameComponent_KMHSiteWorkerSync(Game game) { }
 
@@ -41,14 +42,13 @@ namespace KMHPatch.Features.Sites
 
             WorldComponent_KMHSiteWorkers holding = WorldComponent_KMHSiteWorkers.Instance;
 
-            // Index the snapshot: which sites exist, and which of them list me as a worker.
             Dictionary<int, SiteEntry> byTile = new Dictionary<int, SiteEntry>();
             HashSet<int> myWorkerTiles = new HashSet<int>();
             foreach (SiteEntry s in sites)
             {
                 if (s == null || s.Tile < 0) continue;
                 byTile[s.Tile] = s;
-                if (s.Workers != null && s.Workers.Contains(me, StringComparer.OrdinalIgnoreCase)) myWorkerTiles.Add(s.Tile);
+                if (SiteWorkerKey.Works(s, me)) myWorkerTiles.Add(s.Tile);
             }
 
             // Must run before reconciliation: a load can lose the record->pawn cross-ref and the Recall button with it.
@@ -63,49 +63,53 @@ namespace KMHPatch.Features.Sites
             {
                 if (s == null || s.Tile < 0) continue;
 
-                // present=true is re-reported even with no server claim, which re-establishes the assignment after a reload.
-                if (holding?.IsHoldingAtTile(s.Tile) == true)
+                // Re-reported even without a server claim, which re-establishes the assignment after a reload.
+                List<Pawn> heldHere = holding?.HeldPawnsFor(s.Tile, me) ?? new List<Pawn>();
+                var reported = new HashSet<int>();
+                foreach (Pawn heldPawn in heldHere)
                 {
-                    Pawn heldPawn = holding.HeldPawnAtTile(s.Tile);
-                    if (heldPawn != null) GrantSiteXp(heldPawn, s.RelevantSkillDef);
-                    _deadNotified.Remove(s.Tile);
-                    WorkerProgressDto whp = null;
-                    s.WorkerProgress?.TryGetValue(me, out whp);
-                    ReportPresence(s, me, heldPawn, whp, present: true);
-                    continue;
+                    if (heldPawn == null) continue;
+                    GrantSiteXp(heldPawn, s.RelevantSkillDef);
+                    _deadNotified.Remove((s.Tile, heldPawn.thingIDNumber));
+                    reported.Add(heldPawn.thingIDNumber);
+                    ReportPresence(s, me, heldPawn, SiteWorkerKey.For(s, me, heldPawn.thingIDNumber), present: true);
                 }
 
                 // Tag-only fallback: needs a server claim with a real pawn parked at the tile.
-                if (s.WorkerProgress == null || !s.WorkerProgress.TryGetValue(me, out WorkerProgressDto wp) || wp == null) continue;
-                if (wp.PawnLoadId <= 0) continue;
-                Pawn pawn = FindColonist(wp.PawnLoadId);
-                if (pawn == null || pawn.Dead)
+                foreach (KeyValuePair<string, WorkerProgressDto> kv in SiteWorkerKey.Mine(s, me))
                 {
-                    if (_deadNotified.Add(s.Tile))
+                    WorkerProgressDto wp = kv.Value;
+                    if (wp.PawnLoadId <= 0 || reported.Contains(wp.PawnLoadId)) continue;
+                    Pawn pawn = FindColonist(wp.PawnLoadId);
+                    if (pawn == null || pawn.Dead)
                     {
-                        KmhNotifications.Negative($"{(string.IsNullOrEmpty(wp.PawnName) ? "Your site worker" : wp.PawnName)} is dead or missing - recalled from the site at tile {s.Tile}.");
-                        SiteHandler.TryLeave(s.Tile);
-                        _lastPresent.Remove(s.Tile);
+                        if (_deadNotified.Add((s.Tile, wp.PawnLoadId)))
+                        {
+                            KmhNotifications.Negative($"{(string.IsNullOrEmpty(wp.PawnName) ? "Your site worker" : wp.PawnName)} is dead or missing - recalled from the site at tile {s.Tile}.");
+                            // Names the colonist, so one dead pawn does not pull the whole crew off the site.
+                            SiteHandler.TryLeave(s.Tile, wp.PawnLoadId);
+                            _lastPresent.Remove((s.Tile, wp.PawnLoadId));
+                        }
+                        continue;
                     }
-                    continue;
+                    _deadNotified.Remove((s.Tile, wp.PawnLoadId));
+                    bool present = IsPawnAtSite(pawn, s.Tile);
+                    if (present) GrantSiteXp(pawn, s.RelevantSkillDef);
+                    ReportPresence(s, me, pawn, wp, present);
                 }
-                _deadNotified.Remove(s.Tile);
-                bool present = IsPawnAtSite(pawn, s.Tile);
-                if (present) GrantSiteXp(pawn, s.RelevantSkillDef);
-                ReportPresence(s, me, pawn, wp, present);
             }
         }
 
-        // Send a SiteJoin refresh only when presence flips, so re-validations don't spam packets.
         private void ReportPresence(SiteEntry s, string me, Pawn pawn, WorkerProgressDto wp, bool present)
         {
             bool serverPaused = wp != null && !string.IsNullOrEmpty(wp.BlockedReason);
             bool mismatch = serverPaused == present;   // present but server paused, or absent but server active
-            if (_lastPresent.TryGetValue(s.Tile, out bool was) && was == present && !mismatch) return;
-            _lastPresent[s.Tile] = present;
+            int loadId = pawn?.thingIDNumber ?? (wp?.PawnLoadId ?? -1);
+            var slot = (s.Tile, loadId);
+            if (_lastPresent.TryGetValue(slot, out bool was) && was == present && !mismatch) return;
+            _lastPresent[slot] = present;
             int lvl = SkillLevelOf(pawn, s.RelevantSkillDef);
             string name = pawn?.Name?.ToStringShort ?? pawn?.LabelShortCap ?? (wp?.PawnName ?? "");
-            int loadId = pawn?.thingIDNumber ?? (wp?.PawnLoadId ?? -1);
             SiteHandler.TryJoin(s.Tile, lvl, name, loadId, present);
         }
 

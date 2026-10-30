@@ -2,7 +2,7 @@
 
 namespace KMHPatch.Features.Comms
 {
-    // Counted per channel, not a single "current" one: the hub and the pop-out can both show chat and close independently.
+    // Counted per channel: the hub and the pop-out can both show chat and close independently.
     internal static class CommsFocus
     {
         private static readonly Dictionary<string, int> _viewers = new Dictionary<string, int>(System.StringComparer.Ordinal);

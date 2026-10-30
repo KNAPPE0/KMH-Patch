@@ -23,7 +23,6 @@ namespace KMHPatch.UI
             return _rows;
         }
 
-        // Force a rebuild on the next draw (e.g. right after an action consumes stock).
         public void Invalidate() => _rows = null;
     }
 }

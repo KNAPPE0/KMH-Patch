@@ -4,10 +4,10 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Vanilla lays a world quad texture-up along an east-west tangent, which is invisible on symmetric dots and not on KMH art.
+    // Vanilla lays world quads texture-up along an east-west tangent: invisible on dots, visible on KMH art.
     internal static class KmhMarkerRender
     {
-        // Built on first draw, not in a field initialiser: constructing one needs the engine, and the offline suite has none.
+        // Built on first draw: constructing one needs the engine, and the offline suite has none.
         private static MaterialPropertyBlock _block;
 
         internal static float UprightAngle(Vector3 drawPos)
@@ -16,7 +16,7 @@ namespace KMHPatch.Features.Sites
             return cam == null ? 0f : AngleFor(drawPos, cam.transform.up, cam.transform.forward);
         }
 
-        // Degrees about the normal that put the art's up-axis on screen-up anywhere; camera-free so the suite can drive it.
+        // Degrees about the normal that put the art's up-axis on screen-up anywhere on the planet.
         internal static float AngleFor(Vector3 drawPos, Vector3 camUp, Vector3 camForward)
         {
             Vector3 n = drawPos.normalized;
@@ -65,7 +65,7 @@ namespace KMHPatch.Features.Sites
             => MaterialPool.MatFrom(tex, ShaderDatabase.WorldOverlayTransparentLit, Color.white,
                                     WorldMaterials.WorldObjectRenderQueue);
 
-        // The shader RimWorld draws its own expanding icons with - colorTwo is the border, and the icon comes from the caller. This is the ring an owned settlement wears.
+        // RimWorld's own expanding-icon shader: colorTwo is the border and the icon comes from the caller.
         internal static Material Halo(Color color)
         {
             var req = new MaterialRequest(null, ShaderDatabase.ExpandingIconUI, Color.white)

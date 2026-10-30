@@ -51,12 +51,13 @@ namespace KMHPatch.UI
             const float headerH     = 36f;
             float editorH = rect.height - headerH - counterH - btnH - btnRowGap * 2f;
 
-            // Verse.Widgets has no TextAreaScrollable in 1.6, so the scroll view is ours.
+            // Verse.Widgets has no TextAreaScrollable in 1.6, so this draws its own scroll view.
             Rect editorRect = new Rect(0f, headerH, rect.width, editorH);
             float lineH = Text.LineHeight;
-            // TextArea draws into whatever rect it is given, so the viewRect must lead the content's growth.
-            float estimatedLines = Mathf.Max((_input ?? "").Length / 60f + 3f, editorH / lineH + 1f);
-            Rect viewRect = new Rect(0f, 0f, editorRect.width - 18f, estimatedLines * lineH);
+            // TextArea draws into whatever rect it gets, so the viewRect is measured to lead its growth.
+            float editW = Mathf.Max(1f, editorRect.width - 18f);
+            float textH = Text.CalcHeight(string.IsNullOrEmpty(_input) ? " " : _input, editW);
+            Rect viewRect = new Rect(0f, 0f, editW, Mathf.Max(textH + lineH * 2f, editorH));
             Widgets.BeginScrollView(editorRect, ref _scroll, viewRect);
             string next = Widgets.TextArea(viewRect, _input ?? "");
             Widgets.EndScrollView();
@@ -87,15 +88,7 @@ namespace KMHPatch.UI
 
         private void Confirm()
         {
-            string val = _input ?? "";
-            if (_rejectEmpty && string.IsNullOrWhiteSpace(val))
-            {
-                Notifications.KmhNotifications.Rejected("Value cannot be empty");
-                return;
-            }
-            try   { _onConfirm?.Invoke(val); }
-            catch { /* handler logs via KmhLog */ }
-            Close();
+            if (Dialog_KMHTextInput.TryConfirm(_input, _rejectEmpty, _onConfirm)) Close();
         }
     }
 }

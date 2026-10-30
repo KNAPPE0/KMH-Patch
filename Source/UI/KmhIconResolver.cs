@@ -22,7 +22,6 @@ namespace KMHPatch.UI
             GUI.color  = prev;
         }
 
-        // Keys may be composed (def|stuff|quality); resolve the base def's icon.
         private static ThingDef DefOf(string key)
         {
             if (string.IsNullOrEmpty(key)) return null;

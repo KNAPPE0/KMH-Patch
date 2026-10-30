@@ -5,7 +5,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Notice drawn in place of a locked mod's settings; self-guarded because it draws inside RimWorld's own window.
+    // Self-guarded: it draws inside RimWorld's own mod settings window.
     internal static class EnforcementLockUI
     {
         private static Vector2 _scroll;
@@ -25,6 +25,25 @@ namespace KMHPatch.Features.Enforcement
             Listing_Standard listing = new Listing_Standard();
             listing.Begin(inRect);
 
+            if (EnforcementProfileApplier.ModAwaitsRestart(mod?.Content?.FolderName))
+            {
+                Text.Font = GameFont.Medium;
+                listing.Label(UI.KmhText.Get("KMH_Enf_AwaitRestart_Title", "Restart to load your own settings"));
+                Text.Font = GameFont.Small;
+                listing.Gap(4f);
+                listing.Label("<color=#A9AFB9>" + UI.KmhText.Get("KMH_Enf_AwaitRestart_Body",
+                    "Your own settings for {0} are back on disk, but RimWorld still holds the server's in memory. They load when RimWorld restarts; until then they can't be changed here, because saving now would write the server's values over yours.",
+                    UI.KmhDisplayText.Inert(mod?.Content?.Name ?? "this mod", 80)) + "</color>");
+                listing.Gap(8f);
+                if (listing.ButtonText(UI.KmhText.Get("KMH_Enf_AwaitRestart_Button", "Restart RimWorld now")))
+                {
+                    try { GenCommandLine.Restart(); }
+                    catch (Exception ex) { KmhLog.Warn($"Enforcement: restart from the settings notice failed: {ex.Message}"); }
+                }
+                listing.End();
+                return;
+            }
+
             Text.Font = GameFont.Medium;
             listing.Label("Mod options locked");
             Text.Font = GameFont.Small;
@@ -32,11 +51,11 @@ namespace KMHPatch.Features.Enforcement
             string modName = mod?.Content?.Name ?? "This mod";
             listing.Gap(4f);
             listing.Label(
-                $"<color=grey>The server is enforcing a config profile, so <b>{modName}</b>'s options " +
+                $"<color=#A9AFB9>The server is enforcing a config profile, so <b>{modName}</b>'s options " +
                 "can't be changed right now - editing them would break sync or the intended balance.</color>");
 
             if (EnforcementCache.IsAdmin)
-                listing.Label("<color=#ffce4d>You're an admin, but admin bypass is turned off on this server.</color>");
+                listing.Label("<color=#f0c04f>You're an admin, but admin bypass is turned off on this server.</color>");
 
             listing.GapLine(10f);
 
@@ -46,7 +65,7 @@ namespace KMHPatch.Features.Enforcement
             Text.Font = GameFont.Small;
 
             if (n == 0)
-                listing.Label("<color=grey>None - the server hasn't marked any mods as safe to edit.</color>");
+                listing.Label("<color=#A9AFB9>None - the server hasn't marked any mods as safe to edit.</color>");
 
             float listTop = inRect.y + listing.CurHeight + 4f;
             listing.End();
@@ -74,15 +93,17 @@ namespace KMHPatch.Features.Enforcement
             Widgets.EndScrollView();
         }
 
-        private static string FriendlyMod(string id)
+        // Server-supplied id, so it is drawn inert when it matches no installed mod.
+        internal static string FriendlyMod(string id)
         {
             if (string.IsNullOrWhiteSpace(id)) return id;
+            string shown = UI.KmhDisplayText.Inert(id);
             foreach (ModContentPack mcp in LoadedModManager.RunningMods)
             {
                 if (string.Equals(mcp.PackageId, id, StringComparison.OrdinalIgnoreCase))
-                    return $"{mcp.Name}  <color=grey>({id})</color>";
+                    return $"{UI.KmhDisplayText.Inert(mcp.Name)}  <color=#A9AFB9>({shown})</color>";
             }
-            return id;
+            return shown;
         }
     }
 }

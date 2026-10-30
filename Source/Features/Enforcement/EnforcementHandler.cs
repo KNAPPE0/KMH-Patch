@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using KMHPatch.Diagnostics;
 using KMHPatch.Features.Enforcement.Dto;
 using KMHPatch.SubProtocol;
@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Receives the server's enforcement messages: snapshot, chunked profile, restore.
     internal static class EnforcementHandler
     {
         public static void Register()
@@ -17,11 +16,18 @@ namespace KMHPatch.Features.Enforcement
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementProfileChunk, OnProfileChunk);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementProfileEnd,   OnProfileEnd);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementRestore,      OnRestore);
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementPublishAccepted, e => ConfigPublish.OnAccepted(e?.Data));
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementPublishAck,      e => ConfigPublish.OnAck(e?.Data));
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.EnforcementPublishResult,   e => ConfigPublish.OnResult(e?.Data));
         }
 
         // Returns whether the request left the client, so hydration can retry instead of sitting on "Loading…".
         public static bool RequestSnapshot()
             => KmhDispatcher.Send(KmhProtocol.Kind.EnforcementSnapshotRequest, null);
+
+        // Written off the main thread, hence Interlocked; the poll counts a pushed snapshot as fresh.
+        private static long _lastSnapshotStamp;
+        internal static long LastSnapshotStamp => System.Threading.Interlocked.Read(ref _lastSnapshotStamp);
 
         public static void SetEnabled(bool enabled)
             => KmhDispatcher.Send(KmhProtocol.Kind.EnforcementSetEnabled, new { enabled });
@@ -35,48 +41,15 @@ namespace KMHPatch.Features.Enforcement
         public static void SetFlag(string flag, bool value)
             => KmhDispatcher.Send(KmhProtocol.Kind.EnforcementSetFlag, new { flag, value });
 
-        // 32KB raw: base64 (~43KB) plus envelope overhead stays under the 64KB cap, since the transport is JSON not binary.
-        private const int UploadChunkRawBytes = 32 * 1024;
-
-        // Uploads this admin's Config folder as the server profile, minus personal/cache/mod-list files and safe mods.
-        public static bool PublishMyConfigs(out string summary)
-        {
-            summary = "";
-            try
-            {
-                string dir = GenFilePaths.ConfigFolderPath;
-                byte[] zip = ConfigProfileUtility.CreateConfigZipBytes(dir, EnforcementMods.IsSafeModConfigFile);
-                if (zip == null || zip.Length == 0) { summary = "Nothing to publish - config zip was empty."; return false; }
-
-                string hash = ConfigProfileUtility.Sha256Hex(zip);
-                var chunks = ConfigProfileUtility.SplitIntoChunks(zip, UploadChunkRawBytes);
-
-                if (!KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadBegin,
-                        new { hash, chunk_count = chunks.Count, total_bytes = zip.Length }))
-                { summary = "Not connected to a KMH server."; return false; }
-
-                // Unchecked, a publish that lost the connection on chunk one still reported success to the admin.
-                for (int i = 0; i < chunks.Count; i++)
-                    if (!KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadChunk,
-                            new { hash, index = i, data = Convert.ToBase64String(chunks[i]) }))
-                    { summary = $"Publish stopped after {i}/{chunks.Count} chunk(s) - the connection dropped. Try again."; return false; }
-
-                if (!KmhDispatcher.Send(KmhProtocol.Kind.EnforcementUploadEnd, new { hash }))
-                { summary = "Publish could not be completed - the connection dropped. Try again."; return false; }
-
-                summary = $"Uploaded config profile: {zip.Length / 1024} KB in {chunks.Count} chunk(s), hash {Short(hash)}.";
-                return true;
-            }
-            catch (Exception ex) { summary = $"Publish failed: {ex.Message}"; return false; }
-        }
-
-        private static string Short(string hash)
-            => string.IsNullOrEmpty(hash) ? "?" : hash.Substring(0, Math.Min(8, hash.Length));
-
-        // Once per connection: the snapshot can arrive several times, and disconnect resets it so the next server re-notifies.
+        // Once per connection: snapshots arrive repeatedly; disconnect resets it for the next server.
         private static bool _joinNoticeShown;
 
-        public static void ResetConnectionState() { _joinNoticeShown = false; EnforcementFlow.ResetForNewConnection(); }
+        public static void ResetConnectionState()
+        {
+            _joinNoticeShown = false;
+            System.Threading.Interlocked.Exchange(ref _lastSnapshotStamp, 0);
+            EnforcementFlow.ResetForNewConnection();
+        }
 
         private static void ShowJoinNotice(EnforcementSnapshotDto dto)
         {
@@ -89,7 +62,7 @@ namespace KMHPatch.Features.Enforcement
             else if (!dto.HasProfile)
                 msg = "This server enforces mod configs - your Mod Options are locked to the server while you're connected.";
             else
-                return; // enforced WITH a profile + not exempt: the Apply-&-restart / Disconnect consent dialog is the notice
+                return; // the consent dialog is the notice
 
             _joinNoticeShown = true;
             LongEventHandler.ExecuteWhenFinished(() =>
@@ -101,26 +74,30 @@ namespace KMHPatch.Features.Enforcement
 
         private static void OnSnapshot(KmhEnvelope env)
         {
+            if (!EnforcementAdmission.Matches(env)) return;
             EnforcementSnapshotDto dto = env?.DataAs<EnforcementSnapshotDto>();
             if (dto == null) return;
-            EnforcementCache.Apply(dto.Enabled, dto.AdminBypass, dto.PreservePersonal, dto.IsAdmin, dto.HasProfile, dto.SafeMods, dto.ProfileHash);
+            System.Threading.Interlocked.Exchange(ref _lastSnapshotStamp, System.Diagnostics.Stopwatch.GetTimestamp());
+            EnforcementAdmission.ShowConsentSurface();
+            EnforcementCache.Apply(dto.Enabled, dto.AdminBypass, dto.PreservePersonal, dto.IsAdmin, dto.HasProfile, dto.SafeMods, dto.ProfileHash, dto.ModOrder, dto.ModOrderHash,
+                                   dto.ProfileRevision, dto.ProfileFiles);
 
             ShowJoinNotice(dto);
 
             if (!dto.Enabled)
             {
-                // Non-enforcing server: lift any still-applied profile.
                 if (EnforcementProfileApplier.IsApplied)
                 {
                     KmhLog.Info("Enforcement: server isn't enforcing but a profile is applied - restoring originals.");
-                    EnforcementProfileApplier.Restore();
+                    if (EnforcementProfileApplier.Restore("ConfirmedNonEnforcingServer")) NoticeRestored();
                 }
                 EnforcementFlow.Clear();
+                if (EnforcementAdmission.Pending) EnforcementAdmission.Fail("Enforcement policy changed during admission. Reconnect to run stock RWT validation.");
             }
             else
             {
-                // A new or changed profile always asks for consent - never a silent apply or restart.
                 EnforcementFlow.Evaluate();
+                if ((dto.AdminBypass && dto.IsAdmin) || !dto.HasProfile) EnforcementAdmission.Complete();
             }
 
             KmhLog.Debug(
@@ -130,28 +107,44 @@ namespace KMHPatch.Features.Enforcement
 
         private static void OnProfileBegin(KmhEnvelope env)
         {
-            if (env == null) return;
+            if (env == null || !EnforcementAdmission.Matches(env)) return;
             EnforcementProfileApplier.OnProfileBegin(
                 env.GetString("hash"), env.GetInt("chunk_count"), env.GetInt("total_bytes"));
         }
 
         private static void OnProfileChunk(KmhEnvelope env)
         {
-            if (env == null) return;
+            if (env == null || !EnforcementAdmission.Matches(env)) return;
             EnforcementProfileApplier.OnProfileChunk(
                 env.GetString("hash"), env.GetInt("index"), env.GetString("data"));
         }
 
         private static void OnProfileEnd(KmhEnvelope env)
         {
-            if (env == null) return;
+            if (env == null || !EnforcementAdmission.Matches(env)) return;
             EnforcementProfileApplier.OnProfileEnd(env.GetString("hash"));
         }
 
         private static void OnRestore(KmhEnvelope env)
         {
             KmhLog.Info("Enforcement: server lifted enforcement - restoring personal configs.");
-            EnforcementProfileApplier.Restore();
+            if (EnforcementProfileApplier.Restore("ExplicitServerDisable")) NoticeRestored();
+        }
+
+        // Said once, while connected: the files are back but the game keeps the server's values until it restarts.
+        private static void NoticeRestored()
+        {
+            if (!EnforcementProfileApplier.RestoreAwaitsRestart) return;
+            LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                try
+                {
+                    Messages.Message(UI.KmhText.Get("KMH_Enf_RestoredOnJoin",
+                        "Colony Nexus put your own mod settings back. They load the next time RimWorld starts; until then those mods' options stay locked."),
+                        MessageTypeDefOf.NeutralEvent, historical: false);
+                }
+                catch (Exception ex) { KmhLog.Warn($"Enforcement: restore notice failed: {ex.Message}"); }
+            });
         }
     }
 }

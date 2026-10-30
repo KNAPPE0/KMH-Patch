@@ -42,8 +42,8 @@ namespace KMHPatch.Features.Mail
         {
             long now = DateTime.UtcNow.Ticks;
             string empty = !MailCache.HasSnapshot
-                ? $"<color=grey>{DialogLayout.AwaitingSnapshot("Loading mail…", "Mail")}</color>"
-                : "<color=grey>No mail yet. Compose one!</color>";
+                ? $"<color=#A9AFB9>{DialogLayout.AwaitingSnapshot("Loading mail…", "Mail")}</color>"
+                : "<color=#A9AFB9>No mail yet. Compose one!</color>";
 
             // Above the inbox, so goods in flight read as recoverable rather than silently parked.
             List<MailMessage> outgoing = Outgoing();
@@ -65,12 +65,12 @@ namespace KMHPatch.Features.Mail
             GUI.color = old;
 
             DialogLayout.LabelTrunc(new Rect(inner.x + 14f, inner.y, Mathf.Max(0f, inner.width - 14f - 90f), DialogLayout.TextRowH),
-                $"<color=grey>to</color> {LinkedAccountsCache.Format(m.To)}  <color=grey>· unopened</color>");
+                $"<color=#A9AFB9>to</color> {LinkedAccountsCache.Format(m.To)}  <color=#A9AFB9>· unopened</color>");
             GUI.color = DialogLayout.MutedColor;
             DialogLayout.LabelTrunc(new Rect(inner.xMax - 90f, inner.y, 90f, 18f), Ago(m.SentUtcTicks, now), TextAnchor.UpperRight);
             GUI.color = new Color(0.85f, 0.85f, 0.85f);
             DialogLayout.LabelTrunc(new Rect(inner.x + 14f, inner.y + DialogLayout.TextRowH, Mathf.Max(0f, inner.width - 14f), DialogLayout.TextRowH),
-                $"<color={UI.KmhTheme.Hex(UI.KmhTheme.Accent)}>◆ </color>{AttachSummary(m)} <color=grey>waiting</color>");
+                $"<color={UI.KmhTheme.Hex(UI.KmhTheme.Accent)}>◆ </color>{AttachSummary(m)} <color=#A9AFB9>waiting</color>");
             GUI.color = old;
 
             if (Widgets.ButtonInvisible(row)) { _selectedId = m.Id; _bodyScroll = Vector2.zero; }
@@ -103,7 +103,7 @@ namespace KMHPatch.Features.Mail
             DialogLayout.LabelTrunc(new Rect(inner.xMax - 90f, inner.y, 90f, 18f), Ago(m.SentUtcTicks, now), TextAnchor.UpperRight);
             GUI.color = old;
 
-            string subject = string.IsNullOrEmpty(m.Subject) ? "<color=grey>(no subject)</color>" : m.Subject;
+            string subject = string.IsNullOrEmpty(m.Subject) ? "<color=#A9AFB9>(no subject)</color>" : m.Subject;
             string coin = m.HasOpenAttachment ? UI.KmhTheme.Accented("◆") + " " : "";
             GUI.color = new Color(0.85f, 0.85f, 0.85f);
             DialogLayout.LabelTrunc(new Rect(lx, inner.y + DialogLayout.TextRowH, Mathf.Max(0f, inner.width - 14f), DialogLayout.TextRowH), coin + subject);
@@ -147,7 +147,7 @@ namespace KMHPatch.Features.Mail
             float replyH = 26f;
             float bodyTop = ry + 2f;
             Rect bodyRect = new Rect(inner.x, bodyTop, inner.width, inner.yMax - replyH - 4f - bodyTop);
-            Widgets.LabelScrollable(bodyRect, string.IsNullOrEmpty(sel.Body) ? "<color=grey>(no message)</color>" : sel.Body, ref _bodyScroll);
+            Widgets.LabelScrollable(bodyRect, string.IsNullOrEmpty(sel.Body) ? "<color=#A9AFB9>(no message)</color>" : sel.Body, ref _bodyScroll);
 
             if (IconButton.Draw(new Rect(inner.x, inner.yMax - replyH, 110f, replyH), KMHTextures.Post, "Reply"))
                 Dialog_KMHCompose.Open(sel.From);
@@ -173,25 +173,12 @@ namespace KMHPatch.Features.Mail
             if (IconButton.Draw(new Rect(inner.xMax - 120f, ry, 120f, 26f), KMHTextures.Withdraw, "Recall"))
             { MailHandler.TryRecall(sent.Id); _selectedId = 0; return; }
             ry += 30f;
-
-            if (sent.HasItems)
-            {
-                GUI.color = DialogLayout.MutedColor;
-                DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), ItemsLine(sent));
-                GUI.color = old; ry += 20f;
-            }
-            if (sent.HasGear)
-            {
-                GUI.color = new Color(0.72f, 0.82f, 1f);
-                DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), GearLine(sent));
-                GUI.color = old; ry += 20f;
-            }
+            ry = DrawGoodsLines(inner, ry, sent, old);
 
             Rect bodyRect = new Rect(inner.x, ry + 2f, inner.width, Mathf.Max(20f, inner.yMax - ry - 4f));
-            Widgets.LabelScrollable(bodyRect, string.IsNullOrEmpty(sent.Body) ? "<color=grey>(no message)</color>" : sent.Body, ref _bodyScroll);
+            Widgets.LabelScrollable(bodyRect, string.IsNullOrEmpty(sent.Body) ? "<color=#A9AFB9>(no message)</color>" : sent.Body, ref _bodyScroll);
         }
 
-        // Returns the y below the banner, so the body flows under whatever height it took.
         private static float DrawAttachment(Rect inner, float ry, MailMessage sel)
         {
             Color old = GUI.color;
@@ -203,21 +190,7 @@ namespace KMHPatch.Features.Mail
                 if (IconButton.Draw(new Rect(inner.xMax - bw, ry, bw, 26f), KMHTextures.Deposit, "Accept"))  MailHandler.TryAccept(sel.Id);
                 if (IconButton.Draw(new Rect(inner.xMax - bw * 2f - 4f, ry, bw, 26f), KMHTextures.Cancel, "Decline")) MailHandler.TryDecline(sel.Id);
                 ry += 30f;
-                if (sel.HasItems)
-                {
-                    GUI.color = DialogLayout.MutedColor;
-                    DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), ItemsLine(sel));
-                    GUI.color = old;
-                    ry += 20f;
-                }
-                if (sel.HasGear)
-                {
-                    GUI.color = new Color(0.72f, 0.82f, 1f);
-                    DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), GearLine(sel));
-                    GUI.color = old;
-                    ry += 20f;
-                }
-                return ry;
+                return DrawGoodsLines(inner, ry, sel, old);
             }
             if (sel.AttachState == 2)   // claimed
             {
@@ -236,7 +209,25 @@ namespace KMHPatch.Features.Mail
             return ry;
         }
 
-        // "500 silver", "3 item(s)", "2 gear", or a combination.
+        private static float DrawGoodsLines(Rect inner, float ry, MailMessage m, Color restore)
+        {
+            if (m.HasItems)
+            {
+                GUI.color = DialogLayout.MutedColor;
+                DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), ItemsLine(m));
+                GUI.color = restore;
+                ry += 20f;
+            }
+            if (m.HasGear)
+            {
+                GUI.color = new Color(0.72f, 0.82f, 1f);
+                DialogLayout.LabelTrunc(new Rect(inner.x, ry, inner.width, 18f), GearLine(m));
+                GUI.color = restore;
+                ry += 20f;
+            }
+            return ry;
+        }
+
         private static string AttachSummary(MailMessage sel)
         {
             int units = 0; if (sel.AttachedItems != null) foreach (int q in sel.AttachedItems.Values) units += q;

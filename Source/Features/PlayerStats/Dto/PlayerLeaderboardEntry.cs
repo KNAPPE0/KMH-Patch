@@ -30,7 +30,7 @@ namespace KMHPatch.Features.PlayerStats.Dto
         [JsonProperty("worker_xp")]            public long   WorkerXp             { get; set; } = 0;
         [JsonProperty("economy_score")]        public long   EconomyScore         { get; set; } = 0;
 
-        // Client-reported colony summary (display-only). Compact colonist fields drive the row; the full colonist profile is fetched on demand.
+        // Client-reported and display-only; the full colonist profile is fetched on demand.
         [JsonProperty("colony_name")]          public string ColonyName           { get; set; } = "";
         [JsonProperty("colony_age_days")]      public int    ColonyAgeDays        { get; set; } = 0;
         [JsonProperty("time_played_hours")]    public int    TimePlayedHours      { get; set; } = 0;

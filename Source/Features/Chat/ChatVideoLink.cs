@@ -2,14 +2,13 @@
 
 namespace KMHPatch.Features.Chat
 {
-    // Which links are a video on a page. Whether one can also be PLAYED here is ChatYouTube's shorter list, not this.
+    // Watch pages only; whether one can also be PLAYED here is ChatYouTube's shorter list.
     internal static class ChatVideoLink
     {
         // Read from the BODY, not the preview image: a thumbnail says nothing about where it came from.
         internal static bool IsWatchPage(string body)
             => !string.IsNullOrEmpty(FirstWatchUrl(body));
 
-        // The first watch url in the body, or "" when there is none.
         internal static string FirstWatchUrl(string body)
         {
             if (string.IsNullOrEmpty(body)) return "";
@@ -42,7 +41,6 @@ namespace KMHPatch.Features.Chat
             catch { return false; }
         }
 
-        // What to call the site in a one-line label.
         internal static string SiteOf(string url)
         {
             if (!HostOf(url ?? "", out string host)) return "the web";

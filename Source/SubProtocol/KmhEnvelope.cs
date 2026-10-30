@@ -12,7 +12,7 @@ namespace KMHPatch.SubProtocol
         [JsonProperty("v")]
         public int Version { get; set; }
 
-        // Names the logical action, not this delivery of it, so a re-send after an ambiguous write is refused rather than acted on twice.
+        // Names the logical action, not this delivery, so a re-send after an ambiguous write is refused, not acted on twice.
         [JsonProperty("op", NullValueHandling = NullValueHandling.Ignore)]
         public string OpId { get; set; }
 
@@ -63,6 +63,13 @@ namespace KMHPatch.SubProtocol
             try { return Data.Value<int>(key); } catch { return defaultValue; }
         }
 
+        // Separate from GetInt: a unix timestamp overflows an int in 2038 and would truncate silently.
+        public long GetLong(string key, long defaultValue = 0)
+        {
+            if (Data == null || Data[key] == null) return defaultValue;
+            try { return Data.Value<long>(key); } catch { return defaultValue; }
+        }
+
         public string GetString(string key, string defaultValue = null)
         {
             if (Data == null || Data[key] == null) return defaultValue;
@@ -88,7 +95,6 @@ namespace KMHPatch.SubProtocol
             catch { return new int[0]; }
         }
 
-        // Reads a JSON array of longs (empty when absent or malformed), on the same terms as GetIntArray.
         public long[] GetLongArray(string key)
         {
             if (Data == null || !(Data[key] is JArray arr)) return new long[0];
@@ -101,7 +107,6 @@ namespace KMHPatch.SubProtocol
             catch { return new long[0]; }
         }
 
-        // Reads a JSON array of strings (empty when absent or malformed), on the same terms as GetIntArray.
         public string[] GetStringArray(string key)
         {
             if (Data == null || !(Data[key] is JArray arr)) return new string[0];
@@ -114,10 +119,18 @@ namespace KMHPatch.SubProtocol
             catch { return new string[0]; }
         }
 
+        // Built with Create, not CreateDefault: another mod's process-wide settings (type names above all) never reach the wire.
+        internal static readonly JsonSerializer WireReader = JsonSerializer.Create(new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.None,
+            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
+            MaxDepth = 64,
+        });
+
         public T DataAs<T>() where T : class
         {
             if (Data == null) return null;
-            try { return Data.ToObject<T>(); } catch { return null; }
+            try { return Data.ToObject<T>(WireReader); } catch { return null; }
         }
 
         public static KmhEnvelope TryParse(string json)
@@ -125,7 +138,8 @@ namespace KMHPatch.SubProtocol
             if (string.IsNullOrEmpty(json)) return null;
             try
             {
-                return JsonConvert.DeserializeObject<KmhEnvelope>(json);
+                using (var reader = new JsonTextReader(new System.IO.StringReader(json)))
+                    return WireReader.Deserialize<KmhEnvelope>(reader);
             }
             catch
             {

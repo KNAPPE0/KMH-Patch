@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace KMHPatch.Features.Roadworks
 {
-    // Canonical segment identity: order-independent, layer-aware.
     internal static class RoadKeys
     {
         // Mirrored byte-for-byte on the server, or KMH stops recognising its own roads.

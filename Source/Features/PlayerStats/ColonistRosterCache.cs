@@ -4,7 +4,6 @@ using KMHPatch.Features.PlayerStats.Dto;
 
 namespace KMHPatch.Features.PlayerStats
 {
-    // Caches the flattened colonist roster (every colony's colonists) for the per-skill Colonist Records board.
     public static class ColonistRosterCache
     {
         public static ColonistRosterSnapshot Snapshot { get; private set; }

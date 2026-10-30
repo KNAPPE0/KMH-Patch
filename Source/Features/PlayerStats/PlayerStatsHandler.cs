@@ -4,7 +4,6 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.PlayerStats
 {
-    // Registers player-stats handlers and the RequestSnapshot entry point during KMH bootstrap.
     internal static class PlayerStatsHandler
     {
         public static void Register()
@@ -14,7 +13,6 @@ namespace KMHPatch.Features.PlayerStats
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.ColonistRoster,       OnColonistRoster);
         }
 
-        // Ask the server for the flattened colonist roster (every colony's colonists) for the Colonist Records board.
         public static bool RequestColonistRoster() => KmhDispatcher.Send(KmhProtocol.Kind.ColonistRosterRequest, null);
 
         private static void OnColonistRoster(KmhEnvelope env)
@@ -23,19 +21,16 @@ namespace KMHPatch.Features.PlayerStats
             if (snap != null) ColonistRosterCache.Apply(snap);
         }
 
-        // Requests the latest leaderboard snapshot; safe before handshake since Send no-ops off KMH servers.
         public static bool RequestSnapshot()
         {
             return KmhDispatcher.Send(KmhProtocol.Kind.PlayerStatsRequest, null);
         }
 
-        // Upload this colony's summary + colonist. Sent on a timer by GameComponent_KMHColonyReporter; no-ops off a KMH server.
         public static bool SendColonyReport(ColonyReport report)
         {
             return report != null && KmhDispatcher.Send(KmhProtocol.Kind.ColonyReport, report);
         }
 
-        // Ask the server for a player's full colonist profile (Bio/Health/Combat). Fired when a player card opens.
         public static bool RequestColonist(string username)
         {
             return !string.IsNullOrEmpty(username)
@@ -46,6 +41,9 @@ namespace KMHPatch.Features.PlayerStats
         {
             ColonistProfileEnvelope payload = env?.DataAs<ColonistProfileEnvelope>();
             if (payload == null || string.IsNullOrEmpty(payload.Username)) return;
+            // Written by another player's game and drawn as rich text, so made inert here.
+            if (payload.Detail?.RecentCombat != null)
+                payload.Detail.RecentCombat = payload.Detail.RecentCombat.ConvertAll(s => KMHPatch.UI.KmhDisplayText.Inert(s, 120));
             ColonistProfileCache.Apply(payload.Username, payload.Detail);
         }
 

@@ -21,7 +21,6 @@ namespace KMHPatch.Features.Enforcement
             public Hint(Verdict v, int p, int t) { Verdict = v; Personal = p; Total = t; }
         }
 
-        // Lowercased substrings that mark a setting field as player-specific.
         private static readonly string[] Markers =
         {
             "window", "position", "posx", "posy", "anchor", "offset",
@@ -60,7 +59,7 @@ namespace KMHPatch.Features.Enforcement
                     foreach (string field in Fields(path))
                     {
                         total++;
-                        if (IsPersonal(field)) personal++;
+                        if (IsPersonalField(field)) personal++;
                     }
                 }
 
@@ -73,7 +72,6 @@ namespace KMHPatch.Features.Enforcement
             catch (Exception ex) { KmhLog.Warn($"Heuristics: classify '{mod?.Name}' failed: {ex.Message}"); return new Hint(Verdict.NoConfig, 0, 0); }
         }
 
-        // The direct setting-field names under <ModSettings> (skips list <li> values).
         private static IEnumerable<string> Fields(string path)
         {
             XElement settings;
@@ -91,7 +89,5 @@ namespace KMHPatch.Features.Enforcement
             foreach (string m in Markers) if (f.Contains(m)) return true;
             return false;
         }
-
-        private static bool IsPersonal(string field) => IsPersonalField(field);
     }
 }

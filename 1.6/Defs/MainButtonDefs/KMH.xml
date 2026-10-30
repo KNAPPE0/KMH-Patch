@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <!--
-    Adds a "KMH" tab to the bottom in-game tab bar. Visible only when a map
-    is loaded (default MainButtonDef behavior). Order is high so we land at
-    the right end of the bar without colliding with vanilla / RWT tabs.
+    Adds a "Colony Nexus" tab to the bottom in-game tab bar. Visible only when
+    a map is loaded (default MainButtonDef behavior). Order is high so we land
+    at the right end of the bar without colliding with vanilla / RWT tabs.
+    defName stays KMH: it is the durable key saved games and other mods use.
   -->
   <MainButtonDef>
     <defName>KMH</defName>
-    <label>KMH</label>
-    <description>KMH Patch features and server status.</description>
+    <label>Colony Nexus</label>
+    <description>Colony Nexus features and server status.</description>
     <tabWindowClass>KMHPatch.Tabs.MainTabWindow_KMH</tabWindowClass>
     <order>9999</order>
     <minimized>false</minimized>

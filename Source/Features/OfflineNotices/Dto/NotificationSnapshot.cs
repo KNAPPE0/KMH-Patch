@@ -10,6 +10,8 @@ namespace KMHPatch.Features.OfflineNotices.Dto
 
     public class NotificationDto
     {
+        // What an ack names and what the client dedupes on: a redelivered notice must be recognisable as the same one.
+        [JsonProperty("id")]        public string Id       { get; set; } = "";
         [JsonProperty("tone")]      public string Tone     { get; set; } = "neutral";
         [JsonProperty("title")]     public string Title    { get; set; } = "";
         [JsonProperty("body")]      public string Body     { get; set; } = "";

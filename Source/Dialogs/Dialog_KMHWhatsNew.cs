@@ -1,5 +1,4 @@
-﻿using KMHPatch.Diagnostics;
-using KMHPatch.SubProtocol;
+﻿using KMHPatch.SubProtocol;
 using KMHPatch.UI;
 using UnityEngine;
 using Verse;
@@ -14,18 +13,22 @@ namespace KMHPatch.Dialogs
 
         private Vector2 _scroll;
 
-        private static readonly string[] Highlights =
+        // This release only; each line is something a player can see or do.
+        internal static string[] Highlights() => new[]
         {
-            "Talk to your server without leaving the game: the new Communications hub puts server chat, guild chat and direct messages in one place, with unread badges on the KMH tab so you notice a message without watching the chat window.",
-            "Player mail: send another player a letter with silver, items or full-condition gear attached. Nothing is ever lost - unclaimed attachments come back to you automatically, and you can recall anything they haven't read yet.",
-            "Choose how loud KMH is: per-channel notification levels (silent / toast / toast + sound) for server, guild and DMs, plus a one-click mute in the hub and in mod settings.",
-            "Blocking and moderation: block a player to stop seeing their messages anywhere, and server staff can remove a message for everyone.",
-            "Your off-map wealth now counts toward raids. Silver and goods parked in your treasury, guild vault, listings, auctions, wants, quests and mail attachments feed RimWorld's threat scaling, so stockpiling off-map is no longer a way to farm safely. Servers control this.",
-            "Deposits are harder to abuse: a deposit that was confirmed and then rolled back by loading an older save is now undone on the server too, so goods can't be in your colony and your vault at once.",
-            "Discord: KMH chat can mirror to a Discord channel in either direction, with linked accounts posting under their real in-game name.",
-            "Servers can be extended properly now: a documented extension SDK with events, veto hooks and per-extension storage, so server owners can add their own rules without forking KMH.",
-            "Safer upgrades: config files migrate automatically with a recorded report, a damaged config is restored from backup instead of silently reverting to defaults, and the server refuses to move value it cannot write to disk.",
-            "Lots of quieter fixes: item stacks with saved condition are no longer mis-counted when filling a want, expired listings and quests return goods reliably, and the server recovers cleanly from a failed save instead of reporting success."
+            KmhText.Get("KMH_WhatsNew_Rw17", "Plays on RimWorld 1.7, together with RimWorld Together's own 1.7 release (26.10.20.1 or newer)."),
+            KmhText.Get("KMH_WhatsNew_Look", "A new Colony Nexus look: a full-screen loading screen with real progress and tips, a Colony Nexus card on the main menu and a tidier Colony Nexus tab."),
+            KmhText.Get("KMH_WhatsNew_Leaderboards", "Leaderboards: 22 boards in Server Standings, and the same rankings on the Colony Nexus website, with images to share."),
+            KmhText.Get("KMH_WhatsNew_Browser", "Find a server from the main menu: the Colony Nexus server browser shows each server's status, players, versions and the mods it expects, and Join connects through RimWorld Together's own login."),
+            KmhText.Get("KMH_WhatsNew_Mods", "Prepare and join: one button shows what a server needs, then subscribes and downloads its Workshop mods, installs its RimWorld Together version, sets your mod list (yours is kept and can be restored), restarts RimWorld, checks what loaded and joins."),
+            KmhText.Get("KMH_WhatsNew_Account", "Link a Colony Nexus Global account through Steam with a short code: one username, friends, presence, direct messages and Global Chat that follow you between servers. Global is optional - every server still plays without it."),
+            KmhText.Get("KMH_WhatsNew_Federation", "Guild Federation: guilds on different servers join one federation with renown, weekly objectives and small local bonuses. Silver, items and resources never move between servers."),
+            KmhText.Get("KMH_WhatsNew_Enforcement", "A server's mod settings are applied while you join, before the world loads: accept once, and reconnecting only re-checks your files - at most one restart, and none when nothing changed."),
+            KmhText.Get("KMH_WhatsNew_Sites", "Sites are worked by colonists, not accounts: put several of your colonists on one site and recall them one at a time."),
+            KmhText.Get("KMH_WhatsNew_Discord", "Link Discord from Account & Links. Rich Presence shows the server you are playing on (private servers stay unnamed); what you are doing in game is shown too, and Mod settings can turn that off."),
+            KmhText.Get("KMH_WhatsNew_Reports", "Report a bug or an idea from the Colony Nexus tab, Advanced & tools or the main menu. You see the screenshot and the diagnostics before anything is sent, and the window says who received it."),
+            KmhText.Get("KMH_WhatsNew_Performance", "Smoother online play: sending never holds up a frame, large updates are put together off the game's thread, and a large compressed update no longer drops the connection. Advanced & tools shows your frame rate, game speed and what Colony Nexus costs each frame."),
+            KmhText.Get("KMH_WhatsNew_Update", "Everyone updates together: v1.3.1 speaks protocol v3, and a Patch and Server Addon from different generations say so and stay off instead of half-working."),
         };
 
         // Chained on close rather than opened together, or all three popups stack on the main menu.
@@ -43,7 +46,12 @@ namespace KMHPatch.Dialogs
         public override void PostClose()
         {
             base.PostClose();
-            if (_chainWelcome && KMHPatchMod.Settings?.ShowWelcomeOnLaunch == true)
+            if (KMHPatchMod.Settings != null && KMHPatchMod.Settings.WhatsNewSeen != KmhProtocol.DisplayVersion)
+            {
+                KMHPatchMod.Settings.WhatsNewSeen = KmhProtocol.DisplayVersion;
+                KMHPatchMod.SaveSettings();
+            }
+            if (_chainWelcome && KMHPatchMod.Settings?.ShowWelcomeOnLaunch == true && !KMHPatchMod.Settings.WelcomeSeen)
                 Find.WindowStack.Add(new Dialog_KMHWelcome());
         }
 
@@ -52,7 +60,7 @@ namespace KMHPatch.Dialogs
             float y = 0f;
 
             // Measured, not fixed: a wrapped header loses its lower line and offsets every control below it.
-            string title = $"What's new in {Constants.DisplayName} v{KmhProtocol.DisplayVersion}";
+            string title = KmhText.Get("KMH_WhatsNew_Title", "What's new in {0} v{1}", Constants.BrandName, KmhProtocol.DisplayVersion);
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperCenter;
             float titleH = Mathf.Max(40f, Text.CalcHeight(title, rect.width));
@@ -62,7 +70,7 @@ namespace KMHPatch.Dialogs
             Widgets.DrawLineHorizontal(0f, y, rect.width);
             y += 10f;
 
-            const string subtitle = "Talk to your server, send mail, and a tighter economy.";
+            string subtitle = KmhText.Get("KMH_WhatsNew_Subtitle", "Connected Worlds: find a server, bring your friends, federate your guild.");
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperCenter;
             float subH = Text.CalcHeight(subtitle, rect.width);
@@ -78,20 +86,24 @@ namespace KMHPatch.Dialogs
 
             Text.Anchor = TextAnchor.UpperLeft;
 
+            string[] lines = Highlights();
+            float[] heights = new float[lines.Length];
             float contentHeight = 0f;
-            foreach (string highlight in Highlights)
-                contentHeight += Text.CalcHeight("- " + highlight, textW) + 8f;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                lines[i] = "- " + lines[i];
+                heights[i] = Text.CalcHeight(lines[i], textW);
+                contentHeight += heights[i] + 8f;
+            }
 
             Widgets.BeginScrollView(viewArea, ref _scroll,
                 new Rect(0f, 0f, innerWidth, Mathf.Max(contentHeight, viewArea.height)));
 
             float yy = 0f;
-            foreach (string highlight in Highlights)
+            for (int i = 0; i < lines.Length; i++)
             {
-                string line = "- " + highlight;
-                float lineHeight = Text.CalcHeight(line, textW);
-                Widgets.Label(new Rect(8f, yy, textW, lineHeight), line);
-                yy += lineHeight + 8f;
+                Widgets.Label(new Rect(8f, yy, textW, heights[i]), lines[i]);
+                yy += heights[i] + 8f;
             }
 
             Widgets.EndScrollView();
@@ -102,12 +114,14 @@ namespace KMHPatch.Dialogs
             float linkW  = Mathf.Min(250f, (rect.width - gap - 16f) / 2f);
             float left   = (rect.width - linkW * 2f - gap) / 2f;
 
-            DrawLinkButton(new Rect(left, linkY, linkW, linkHeight), "KMH Discord / full notes", Constants.DiscordUrl);
-            DrawLinkButton(new Rect(left + linkW + gap, linkY, linkW, linkHeight), "KMH on GitHub", Constants.GitHubUrl);
+            DrawLinkButton(new Rect(left, linkY, linkW, linkHeight),
+                KmhText.Get("KMH_WhatsNew_FullNotes", "Colony Nexus Discord / full notes"), Constants.DiscordUrl);
+            DrawLinkButton(new Rect(left + linkW + gap, linkY, linkW, linkHeight),
+                KmhText.Get("KMH_WhatsNew_GitHub", "Colony Nexus on GitHub"), Constants.GitHubUrl);
 
             float okW = Mathf.Min(160f, rect.width - 16f);
             Rect okRect = new Rect((rect.width - okW) / 2f, rect.height - 40f, okW, 36f);
-            if (Widgets.ButtonText(okRect, "Got it"))
+            if (Widgets.ButtonText(okRect, KmhText.Get("KMH_WhatsNew_GotIt", "Got it")))
             {
                 Close();
             }
@@ -117,16 +131,7 @@ namespace KMHPatch.Dialogs
 
         private static void DrawLinkButton(Rect rect, string label, string url)
         {
-            if (!Widgets.ButtonText(rect, label)) return;
-
-            try
-            {
-                Application.OpenURL(url);
-            }
-            catch (System.Exception ex)
-            {
-                KmhLog.Warn($"Could not open URL '{url}': {ex.Message}");
-            }
+            if (Widgets.ButtonText(rect, label)) Dialog_KMHWelcome.OpenUrl(url);
         }
     }
 }

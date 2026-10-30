@@ -6,7 +6,6 @@ namespace KMHPatch.Features.Chat
     // Borrows the one ChatVideoPlayer, so entering and leaving fullscreen never re-buffers or re-contacts the host.
     public class Dialog_KMHVideo : Window_KMHBase
     {
-        // How long the controls stay up after the last mouse movement.
         private const float IdleHideSeconds = 2.5f;
 
         private Vector2 _lastMouse;
@@ -18,7 +17,7 @@ namespace KMHPatch.Features.Chat
             absorbInputAroundWindow = true;
             closeOnClickedOutside   = false;
             closeOnAccept           = false;
-            closeOnCancel           = true;    // Esc leaves fullscreen
+            closeOnCancel           = true;
             forcePause              = false;   // multiplayer: the world does not stop because someone watched a clip
             draggable               = false;
             resizeable              = false;
@@ -57,7 +56,6 @@ namespace KMHPatch.Features.Chat
 
         protected override void DrawContents(Rect inRect)
         {
-            // Stopped, failed, or swapped for another clip while fullscreen: there is nothing to be fullscreen about.
             if (!ChatVideoPlayer.AnythingPlaying) { Close(false); return; }
 
             Widgets.DrawBoxSolid(inRect, new Color(0f, 0f, 0f, 0.94f));
@@ -78,7 +76,6 @@ namespace KMHPatch.Features.Chat
             bool showControls = Time.realtimeSinceStartup - _movedAt < IdleHideSeconds
                                 || ChatVideoPlayer.Paused || Mouse.IsOver(bar);
 
-            // The bar floats over the picture rather than shrinking it, so hiding the controls never resizes the video.
             Rect frame = ChatVideoPlayer.FitInto(ChatVideoPlayer.Width, ChatVideoPlayer.Height, inRect.ContractedBy(8f));
             Texture tex = ChatVideoPlayer.Frame;
             if (tex != null) GUI.DrawTexture(frame, tex, ScaleMode.ScaleToFit);
@@ -103,7 +100,7 @@ namespace KMHPatch.Features.Chat
 
             Text.Anchor = TextAnchor.UpperRight;
             Widgets.Label(new Rect(inRect.x, inRect.y + 10f, inRect.width - 16f, 24f),
-                          "<color=grey>Esc or F to exit · Space pause · M mute · ←/→ seek 5s</color>");
+                          "<color=#A9AFB9>Esc or F to exit · Space pause · M mute · ←/→ seek 5s</color>");
             Text.Anchor = TextAnchor.UpperLeft;
         }
     }

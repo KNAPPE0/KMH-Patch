@@ -15,7 +15,6 @@ namespace KMHPatch.Features.Chat.Dto
         [JsonProperty("message")] public ChatMessage Message { get; set; }
     }
 
-    // server -> client kmh.chat.moderation { blocked, blocking_enabled } (my block list).
     public class ChatModerationSnapshot
     {
         [JsonProperty("blocked")]          public List<string> Blocked         { get; set; } = new List<string>();

@@ -5,7 +5,7 @@ using KMHPatch.UI;
 
 namespace KMHPatch.Features.Wealth.Sources
 {
-    // Escrow withdrawn to back an open buy request: out of the treasury (so nothing else counts it) but still mine until filled or refunded.
+    // Want escrow left the treasury, so nothing else counts it, but stays mine until filled or refunded.
     internal sealed class WantBoardWealthSource : IKmhWealthSource
     {
         public string Name => "Want Board";

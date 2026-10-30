@@ -7,7 +7,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Chat
 {
-    // Bytes arrive over the authenticated KMH connection, so the host owning the picture sees the server and never the player.
+    // Bytes arrive over the KMH connection, so the picture's host sees the server and never the player.
     internal static class ChatMediaClient
     {
         private enum State { None, Waiting, Ready, Failed }
@@ -120,7 +120,7 @@ namespace KMHPatch.Features.Chat
 
         public static bool Available { get; private set; }
 
-        // From the hello. An older server never sends it, which reads as "no resolver" and leaves the url path alone.
+        // An older server never sends it, which reads as "no resolver" and leaves the url path alone.
         public static void SetAvailable(bool on)
         {
             Available = on;
@@ -149,7 +149,7 @@ namespace KMHPatch.Features.Chat
             return bytes != null;
         }
 
-        // The player asking again. Forgetting first is what lets Request start over, since it ignores a known id.
+        // Forget first: Request ignores an id it already knows.
         public static void Retry(string id)
         {
             if (string.IsNullOrEmpty(id) || !Available) return;
@@ -164,11 +164,42 @@ namespace KMHPatch.Features.Chat
             _byId.Remove(id);
         }
 
-        // A click, or the player's standing auto-load answer. Never called on its own.
+        // Bounds what a server's answers can make this client hold while assembling, whatever it declares.
+        internal const long MaxBuildingBytes = 64L * 1024 * 1024;
+        internal const int  MaxEntries = 512;
+
+        private static long BuildingBytes()
+        {
+            long n = 0;
+            foreach (Entry e in _byId.Values) if (e.Building != null) n += e.Building.Total;
+            return n;
+        }
+
+        // Answered failures go first, then the least recently shown media; what is still being asked for stays.
+        private static void MakeRoom()
+        {
+            while (_byId.Count >= MaxEntries)
+            {
+                string drop = null; float best = float.MaxValue; bool failed = false;
+                foreach (KeyValuePair<string, Entry> kv in _byId)
+                {
+                    if (kv.Value.State == State.Waiting) continue;
+                    bool f = kv.Value.State == State.Failed;
+                    float at = Math.Max(kv.Value.LastUsed, kv.Value.StartedAt);
+                    if (drop == null || (f && !failed) || (f == failed && at < best)) { drop = kv.Key; best = at; failed = f; }
+                }
+                if (drop == null) return;
+                Forget(drop);
+            }
+        }
+
+        // Only on a click or the player's standing auto-load consent, never on its own.
         public static void Request(string id)
         {
             if (string.IsNullOrEmpty(id) || !Available) return;
             if (_byId.ContainsKey(id)) return;   // asking, held, or already answered - only Retry starts over
+            MakeRoom();
+            if (_byId.Count >= MaxEntries) return;
             _byId[id] = new Entry { State = State.Waiting, StartedAt = UnityEngine.Time.realtimeSinceStartup };
             KmhDispatcher.Send(KmhProtocol.Kind.ChatMediaRequest, new { id });
         }
@@ -190,21 +221,22 @@ namespace KMHPatch.Features.Chat
         {
             string id = env?.GetString("id") ?? "";
             if (string.IsNullOrEmpty(id)) return;
+            // Only the answer to a request this client made and is still waiting on.
+            if (!_byId.TryGetValue(id, out Entry asked) || asked.State != State.Waiting || asked.Building != null) return;
 
             if (!env.GetBool("ok"))
             {
                 string reason = env.GetString("reason") ?? "unavailable";
-                Fail(id, reason == "expired" ? "no longer available - ask for it again" : reason);
+                Fail(id, reason == "expired" ? "no longer available - ask for it again" : UI.KmhDisplayText.Inert(reason, 160));
                 return;
             }
 
             Assembly building = Assembly.Begin(env.GetString("mime"), env.GetInt("bytes", 0), env.GetInt("chunks", 0),
                                                env.GetString("hash"), ChatImageCache.MaxBytes, out string error);
             if (building == null) { Fail(id, error); return; }
+            if (BuildingBytes() + building.Total > MaxBuildingBytes) { Fail(id, "too much media is loading at once"); return; }
 
-            if (!_byId.TryGetValue(id, out Entry e)) { e = new Entry(); _byId[id] = e; }
-            // A second meta for media already held must release the old bytes, or the held total only ever climbs.
-            if (e.Bytes != null) { _heldBytes -= e.Bytes.Length; e.Bytes = null; }
+            Entry e = asked;
             e.State = State.Waiting;
             e.Mime = building.Mime;
             e.Building = building;

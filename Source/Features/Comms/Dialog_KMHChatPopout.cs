@@ -9,7 +9,7 @@ using Verse;
 
 namespace KMHPatch.Features.Comms
 {
-    // Deliberately not a second hub: no sidebar, no mail and no pause, because it stays readable while the colony runs.
+    // Deliberately not a second hub: no sidebar, mail or pause, so it stays readable while the colony runs.
     public class Dialog_KMHChatPopout : Window_KMHBase
     {
         private const float MinW = KMHPatchSettings.ChatPopoutMinW, MinH = KMHPatchSettings.ChatPopoutMinH;
@@ -23,6 +23,8 @@ namespace KMHPatch.Features.Comms
 
         private static float SavedW => KMHPatchMod.Settings?.ChatPopoutW ?? KMHPatchSettings.ChatPopoutDefW;
         private static float SavedH => KMHPatchMod.Settings?.ChatPopoutH ?? KMHPatchSettings.ChatPopoutDefH;
+
+        internal override float BackgroundOpacity => KMHPatchSettings.ChatOpacity(KMHPatchMod.Settings);
 
         public Dialog_KMHChatPopout(string channel)
         {
@@ -43,7 +45,6 @@ namespace KMHPatch.Features.Comms
             ChatCache.Updated += MarkRefreshed;
         }
 
-        // One at a time. Re-opening while it is up switches the channel instead of stacking a second copy.
         public static void Open(string channel = null)
         {
             Dialog_KMHChatPopout live = Find.WindowStack?.WindowOfType<Dialog_KMHChatPopout>();
@@ -56,7 +57,7 @@ namespace KMHPatch.Features.Comms
             Find.WindowStack?.Add(new Dialog_KMHChatPopout(channel ?? Remembered()));
         }
 
-        // Re-checked against what the player can still see, or a left guild reopens on a channel the server will not answer.
+        // Re-checked against what the player can still see, or a left guild reopens on a channel nobody answers.
         private static string Remembered()
         {
             string want = KMHPatchMod.Settings?.ChatPopoutChannel;
@@ -119,15 +120,29 @@ namespace KMHPatch.Features.Comms
         {
             float y = 0f;
 
-            // The picker is the whole navigation, so a narrow window spends no width on a separate title.
-            float pickW = Mathf.Min(rect.width - 156f, 260f);
+            string defaultLabel = KmhText.Get("KMH_Chat_Default", "Default");
+            float defaultW = DialogLayout.ButtonW(defaultLabel, 60f, 130f);
+            const float glassW = 52f;
+            float pickW = Mathf.Min(rect.width - defaultW - 96f - glassW - 4f, 260f);
             int elsewhere = UnreadElsewhere();
             string picker = LabelFor(_channel) + (elsewhere > 0 ? $"  ({elsewhere})" : "");
-            if (Widgets.ButtonText(new Rect(0f, y, Mathf.Max(80f, pickW), 24f), picker))
+            // IconButton truncates with the full name on hover; a centred label would cut a long name at both edges.
+            if (IconButton.Draw(new Rect(0f, y, Mathf.Max(80f, pickW), 24f), null, picker))
                 ShowChannelMenu();
 
-            Rect defaultR = new Rect(rect.width - 148f, y, 60f, 24f);
-            if (Widgets.ButtonText(defaultR, "Default")) ResetToDefault();
+            // One click per step, so the map can show through without a trip to the mod settings.
+            Rect glassR = new Rect(rect.width - 88f - defaultW - glassW - 4f, y, glassW, 24f);
+            KMHPatchSettings st = KMHPatchMod.Settings;
+            if (Widgets.ButtonText(glassR, Mathf.RoundToInt(KMHPatchSettings.ChatOpacity(st) * 100f) + "%") && st != null)
+            {
+                st.ChatWindowOpacity = KMHPatchSettings.NextChatOpacity(st.ChatWindowOpacity);
+                KMHPatchMod.SaveSettings();
+            }
+            TooltipHandler.TipRegion(glassR, KmhText.Get("KMH_Chat_OpacityTip",
+                "How solid the chat windows are. Click to let more of the map show through; the text stays readable."));
+
+            Rect defaultR = new Rect(rect.width - 88f - defaultW, y, defaultW, 24f);
+            if (Widgets.ButtonText(defaultR, defaultLabel)) ResetToDefault();
             TooltipHandler.TipRegion(defaultR, "Put this window back to its default size and position.");
 
             Rect hubR = new Rect(rect.width - 84f, y, 60f, 24f);
@@ -142,7 +157,9 @@ namespace KMHPatch.Features.Comms
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             Rect body = new Rect(0f, y, rect.width, Mathf.Max(60f, rect.height - y));
-            Panel().Draw(body);
+            ChatPanel panel = Panel();
+            panel.Opacity = BackgroundOpacity;
+            panel.Draw(body);
         }
 
         // In ExtraOnGUI because it runs in screen space, so it sees the outside click the window itself never receives.
@@ -214,7 +231,7 @@ namespace KMHPatch.Features.Comms
         private static string LabelFor(string channel)
         {
             if (ChatChannels.IsDm(channel)) return "DM · " + LinkedAccountsCache.Format(ChatChannels.OtherParty(channel, KmhSession.Me));
-            if (ChatChannels.IsGuild(channel)) return "Guild · " + channel.Substring("guild:".Length);
+            if (ChatChannels.IsGuild(channel)) return "Guild · " + KmhDisplayText.GuildName(channel.Substring("guild:".Length));
             return "Server Chat";
         }
     }

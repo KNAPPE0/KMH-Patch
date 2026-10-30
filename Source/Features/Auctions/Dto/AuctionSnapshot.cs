@@ -32,6 +32,8 @@ namespace KMHPatch.Features.Auctions.Dto
 
         // Server-only and stripped before send; mirrored here for wire-contract parity and never populated.
         [JsonProperty("escrow_payloads")]     public List<KMHPatch.Items.KmhThingPayload> EscrowPayloads { get; set; }
+        // Mirrors the server's record; the server strips it before sending, so it always arrives empty here.
+        [JsonProperty("post_tx", NullValueHandling = NullValueHandling.Ignore)] public string PostTxId { get; set; }
         [JsonProperty("state_fingerprint")]   public string StateFingerprint  { get; set; } = "";
         [JsonProperty("state_note")]          public string StateNote         { get; set; } = "";
     }

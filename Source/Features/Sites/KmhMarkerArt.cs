@@ -6,7 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // The world-map look of a KMH marker; textures are cached because ExpandingIcon is read during world rendering.
+    // Textures are cached: ExpandingIcon is read during world rendering.
     internal static class KmhMarkerArt
     {
         private static readonly Dictionary<string, Texture2D> _cache = new Dictionary<string, Texture2D>();
@@ -19,7 +19,6 @@ namespace KMHPatch.Features.Sites
         internal const string Expanding = "KMHPatch/World/WorldObjects/Expanding/";
         internal const string Normal    = "KMHPatch/World/WorldObjects/";
 
-        // Named rather than inlined so the offline suite can assert the two paths never converge on one image.
         public static string ExpandingPathFor(SiteEntry s) => PathFor(_expandingPaths, Expanding, ArtKeyFor(s));
         public static string NormalPathFor(SiteEntry s)    => PathFor(_normalPaths, Normal, ArtKeyFor(s));
 
@@ -41,7 +40,7 @@ namespace KMHPatch.Features.Sites
             if (t != null) { _cache[path] = t; _misses.Remove(path); return t; }
 
             _misses[path] = tried + 1;
-            // Said once, wrapped because this runs inside world rendering, and never for the self-test's staged misses.
+            // Warned once and wrapped (this runs inside world rendering); never for the self-test's staged misses.
             if (tried + 1 == ResolveAttempts && LookupForTest == null)
                 try { KmhLog.Warn($"World marker art missing: {path} - that marker falls back to its def texture."); }
                 catch { }
@@ -53,7 +52,6 @@ namespace KMHPatch.Features.Sites
             try { return ContentFinder<Texture2D>.Get(path, reportFailure: false); } catch { return null; }
         }
 
-        // ContentFinder needs a loaded game; the seam lets the offline suite drive the retry policy itself.
         internal static System.Func<string, Texture2D> LookupForTest;
 
         internal static void ResetForTest()
@@ -62,13 +60,13 @@ namespace KMHPatch.Features.Sites
             _misses.Clear();
         }
 
-        // A per-frame budget, not a verdict: a marker placed during a load otherwise wore the def's art all session.
+        // A per-frame budget, not a verdict: a marker placed during a load would otherwise wear the def's art all session.
         internal static void ForgetMisses() => _misses.Clear();
 
         public static bool IsOutpost(SiteEntry s)
             => s != null && !string.IsNullOrEmpty(s.OutpostState);
 
-        // One art identity per marker; state rides on the rim and priority, since borrowed vanilla art read as someone else's object.
+        // State rides on rim and priority, not art: borrowed vanilla art read as someone else's object.
         public static string ArtKeyFor(SiteEntry s)
         {
             if (s == null) return "";
@@ -90,7 +88,7 @@ namespace KMHPatch.Features.Sites
 
         public static Texture2D BaseIconFor(SiteEntry s) => Tex(NormalPathFor(s));
 
-        // For markers that have no SiteEntry: the guild hall, which still wants the same retry budget and warn-once.
+        // For markers without a SiteEntry (the guild hall), with the same retry budget and warn-once.
         internal static Texture2D NamedIcon(string key) => Tex(PathFor(_normalPaths, Normal, key));
 
         internal static Color Mine   => KmhMarkerColors.Mine;
@@ -116,8 +114,8 @@ namespace KMHPatch.Features.Sites
         // Names what the thing IS, not what it produces: "KMH site - Steel" made a captured fortress read as a shed.
         public static string LabelFor(SiteEntry s, string resolvedItemLabel)
         {
-            if (s == null) return "KMH site";
-            if (!string.IsNullOrEmpty(s.SiteName)) return s.SiteName;
+            if (s == null) return "Colony Nexus site";
+            if (!string.IsNullOrEmpty(s.SiteName)) return UI.KmhDisplayText.Inert(s.SiteName, 64);
 
             if (IsOutpost(s))
             {
@@ -126,7 +124,7 @@ namespace KMHPatch.Features.Sites
                 return string.IsNullOrEmpty(state) ? kind : $"{state} {kind}";
             }
 
-            return string.IsNullOrEmpty(resolvedItemLabel) ? "KMH site" : $"KMH site - {resolvedItemLabel}";
+            return string.IsNullOrEmpty(resolvedItemLabel) ? "Colony Nexus site" : $"Site - {resolvedItemLabel}";
         }
 
         public static string StateWord(string outpostState)

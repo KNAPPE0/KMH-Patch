@@ -1,23 +1,30 @@
 using System;
+using System.Diagnostics;
 using KMHPatch.Diagnostics;
 using KMHPatch.SubProtocol;
 using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // ~60s so mid-session op/de-op is caught; 20s was measurable server noise for a rare event.
+    // ~60s still catches a mid-session op/de-op; polling faster is measurable server noise for a rare event.
     public class GameComponent_KMHEnforcementPoll : GameComponent
     {
-        private const int IntervalTicks = 3600; // ~60s at 1x (60 TPS)
-        private int _next;
+        internal const double IntervalSeconds = 60;
+        private long _lastAsked;
 
         public GameComponent_KMHEnforcementPoll(Game game) { }
 
-        public override void GameComponentTick()
+        // Real seconds, not ticks, which game speed multiplies. Any snapshot that arrived counts as asked.
+        internal static bool Due(long now, long lastAsked, long lastSnapshot, long ticksPerSecond)
+            => now - Math.Max(lastAsked, lastSnapshot) >= (long)(IntervalSeconds * ticksPerSecond);
+
+        public override void GameComponentUpdate()
         {
-            if (Find.TickManager.TicksGame < _next) return;
-            _next = Find.TickManager.TicksGame + IntervalTicks;
-            try { if (KmhDispatcher.IsKmhServer) EnforcementHandler.RequestSnapshot(); }
+            if (!KmhDispatcher.IsKmhServer) return;
+            long now = Stopwatch.GetTimestamp();
+            if (!Due(now, _lastAsked, EnforcementHandler.LastSnapshotStamp, Stopwatch.Frequency)) return;
+            _lastAsked = now;
+            try { EnforcementHandler.RequestSnapshot(); }
             catch (Exception ex) { KmhLog.Warn($"Enforcement poll failed: {ex.Message}"); }
         }
     }

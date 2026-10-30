@@ -10,14 +10,13 @@ using Verse;
 
 namespace KMHPatch.Features.PlayerStats
 {
-    // Sends colony + top colonist summary to the leaderboard on a real-time timer, with playtime tracked locally.
     public class GameComponent_KMHColonyReporter : GameComponent
     {
-        private const float ReportIntervalSec = 120f;   // ~2 min between uploads
-        private const int   RecentCombatMax    = 8;       // cap the combat log we ship
+        private const float ReportIntervalSec = 120f;
+        private const int   RecentCombatMax    = 8;
+        internal const int  RosterMax          = 10;
 
-        private static double _playSeconds;   // cumulative real seconds in-game (persisted)
-        private float  _reportTimer = 6f;     // first upload ~6s after load
+        private float  _reportTimer = 6f;
 
         // The server reads a change here as a save reset, so this must NOT be static - each game gets its own.
         private string _saveId;
@@ -35,37 +34,43 @@ namespace KMHPatch.Features.PlayerStats
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _playSeconds, "kmhPlaySeconds", 0.0);
             Scribe_Values.Look(ref _saveId, "kmhSaveId", null);
         }
 
         public override void GameComponentUpdate()
         {
-            // Real wall-clock time the game has been open (unaffected by RimWorld's tick speed / pause).
-            _playSeconds += Time.deltaTime;
-
             if (!KmhDispatcher.IsKmhServer) return;
             _reportTimer -= Time.deltaTime;
             if (_reportTimer > 0f) return;
             _reportTimer = ReportIntervalSec;
-            SendNow();
+            Send();
         }
 
-        // Builds and uploads a colony report now; safe from UI and rate-limited server-side.
         private static float _lastSendRealtime = -999f;
+        private static int   _sentInSession = -1;
 
+        // For windows: only a connection with no report yet gets one; after that the timer keeps it current.
         public static void SendNow()
+        {
+            if (!UiMaySend(_sentInSession, KmhDispatcher.SessionGeneration)) return;
+            Send();
+        }
+
+        // Once per connection: Standings refreshes every 12 s and the server drops reports inside its 30 s limit.
+        internal static bool UiMaySend(int sentInSession, int sessionNow) => sentInSession != sessionNow;
+
+        private static void Send()
         {
             if (!KmhDispatcher.IsKmhServer) return;
             if (Current.ProgramState != ProgramState.Playing || Current.Game == null) return;
-            if (Time.realtimeSinceStartup - _lastSendRealtime < 20f) return;
+            if (_sentInSession == KmhDispatcher.SessionGeneration && Time.realtimeSinceStartup - _lastSendRealtime < 20f) return;
             try
             {
                 ColonyReport report = BuildReport();
                 if (report != null && PlayerStatsHandler.SendColonyReport(report))
                 {
                     _lastSendRealtime = Time.realtimeSinceStartup;
-                    // periodic; debug-only so it doesn't flood the log
+                    _sentInSession = KmhDispatcher.SessionGeneration;
                     KmhLog.Debug($"KMH: sent colony report (wealth {report.Wealth}, kills {report.Kills}, {report.Roster?.Count ?? 0} colonist(s))");
                 }
             }
@@ -74,20 +79,28 @@ namespace KMHPatch.Features.PlayerStats
 
         private static ColonyReport BuildReport()
         {
-            List<Pawn> colonists = FreeColonists();
+            List<Pawn> colonists = LivingColonists();
             Pawn colonist = PickTopColonist(colonists);
 
-            List<SettlementReport> settlements = Settlements();
+            List<SettlementReport> settlements = Settlements(colonists);
             long wealth = 0;
             foreach (SettlementReport s in settlements) wealth += s.Wealth;
 
             long kills = 0, kHuman = 0, kMech = 0, kAnimal = 0;
+            var livingIds = new HashSet<string>();
             foreach (Pawn p in colonists)
             {
                 kills   += KillCount(p);
                 kHuman  += RecordInt(p, RecordDefOf.KillsHumanlikes);
                 kMech   += RecordInt(p, RecordDefOf.KillsMechanoids);
                 kAnimal += RecordInt(p, RecordDefOf.KillsAnimals);
+                livingIds.Add(p.ThingID);
+            }
+            Patches.GameComponent_KMHKillTally tally = Patches.GameComponent_KMHKillTally.Current;
+            if (tally != null)
+            {
+                Patches.GameComponent_KMHKillTally.KillSplit fallen = tally.FallenKills(livingIds);
+                kills += fallen.Kills; kHuman += fallen.Humanlike; kMech += fallen.Mechanoid; kAnimal += fallen.Animal;
             }
 
             (int buildings, int turrets, int traps) = StructureCounts();
@@ -97,7 +110,7 @@ namespace KMHPatch.Features.PlayerStats
                 SaveId          = Current.Game?.GetComponent<GameComponent_KMHColonyReporter>()?.SaveId ?? "",
                 ColonyName      = Faction.OfPlayer?.Name ?? "",
                 ColonyAgeDays   = Find.TickManager != null ? Find.TickManager.TicksGame / 60000 : 0,
-                TimePlayedHours = (int)(_playSeconds / 3600.0),
+                TimePlayedHours = PlayedHours(),
                 Wealth          = wealth,
                 Kills           = kills,
                 Population       = colonists.Count,
@@ -105,7 +118,7 @@ namespace KMHPatch.Features.PlayerStats
                 KillsMechanoid   = kMech,
                 KillsAnimal      = kAnimal,
                 RaidsSurvived    = RaidsSurvived(),
-                PawnsLost        = Patches.GameComponent_KMHKillTally.Current?.ColonistDeaths ?? 0,
+                PawnsLost        = tally?.ColonistDeaths ?? 0,
                 DevelopmentScore = FinishedResearch() * 10 + buildings,
                 DefenseScore     = turrets * 5 + traps * 2,
             };
@@ -115,46 +128,67 @@ namespace KMHPatch.Features.PlayerStats
                 r.TopColonistName  = colonist.Name?.ToStringShort ?? colonist.LabelShortCap;
                 r.TopColonistTitle = TopColonistTitle(colonist);
                 r.TopColonistKills = KillCount(colonist);
-                r.Colonist      = BuildColonistProfile(colonist);
+                r.Colonist      = BuildColonistProfile(colonist, tally);
             }
             r.Roster = BuildRoster(colonists);
             r.Settlements = settlements;
             return r;
         }
 
-        private static List<Pawn> FreeColonists()
+        // RimWorld's per-game clock, which stops while nobody touches the game; a static would span games.
+        private static int PlayedHours()
         {
-            List<Pawn> outList = new List<Pawn>();
-            List<Map> maps = Find.Maps;
-            if (maps == null) return outList;
-            foreach (Map m in maps)
+            try { return (int)((Find.GameInfo?.RealPlayTimeInteracting ?? 0f) / 3600f); }
+            catch { return 0; }
+        }
+
+        // RimWorld's IsColonist, as its own records count (slaves yes, ghouls no), for population, deaths and kills alike.
+        public static bool IsCountedColonist(Pawn p) => p != null && !p.Dead && p.IsColonist;
+
+        // RWT puts other players' pawns in its own factions, so they never count here.
+        internal static List<Pawn> LivingColonists()
+        {
+            var outList = new List<Pawn>();
+            var seen = new HashSet<Pawn>();
+            foreach (Pawn p in PawnsFinder.AllMapsCaravansAndTravellingTransporters_Alive_Colonists)
+                if (IsCountedColonist(p) && seen.Add(p)) outList.Add(p);
+            // 1.7 already lists the gravship's crew; 1.6 may not, and the set drops the overlap.
+            try
             {
-                // own colonies only - a visited/hosted player's map isn't IsPlayerHome, so its pawns must not be reported as ours (same guard wealth uses)
-                if (m == null || !m.IsPlayerHome || m.mapPawns?.FreeColonists == null) continue;
-                foreach (Pawn p in m.mapPawns.FreeColonists)
-                    if (p != null && !p.Dead && p.HostFaction == null) outList.Add(p);
+                RimWorld.Planet.Gravship ship = Find.CurrentGravship;
+                if (ship != null)
+                    foreach (Pawn p in ship.Pawns)
+                        if (IsCountedColonist(p) && seen.Add(p)) outList.Add(p);
             }
+            catch (Exception ex) { KmhLog.Debug($"Colony reporter: gravship crew unreadable: {ex.Message}"); }
+            var held = new List<Pawn>();
+            Sites.WorldComponent_KMHSiteWorkers.Instance?.AppendHeldPawns(held);
+            foreach (Pawn p in held)
+                if (IsCountedColonist(p) && seen.Add(p)) outList.Add(p);
             return outList;
         }
 
-        // One row per home map, using the same guard the colonist list uses so the rows sum to the reported totals.
-        private static List<SettlementReport> Settlements()
+        // One row per home map counting the colonists on it; those away (caravans, sites, flight) are in the total only.
+        private static List<SettlementReport> Settlements(List<Pawn> colonists)
         {
             List<SettlementReport> outList = new List<SettlementReport>();
             List<Map> maps = Find.Maps;
             if (maps == null) return outList;
+            var pop = new Dictionary<Map, int>();
+            foreach (Pawn p in colonists)
+            {
+                Map at = p.MapHeld;
+                if (at != null) pop[at] = (pop.TryGetValue(at, out int n) ? n : 0) + 1;
+            }
             foreach (Map m in maps)
             {
+                // A visited player's map is not IsPlayerHome, so its wealth is never reported as ours.
                 if (m == null || !m.IsPlayerHome) continue;
-                int pop = 0;
-                if (m.mapPawns?.FreeColonists != null)
-                    foreach (Pawn p in m.mapPawns.FreeColonists)
-                        if (p != null && !p.Dead && p.HostFaction == null) pop++;
                 outList.Add(new SettlementReport
                 {
                     Name       = SettlementName(m),
                     Wealth     = m.wealthWatcher != null ? (long)m.wealthWatcher.WealthTotal : 0,
-                    Population = pop,
+                    Population = pop.TryGetValue(m, out int here) ? here : 0,
                 });
             }
             return outList;
@@ -171,17 +205,16 @@ namespace KMHPatch.Features.PlayerStats
             return "Settlement";
         }
 
-        // Compact per-colonist roster (≤10) for the per-skill Colonist Records boards. Owner + colony are stamped server-side.
+        // Owner and colony are stamped server-side, never taken from this report.
         private static List<ColonistEntry> BuildRoster(List<Pawn> colonists)
         {
             List<ColonistEntry> outList = new List<ColonistEntry>();
-            int n = Math.Min(colonists.Count, 10);
-            for (int i = 0; i < n; i++)
+            foreach (Pawn p in colonists)
             {
-                Pawn p = colonists[i];
                 if (p == null) continue;
                 outList.Add(new ColonistEntry
                 {
+                    Id    = p.ThingID ?? "",
                     Name  = p.Name?.ToStringShort ?? p.LabelShortCap,
                     Title = TopColonistTitle(p),
                     Age   = p.ageTracker?.AgeBiologicalYears ?? 0,
@@ -194,8 +227,15 @@ namespace KMHPatch.Features.PlayerStats
                     SkConstruction = SkillLevel(p, SkillDefOf.Construction),
                 });
             }
-            return outList;
+            return TopRoster(outList, RosterMax);
         }
+
+        // The true top ten, not the first ten in map order: most kills, then longest service, then name so it is stable.
+        internal static List<ColonistEntry> TopRoster(List<ColonistEntry> all, int max)
+            => (all ?? new List<ColonistEntry>()).Where(c => c != null)
+                .OrderByDescending(c => c.Kills).ThenByDescending(c => c.Days)
+                .ThenBy(c => c.Name ?? "", StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Name ?? "", StringComparer.Ordinal)
+                .Take(Math.Max(0, max)).ToList();
 
         private static int SkillLevel(Pawn p, SkillDef def)
         {
@@ -210,7 +250,6 @@ namespace KMHPatch.Features.PlayerStats
             catch { return 0; }
         }
 
-        // Completed research projects - a rough "how developed" signal.
         private static int FinishedResearch()
         {
             try
@@ -223,7 +262,6 @@ namespace KMHPatch.Features.PlayerStats
             catch { return 0; }
         }
 
-        // One pass over player buildings across home maps: total buildings + turrets + traps (for dev/defense scores).
         private static (int buildings, int turrets, int traps) StructureCounts()
         {
             int b = 0, tr = 0, tp = 0;
@@ -247,7 +285,6 @@ namespace KMHPatch.Features.PlayerStats
             return (b, tr, tp);
         }
 
-        // Deadliest colonist: most kills, tiebreak by combat skill (Shooting + Melee).
         private static Pawn PickTopColonist(List<Pawn> colonists)
         {
             Pawn best = null; int bestKills = -1, bestCombat = -1;
@@ -286,7 +323,7 @@ namespace KMHPatch.Features.PlayerStats
             catch { return "Colonist"; }
         }
 
-        private static ColonistProfile BuildColonistProfile(Pawn p)
+        private static ColonistProfile BuildColonistProfile(Pawn p, Patches.GameComponent_KMHKillTally tally)
         {
             ColonistProfile d = new ColonistProfile();
             try
@@ -310,13 +347,11 @@ namespace KMHPatch.Features.PlayerStats
 
                 d.Incapable = IncapableOf(p);
 
-                // health
                 d.HealthPct = Pct(p.health?.summaryHealth?.SummaryHealthPercent ?? 0f);
                 d.PainPct   = Pct(p.health?.hediffSet?.PainTotal ?? 0f);
                 d.Capacities = Capacities(p);
                 d.Conditions = Conditions(p);
 
-                // combat
                 d.TotalKills     = RecordInt(p, RecordDefOf.Kills);
                 d.HumanlikeKills = RecordInt(p, RecordDefOf.KillsHumanlikes);
                 d.MechanoidKills = RecordInt(p, RecordDefOf.KillsMechanoids);
@@ -325,6 +360,7 @@ namespace KMHPatch.Features.PlayerStats
                 ThingWithComps wep = p.equipment?.Primary;
                 d.Weapon = wep?.LabelCap ?? "None";
                 d.WeaponQuality = (wep != null && wep.TryGetQuality(out QualityCategory q)) ? q.GetLabel().CapitalizeFirst() : "None";
+                d.RecentCombat  = tally?.RecentCombatOf(p.ThingID, RecentCombatMax) ?? new List<string>();
             }
             catch (Exception ex) { KmhLog.Warn($"Colonist detail partial: {ex.Message}"); }
             return d;
@@ -359,7 +395,7 @@ namespace KMHPatch.Features.PlayerStats
             return outList;
         }
 
-        // Resolved by defName (not DefOf) so version-specific capacities like Eating still resolve and any missing one just drops out.
+        // By defName, not DefOf, so version-specific capacities like Eating resolve and a missing one just drops out.
         private static readonly string[] CapacityNames =
         {
             "Consciousness", "Moving", "Manipulation", "Talking", "Eating", "Sight",

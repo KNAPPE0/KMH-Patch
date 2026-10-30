@@ -8,7 +8,6 @@ using Verse;
 
 namespace KMHPatch.Features.World
 {
-    // Receives kmh.world.snapshot pushes into WorldCache (pushed on handshake + every change, no polling).
     internal static class WorldHandler
     {
         public static void Register()
@@ -22,7 +21,7 @@ namespace KMHPatch.Features.World
         public static bool SendContribution(long questId, int total)
             => KmhDispatcher.Send(KmhProtocol.Kind.WorldContribute, new { quest_id = questId, total = total });
 
-        // Nothing leaves the colony: the server pays from the treasury, the only stock it can prove you own, so this asks and it withdraws or refuses.
+        // Nothing leaves the colony: the server pays from the treasury, the only stock it can prove you own.
         public static bool TryDeliver(long questId, string targetDefName, int qty)
         {
             if (qty <= 0) { KmhNotifications.Rejected("Quantity must be greater than 0"); return false; }
@@ -37,14 +36,12 @@ namespace KMHPatch.Features.World
         }
 
         // What the treasury can cover, so the dialog can offer a number the server will actually accept.
-        public static int TreasuryStockOf(string targetDefName)
-            => Features.Treasury.TreasuryCache.CompactCountOf(targetDefName);
+        public static int TreasuryStockOf(string targetDefName) => Features.Treasury.TreasuryCache.DeliverableCountOf(targetDefName);
 
         private static void OnSnapshot(KmhEnvelope env)
         {
             WorldSnapshot snap = env?.DataAs<WorldSnapshot>();
             if (snap == null) { KmhLog.Warn("World snapshot had no parseable payload, ignoring"); return; }
-            // Basic stats so a bad payload is diagnosable without a full dump (types/titles only at debug level).
             int evc = snap.Events?.Count ?? 0, qc = snap.ServerQuests?.Count ?? 0;
             KmhLog.Debug($"World snapshot: {evc} event(s), {qc} server quest(s)"
                 + (evc > 0 ? " [" + string.Join(", ", (snap.Events ?? new System.Collections.Generic.List<WorldEventDto>()).ConvertAll(e => e == null ? "null" : $"{e.Type}#{e.Id}")) + "]" : ""));

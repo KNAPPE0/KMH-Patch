@@ -9,7 +9,7 @@ using Verse;
 
 namespace KMHPatch.Features.Treasury
 {
-    // These move REAL goods: deposits remove locally before telling the server, withdrawals materialize only after it confirms.
+    // Real goods: deposits remove locally before telling the server; withdrawals land only after it confirms.
     internal static class TreasuryHandler
     {
         public static void Register()
@@ -17,14 +17,34 @@ namespace KMHPatch.Features.Treasury
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasurySnapshot, OnSnapshot);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasuryGrant,    OnGrant);
             KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasuryDepositApproval, OnDepositApproval);
+            KmhDispatcher.RegisterHandler(KmhProtocol.Kind.TreasuryAccess,   OnAccess);
         }
 
         public static bool RequestSnapshot()
             => KmhDispatcher.Send(KmhProtocol.Kind.TreasuryRequest, null);
 
-        // Preflight first: nothing local is touched until the server approves, so a rejection can't lose goods.
+        // Display only: the server re-checks every move, so a stale or edited copy buys nothing.
+        public static int  AccessFeeSilver { get; private set; }
+        public static bool AccessOpen      { get; private set; }
+        public static long AccessExpiresAtUnix { get; private set; }
+        public static int  AccessLeaseMinutes  { get; private set; }
 
-        // Ties the goods-removal to the server's pending deposit; a disconnect between the two would credit goods the colony kept.
+        private static void OnAccess(KmhEnvelope env)
+        {
+            AccessFeeSilver     = env?.GetInt("fee", 0) ?? 0;
+            AccessOpen          = env?.GetBool("ok", false) ?? false;
+            AccessExpiresAtUnix = env?.GetLong("expires_at", 0) ?? 0;
+            AccessLeaseMinutes  = env?.GetInt("lease_minutes", 0) ?? 0;
+            KmhOpId.Settled(OpenActionKey);
+        }
+
+        // A retry inside the hold window reuses the id, so the server's guard suppresses the second debit.
+        internal const string OpenActionKey = "treasury.open";
+
+        public static bool OpenAccess()
+            => KmhDispatcher.Send(KmhProtocol.Kind.TreasuryOpen, null, KmhOpId.For(OpenActionKey));
+
+        // Ties goods-removal to the server's pending deposit; a disconnect between them would credit goods still held.
         private static string NewTxn() => System.Guid.NewGuid().ToString("N");
 
         private class DepositIntent { public string Kind, ItemDefName; public int Amount, Qty; public bool Complex; }
@@ -95,7 +115,7 @@ namespace KMHPatch.Features.Treasury
                         $"Re-sending ×{intent.Qty} {ItemKeys.LabelForKey(intent.ItemDefName)} with full item state…");
                     return;
                 }
-                KmhNotifications.Rejected(env?.GetString("reason") ?? "Deposit not allowed right now.");
+                KmhNotifications.Rejected(KmhDisplayText.Inert(env?.GetString("reason") ?? "Deposit not allowed right now.", 300));
                 return;
             }
             string token = env?.GetString("token") ?? "";
@@ -166,7 +186,7 @@ namespace KMHPatch.Features.Treasury
         private static void ReturnFailed(string desc)
         {
             KmhNotifications.Alert("Deposit not returned",
-                $"KMH took {desc} for a deposit, the server didn't receive it, and it couldn't be returned to your " +
+                $"Colony Nexus took {desc} for a deposit, the server didn't receive it, and it couldn't be returned to your " +
                 "colony. Take a screenshot and tell the server owner.");
         }
 
@@ -200,7 +220,6 @@ namespace KMHPatch.Features.Treasury
             return sent;
         }
 
-        // Withdraw a state-preserving payload stack by its fingerprint - the server returns the exact captured items.
         public static bool TryWithdrawPayload(string fingerprint, int qty)
         {
             if (string.IsNullOrEmpty(fingerprint)) { KmhNotifications.Rejected("Item is missing"); return false; }
@@ -221,7 +240,6 @@ namespace KMHPatch.Features.Treasury
             // Dedupe and record both wait for the deferred delivery: a replay arrives mid-load with no Game to ask.
             string deliveryId = env.GetString("delivery_id") ?? "";
 
-            // Full-state payload grant (complex items).
             if (kind == "item_payloads")
             {
                 var req = env.DataAs<Dto.TreasuryGrantPayloads>();
@@ -231,18 +249,23 @@ namespace KMHPatch.Features.Treasury
                 {
                     if (Delivery.GameComponent_KMHDeliveryReceipts.HeldAlready(deliveryId)) return;
                     string desc = $"×{total} item(s)";
-                    // Asked BEFORE anything is built: arguments evaluate left to right, and a map appearing between the two calls read as "do not retry".
-                    bool canDeliver = ColonyGoods.CanDeliverNow();
-                    switch (Delivery.KmhGrantDecision.Decide(canDeliver && ColonyGoods.DeliverPayloads(req.Payloads), canDeliver))
+                    // Asked BEFORE anything is built, so a map appearing mid-delivery cannot turn a hold into a failure.
+                    if (!ColonyGoods.CanDeliverNow()) { Delivery.KmhPendingDelivery.HoldPayloads(req.Payloads, desc, deliveryId); return; }
+                    switch (ColonyGoods.DeliverPayloads(req.Payloads, out string blocked, out string failed))
                     {
-                        case Delivery.KmhGrantOutcome.Delivered:
+                        case ColonyGoods.PayloadDelivery.Delivered:
                             Delivery.GameComponent_KMHDeliveryReceipts.RecordDelivered(deliveryId);
                             KmhNotifications.Positive($"Received {desc}");
                             Extensibility.KmhClientEventBus.Instance.RaiseGrantReceived(
                                 new KMH.Sdk.Client.Events.KmhGrantReceivedEvent { Kind = "item_payloads", Quantity = total });
                             break;
-                        case Delivery.KmhGrantOutcome.Held:      Delivery.KmhPendingDelivery.HoldPayloads(req.Payloads, desc, deliveryId); break;
-                        default:                                 GrantUndelivered(desc); break;
+                        // Nothing placed: left owed, so it lands on a later join once this game has the content.
+                        case ColonyGoods.PayloadDelivery.Blocked: Delivery.KmhGrantNotice.Blocked(desc, blocked, deliveryId); break;
+                        case ColonyGoods.PayloadDelivery.Partial:
+                            Delivery.GameComponent_KMHDeliveryReceipts.RecordDelivered(deliveryId);
+                            Delivery.KmhGrantNotice.PartlyDelivered(desc, failed);
+                            break;
+                        default: GrantUndelivered(desc); break;
                     }
                 });
                 return;
@@ -259,6 +282,8 @@ namespace KMHPatch.Features.Treasury
                 {
                     // DeliverKey restores material+quality from the composed key, and returns false for a removed mod's def.
                     string desc = $"×{amount} {ItemKeys.LabelForKey(defName)}";
+                    string blocked = ColonyGoods.WhyCannotDeliverKey(defName);
+                    if (blocked != null) { Delivery.KmhGrantNotice.Blocked(desc, blocked, deliveryId); return; }
                     bool canDeliver = ColonyGoods.CanDeliverNow();
                     switch (Delivery.KmhGrantDecision.Decide(canDeliver && ColonyGoods.DeliverKey(defName, amount), canDeliver))
                     {
@@ -295,7 +320,7 @@ namespace KMHPatch.Features.Treasury
         private static void GrantUndelivered(string desc)
         {
             KmhNotifications.Alert("Withdrawal not delivered",
-                $"KMH withdrew {desc} from your vault but couldn't place it in your colony (a missing mod or no valid " +
+                $"Colony Nexus withdrew {desc} from your vault but couldn't place it in your colony (a missing mod or no valid " +
                 "drop cell). Your vault was already charged. Take a screenshot and ask the server owner to restore it.");
         }
 
@@ -308,7 +333,6 @@ namespace KMHPatch.Features.Treasury
                 return;
             }
             TreasuryCache.Apply(snapshot);
-            // If this snapshot still shows deposits we've durably saved, re-confirm them now instead of waiting a tick.
             GameComponent_KMHDepositLedger.Instance?.OnSnapshotApplied();
         }
     }

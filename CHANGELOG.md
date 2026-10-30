@@ -1,6 +1,649 @@
-﻿# Changelog
+# Changelog
 
-All notable changes to the KMH Patch client mod. Versions follow the KMH build number shared with the KMH Server Addon.
+All notable changes to the KMH: Colony Nexus client mod (called KMH Patch before v1.3.1). Versions follow the
+KMH build number shared with the Colony Nexus Server Addon.
+
+## v1.3.1 — Connected Worlds
+
+**This client needs a v1.3.1 server.** The protocol is v3, and a v1.2.x or v1.3.0 server refuses it, naming both
+version numbers rather than leaving you waiting. Nothing in your save needs converting.
+
+### rel-279 (in progress)
+
+- **Your own mod list comes back, including after the playtest builds.** Colony Nexus kept a copy of your mod list
+  before a server changed it, but compared lists in exact order. RimWorld re-sorts the list when it restarts and renames
+  a Workshop copy `_steam`, so a second Prepare and join replaced the saved copy with the first server's list, and
+  Restore deleted the copy without putting it back. Every playtest build from RC7 on was affected. Lists are now
+  compared as sets of mods; a list you changed yourself is kept; nothing is deleted, only archived. A saved copy that
+  turns out to be a server's list is set aside at start-up, and **Colony Nexus settings → Recover an older mod list…**
+  offers every list that can still be recovered, including RimWorld's own backup, showing what each would switch on
+  and off.
+- **Your own mod settings come back, and stay back.** Settings put back while RimWorld was running were still held
+  in memory by the mods, and the next settings save wrote the server's values over them again. Files put back are now
+  write-protected until RimWorld restarts, and the main menu offers the restart. A server switch on v1.3.0 or older
+  deleted the previous server's files, which never came back; the older backup now restores them. When no backup of
+  yours was ever kept, the server's files are no longer silently treated as yours: the main menu lists them so you can
+  keep them or let those mods start from their defaults.
+- **Enforced settings ask twice and show what changes.** After you agree to a server's rules, Colony Nexus downloads
+  its settings, writes nothing, and shows which mods' settings would be replaced, added or merged before a second
+  Apply. The first dialog now also lists which mods the server's load order switches on and off. A server can no longer
+  push settings you did not ask for, and a changed load order asks again instead of counting as already accepted.
+- **A server's settings can no longer make RimWorld build arbitrary objects.** RimWorld constructs whatever type a
+  settings file names, at every start. A profile naming anything but a mod's own settings types, carrying a DTD, or
+  naming .NET types in a JSON file is refused before anything is written, and one applied by an earlier build is
+  checked again at start-up and undone. Only plain settings files are unpacked, old profile copies are removed, and
+  names a Windows PC would open as a device, or that differ from yours only in letter case, are refused.
+- **No restart loops, and a way out.** Only an apply you agreed to in this session restarts RimWorld by itself; a
+  repair, or a second restart for the same settings within 15 minutes, asks first. Mods that save their own settings
+  can no longer rewrite an enforced file. If RimWorld does not reach the main menu after a server's settings were
+  applied, the next start puts your own settings and mod list back and the server's consent dialog warns about it. A
+  backup that cannot be trusted no longer locks you in: the main menu can release the lock and keep the current files,
+  setting the damaged backup aside.
+- **Prepare and join checks with Steam and holds the server to what you saw.** Each Workshop item shows Steam's own
+  title, and is flagged when Steam calls it something else, it is not public, or it was published in the last two weeks;
+  an item Steam does not list as a RimWorld mod blocks the start. If the server changes its mod list, its rules or its
+  RimWorld Together version after you agreed, preparation stops instead of following. A load order that leaves out a
+  mod Colony Nexus or RimWorld Together needs, such as Harmony, is refused. An optional mod is switched on only by the
+  item you ticked.
+- **RimWorld Together downloads are tighter.** A server asking for a pre-release, or a version older than the ten newest
+  releases, needs your tick, and the release date is shown. Downloads start only from RimWorld Together's own release
+  page, and Colony Nexus checks certificates itself, so another mod accepting any certificate cannot redirect them. A
+  RimWorld Together copy Colony Nexus did not install is never removed when old copies are tidied.
+- **Players can no longer pose as a Colony Nexus server.** On a RimWorld Together server without Colony Nexus, a
+  player could take the server's reserved name and send Colony Nexus messages to everyone. Such a server echoes Colony
+  Nexus's own traffic back, so Colony Nexus now recognises it, ignores the impostor and undoes what it set. A server
+  reached over the internet can no longer point Colony Nexus at an address in your own network.
+- **Chat and deliveries are harder to abuse.** A crafted gif or animated png can no longer freeze or exhaust memory.
+  A Discord link code is shown only when you ask for one and is copied only when you click Copy. A game server can no
+  longer write lines into Global chat. One delivery can no longer build more than a thousand stacks. A saved item may
+  name only game types and a crate may not hold a pawn. Media answers nobody asked for are dropped, server-written
+  reasons and names are shown as plain text, type names in server messages are never honoured whatever another mod
+  sets, shared debug logs are scrubbed like reports, and video downloads no longer follow redirects.
+- **Only Colony Nexus speaks as Colony Nexus.** A server, or a player on one, can no longer pass for Colony Nexus or
+  its staff:
+  - A staff badge names the server's own roles. A label such as "Global Mod", "C0lony Nexus" or "Official" falls back
+    to the plain role, a role Colony Nexus does not know shows no badge, and the badge's tooltip says the server set it.
+  - Only Colony Nexus Global's own directory can mark a server official, and the browser draws the star itself; a star
+    or check mark in a server's name is removed. A directory typed into the mod settings is titled *Unofficial
+    directory* and cannot mark any server official, and the release no longer stays on a playtest directory.
+  - Notices and letters a server sends carry its name instead of "[Colony Nexus]", and so do its chat toasts. An
+    unlisted server whose name poses as Colony Nexus is named by its address.
+  - Signed in to Colony Nexus Global, a bug report's copy for the developers goes to Global directly. A server can no
+    longer mark a copy it was never given as delivered, and a copy a server passes on says it was handed to that server.
+  - Global chat keeps Colony Nexus's own colours and Discord marker, whatever the server sets, and a Discord message a
+    server relayed into Global names that server. A server's Discord marker must be visible, and chat over the map
+    names the channel first.
+  - The Account page says the server accepted your Global sign-in, and the Federation window says its view is as the
+    server passes it on.
+  - Recent servers are remembered by a server's id only when the directory lists that id at the address you dialled.
+  - After a Direct Connect, Colony Nexus asks the directory for that server's listing once, so a listed server is still
+    named by its listing in messages and in Discord.
+  - Leaderboard titles, season records, site names, reputation tiers and your Discord name are drawn as plain text.
+- **Security fixes from the v1.3.1 release audit.**
+  - **Delivered items:** an item delivered to you is checked again once it has loaded. A crafted saved item could hide
+    a pawn, fire or building behind an XML namespace or a second item, and the check read the decoy. Such an item is
+    refused before loading, and anything that loads as other than the item it was sold as is refused.
+  - **Server mod lists:** a server's mod list is applied only as you agreed to it. The client now fingerprints the list
+    itself. A list the server changes after you agreed opens the consent window again, and the review lists the mods
+    switched on and off.
+  - **JSON settings files:** a server's JSON settings file is read the way Newtonsoft reads it, so an escaped
+    `$type` is refused too.
+  - **Server names:** a server's name is drawn on one line everywhere. The connected message and the Federation
+    window use the name the directory vouches for. A directory card's address is host and port only.
+  - **Directory stream:** the directory's live stream checks the certificate itself. Where the game cannot, the list
+    refreshes by polling instead.
+  - **Debug info:** the shipped assemblies no longer carry where they were built.
+  - **Licence text:** the Noto Emoji licence text ships beside the icons that use it.
+- **RimWorld Together 26.10.20.1, RC15.** RimWorld Together's first full 1.7 release changed the method Colony Nexus
+  hooks to start its session on joining, so with RC14 a 1.7 join never started Colony Nexus at all. The hook now fits
+  both releases, and the self-test names any hook that no longer fits the RimWorld Together that is loaded instead of
+  skipping it quietly. RimWorld Together 26.10.20.1 is needed on 1.7; 1.6 is unchanged.
+- **See-through chat windows, RC15.** Mod settings → Chat window opacity (and the % button on a popped-out chat) now
+  sets how much of the map shows through the Comms and chat windows, their panels included, from solid down to 30%.
+- **Chat over the map stays out of the way, RC15.** It no longer covers the mouse-over readout at the bottom left, it
+  moves up above an open menu such as Architect, a message pasted with line breaks shows as one line, and a line it is
+  already showing no longer also pops up as a notification (mentions of you still do).
+- **Lighter Colony Nexus tab, RC15.** The tab rebuilt its feature buttons, and the status panel re-wrapped its labels,
+  on every GUI event, several times a frame; both are now kept and refreshed at most every half second.
+- **Global quests take perishable goods, RC15.** Pork, meals and anything else kept as a full copy in the Treasury did
+  not count toward a global quest, so "Supply Run: pork" could never be delivered. They count now; one delivery is paid
+  from either those copies or ordinary stock, so with both the box offers the larger and a second delivery the rest.
+- **The right RimWorld Together version is detected on 1.7, RC15.** Switching RimWorld Together read a copy's version
+  from its 1.6 folder even on 1.7, so the Workshop copy, which RimWorld 1.7 loads as 26.10.20.1, was taken for
+  26.10.15.1, and Prepare and join could fetch a version already installed. It now reads the copy's LoadFolders.xml,
+  as RimWorld does.
+- **Mods renamed in their 1.7 update still match, RC15.** Several Workshop mods changed their names in the 1.7 update,
+  and the server browser listed such a mod as both missing and not allowed. Prepare and join then stopped, calling it
+  not installed, or switched it off if the server listed it as optional. The server already accepts it by its Workshop
+  id; the browser and the mod list now match it the same way, as long as that id names exactly one listed mod.
+- **A deposit made just before a disconnect no longer stays pending for ever, RC15.** After a reconnect, RimWorld
+  Together loads the server's last save, which may predate the deposit; the server returns such a deposit only once it
+  is two minutes old, and the reconnect usually came sooner. When the Treasury shows a pending deposit this game
+  neither saved nor made, Colony Nexus asks the server again once that time has passed.
+- **Withdrawals no longer punch through roofs, RC15.** Drop pods aimed at a roofed stockpile crashed through the roof
+  and damaged the room. They now land on an open cell of that stockpile, or beside it when it is fully roofed, and
+  the message says so. Site workers returning by pod never punch a roof either.
+- **Saves made while online always reach the server, RC15.** RimWorld Together uploads its own file after every
+  save, but a permadeath save made any other way (Save and quit) was written under the colony's own name, so after a
+  reconnect the upload failed with FileNotFound or sent an older copy. While connected, every save is now written to
+  the file RimWorld Together uploads.
+- **Want Board prices can be fractional, RC15.** Price per unit takes 0.55 like a Marketplace listing, on a server
+  that supports it; the escrow shown is the total rounded up to whole silver, and the board shows the exact price.
+- **No more "has no usable PawnGroupMakers" errors on joining.** RimWorld Together's own factions own work sites on the
+  world map but have no workers for them, so every join logged an error per site, and every bug report carried it.
+  Such a site now gets no workers without the error, as it already did with it; any other faction is unchanged.
+- **Your share of the guild vault counts toward raid scaling again.** It was read from a copy of the vault the
+  server never sends, so it always counted as zero, and silver kept in a guild vault was invisible to raids. It now
+  comes from the guild snapshot every member receives, split by contribution as before.
+- **Two mails that differ only in their goods are two mails.** Sending the same recipient, text and silver with
+  different items within 20 seconds dropped the second one as a repeat.
+- **Lists no longer leave the bottom row blank while scrolling.** The partly visible last row of every scrolled list
+  (Marketplace, Auctions, Want Board, Quest Board, Guild Hall, Treasury) was sometimes not drawn.
+- **Smaller fixes, rel-279.** The Account page retries an unreachable Colony Nexus Global every five seconds instead
+  of every frame. A config file changed just after enforcement re-applied it is checked again rather than missed. A
+  second RimWorld Together download request no longer marks the one already running as failed. A translation with a
+  stray brace no longer breaks the main-menu card. Server text in the Connected Treasury window is shown as text.
+
+- **Discord shows what you are actually doing, RC14.** A server's world event (a tax holiday, a market boom) no longer
+  replaces your status with "Taking part in a server event" all session: it is a background line now, and it names the
+  event. Cryptosleep sickness, morning sickness and toxic buildup no longer count as a disease outbreak, a single animal
+  taking revenge is no longer "a manhunter pack" followed by "Recovering after a raid", and the game's minor low-food
+  alert no longer outranks everything you do.
+- **Find Steam friends works, RC14.** It always said Steam had not given a friends list: the call was looked up with the
+  wrong parameter type and never found.
+- **Fewer stutters, RC14.** An open chat asked the server for its whole history every 12 seconds and re-laid out every
+  line even when nothing had changed; now an unchanged answer costs nothing. Opening the Colony Nexus tab re-requested
+  all fifteen feature snapshots each time; now at most once a minute. The loading screen no longer re-measures the
+  server name letter by letter every frame. With logging on, any Colony Nexus message or window that holds the game for
+  longer than a frame is named in the log.
+- **Save now, RC14.** A deposit waits for your next save before it is spendable, and RimWorld Together only offers
+  "Save and quit". The Treasury's pending line now has a Save now button that runs RimWorld Together's own save,
+  without quitting.
+- **New chat over the map, RC14.** New server, guild and Global Chat lines appear at the bottom left for a few seconds
+  while no chat window is open, and never block a click (Mod settings → Show new chat over the map).
+- **Chat text no longer grows and gets cut off, RC13.** The chat log took its text size from whatever the game drew
+  before it, so with some screens open its lines came out larger than the space measured for them and were clipped.
+  The log now always measures and draws in one size.
+- **Leaving a server that enforced its settings no longer gets stuck, RC12.** A backup made by an older build carries
+  no baseline record, and restoring it failed every minute with "the personal config backup cannot be trusted",
+  keeping the settings lock on. Restore now adopts such a backup the way applying always did; with no backup at all,
+  the settings in place stay yours and the lock is released.
+- **Colony Nexus everywhere you can see it, RC11.** The mod now unzips to `Mods\ColonyNexus` (it was `Mods\KMHPatch`),
+  keeps its account, logs and reports in a `Colony Nexus` folder beside RimWorld's saves (it was `KMH-Patch`), and its
+  log lines start with `[Colony Nexus]`. Nothing is lost on the way: the first start copies your settings over from the
+  old folder name and moves the old data folder, account included. An old `KMHPatch` folder left in Mods beside the
+  new one is now shown on the main menu with what to delete, since RimWorld would otherwise load either copy. The
+  package id, the save-game names and the assembly names are unchanged, so saves, servers and extensions keep working.
+- **The main menu card's status line fits, RC10.** It said "1 servers" and ran off the card once a server was
+  joinable ("1 you ca..."). Counts now read "1 server" / "1 player" in English, German and Spanish, and when the line
+  is too long the card drops the words "Global online" (the dot's colour still says it) before anything is cut; the
+  full line shows on hover.
+- **Discord status follows your game, RC9.** Raids (raiders, mechanoids, insectoids, manhunters, entities, sieges,
+  drop pods), fires, medical emergencies, disease, food shortages, toxic fallout and the other disasters, caravans,
+  visitors, ceremonies, research milestones and the season now show in Discord, read from the game's own threat,
+  condition and map state, never from message text. A raid appears within seconds and ends in "Recovering after a
+  raid"; everyday play rotates through a few accurate lines every ten minutes; nothing is sent unless it changed, and
+  never faster than you allow. DLC and modded conditions that the game announces as bad are recognised by their own
+  name. New settings choose simple or detailed wording, whether multiplayer, public server names, colony size and the
+  play clock are shown, and how often Discord is updated; all of them start on, as does the Colony Nexus screen line.
+  Private server names (unless you name them), quest details, pawn and item names stay out. Extensions can add their
+  own activities through `KMH.Sdk.Client.Apis.PresenceProviders`.
+- **Deliveries, RC7:** a delivery held while no colony was loaded now belongs to the session that replayed it, so it
+  can no longer land in another server's game while its own server replays it again; a delivery that names a pawn,
+  a building or a corpse is refused and stays owed instead of being spawned; a held delivery that fails part-way is
+  not placed a second time.
+- **Text from the server or other players draws as text.** Notices and "while you were away" letters, an item name
+  this game has no def for, site worker names and video titles no longer render colour, size or bold markup, and
+  long ones are capped. Unknown item names are no longer cached for the session.
+- **A saved item may only name the game's own saveable types.** RimWorld builds whatever type a nested `Class`
+  names before it checks it, so a stored item naming anything else is refused before it loads.
+- **Chat channels keep their newest 500 lines**, and a line arriving in order is no longer sorted into place, so a
+  long session's chat stays light.
+- **The feature list from the API handshake is applied on the game thread**, like the chat hello's.
+- **Unknown message kinds from a server are logged at most 64 times.**
+- **Playtest packages come pointed at the playtest directory.** A package built for a playtest
+  (`package-mod.ps1 -Directory preview`, named `...-playtest.zip`) browses the staging directory with the address left
+  blank, and its settings say so; any other build uses the official directory as before.
+- **Marketplace, Treasury, Auctions, Want Board, World and the mod settings are translated.** About 390 headings,
+  buttons, columns, hints and messages in those windows (and the shared Close button and live badge) now follow your
+  game's language in German and Spanish; plurals and word order are the translator's, not glued English pieces.
+- **The Marketplace window allocates far less while open.** Each row's text is built once per update, language and
+  second instead of on every frame, the column layout once per width, and the empty-table message only when the
+  table is empty. Formatted labels no longer allocate while checking their placeholders.
+- **Extensions can ask whether this game can hold an item.** `IItemLabelResolver.MissingContent(defName,
+  stuffDefName)` answers as Buy, Bid and Withdraw do: null, or the DLC or mod content that is missing.
+- **A withdrawal can no longer arrive twice.** A delivery with one stack this game cannot load (an item from a DLC or
+  mod that is not active) used to drop the other stacks and stay unconfirmed, so every rejoin dropped them again. Every
+  stack is now rebuilt before any is placed: if one cannot load, nothing lands, the delivery stays owed, and you are
+  told once what is missing; it arrives when you join with that content active. A material or crated building this
+  game does not have is refused rather than swapped for steel or delivered as an empty crate.
+- **Buy, Bid and Withdraw say why when your game cannot hold the item.** An item, material or crated building from a
+  DLC or mod you do not have is greyed out with the reason, instead of taking your silver for something that cannot
+  arrive.
+- **Prices in any language.** "1,5" and "1.5" both mean one and a half; "1,000" and "1.000" are refused as ambiguous
+  instead of listing at 1 silver. The defend-quest duration reads the same way. The Marketplace total now rounds up,
+  as the server charges.
+- **Global Chat from the main menu.** A Global Chat button beside Browse servers opens Communications on Global Chat
+  without joining a server; off a server it shows only what works there (Global Chat and messages across servers).
+  A moderator's deletion now removes the line, blocking someone everywhere removes their lines already on screen, and
+  Global lines show which server they came from, mark relayed names, and never carry this server's staff badges.
+- **Click a name for the player menu** on the Marketplace, Auctions, Want Board, Quest Board and the Guild Hall roster.
+  The menu gains Decline for an incoming friend request and Copy player ID.
+- **Colonist records follow the colonist, not the nickname** (the server keys them on the pawn's id), and the
+  Standings info card opens the right colonist when two share a nickname.
+- **Lighter windows.** An open chat window allocated 174 MB/s at high frame rates, now 41 MB/s; chat images and
+  animation frames drop their CPU copy once uploaded.
+- **One Colony Nexus look.** The mark from the Colony Nexus website (a world, its ring and a moon) and its colours are
+  now used everywhere: the loading screen, the main menu, the Colony Nexus tab, the leaderboard images, the mod icon
+  and the Workshop picture, which still said "KMH PATCH". The mark is drawn at the size it is shown, so it stays sharp
+  at every resolution and UI scale.
+- **A full-screen Colony Nexus loading screen.** Joining or leaving a Colony Nexus server now shows a dark sky, the
+  mark with its moon on an orbit, the server's name, a progress bar that fills only by what RimWorld measures (and
+  travels otherwise) and a rotating Colony Nexus tip. On 1.7 the old panel sat above RimWorld's own tip and mod list;
+  the new screen replaces the whole loading screen. Reduce motion stops the moon, stars and glow but keeps the bar
+  moving; Animated visuals off stills everything. "Preview the loading screen" in Advanced & tools can show it full
+  screen.
+- **The main menu has one Colony Nexus card**, beside RimWorld's own menu: Browse servers, Account, About and Report,
+  with your account status and the build. The old stack in the top-right corner covered the RimWorld title and the
+  Ludeon logo on 1.7.
+- **The Colony Nexus tab** shows the mark and name at the top and its features two to a row, so everything fits on a
+  1280x720 screen without scrolling. The connection line names the server; its address and protocol are in the
+  tooltip.
+- **"KMH" became "Colony Nexus" everywhere you read it**: in English, German and Spanish, in every window, message and
+  letter. The mod keeps its name, "KMH: Colony Nexus", because RimWorld Together admits players by mod name. A
+  delivery stockpile can now be named with "Nexus" ("Nexus Depot"); names with "KMH" keep working.
+- **The server browser puts servers you can join first.** A server for another RimWorld version no longer sits on
+  top, even when it is the official one, and a server that only needs a RimWorld Together switch (which Prepare &
+  Join does for you) sorts above ones in maintenance or full.
+- **Clearer windows.** Sites is called Sites, its help text no longer cuts off mid-word, and each site is named by
+  its type and output ("Farmland · potatoes"). Global quests show item names ("horse meat", not "Meat_Horse"). The
+  Guild Hall explains what a guild gives you when you are not in one. Prepare & Join's summary fits its text instead
+  of leaving half the window empty. The chat sidebar no longer cuts off player rows. A vault only mentions
+  permissions when your guild rank limits them, instead of "Permissions: Deposit Withdraw" on every personal vault.
+- **German and Spanish read properly.** About 85 German strings were written with "ae", "oe", "ue" and "ss" ("laeuft",
+  "fuer", "ausser") and about 90 Spanish ones without accents or "ñ" ("version", "codigo", "contrasena"); four Spanish
+  questions lacked their opening "¿". All now use the real letters.
+- **The main menu card leaves RimWorld Together's own ▶ button beside the menu visible** (it covered most of it), and
+  the config recovery warning never covers the card: at a large UI scale it moves below the card.
+- **Chat:** the Global Chat entry reads "Global Chat (sign in)" instead of being cut off mid-word, says in a tooltip
+  that it reaches every Colony Nexus server, and its status words are translated.
+- What's New and the welcome window say "Colony Nexus" in their headings; the mod list keeps "KMH: Colony Nexus".
+- **A light crosses the Colony Nexus name on the loading screen**, every few seconds, and the planet's glow warms as a
+  load advances. On RimWorld 1.7 it can be drawn by the game's own graphics engine (Advanced & tools, "RimWorld 1.7
+  shader effects", off by default while it is new); otherwise it is drawn the plain way, and it looks the same.
+- **Every Colony Nexus window carries the mark beside its title**, and progress bars and "waiting for the server"
+  states look the same everywhere (Roadworks, Federation, Prepare & Join, World, leaderboards, server settings).
+- **Sites lists your own sites first**, then the ones you work at, then everything else.
+- **Fixed:** every 1.7 start logged a warning about a skipped patch class, and RimWorld Together's Discord status was
+  suppressed by two copies of the same patch.
+
+### rel-278 (in progress)
+
+- **Multiplayer works on RimWorld 1.7.** RimWorld Together could not send its first packet on 1.7's new engine: the
+  serializer it bundles asks for a kind of generated code the engine does not allow. KMH changes that one request,
+  in memory, before RimWorld Together connects. Nothing of RimWorld Together is modified on disk or shipped with KMH.
+- **Leaderboards in Standings.** 22 boards for the server you are on: economy, trade, contracts, sites, Frontier,
+  reputation, colony wealth, guilds and more. Each says whether the server measured it itself or took your colony's
+  word for it. A podium for the top three, search, your own row highlighted, and a click opens a player's profile.
+  A server older than rel-278 says it does not send leaderboards yet, instead of an empty list. When the server's
+  standings are on its public page, "Open on the website" opens that board, and only on the directory address set
+  in KMH's settings: a server can name its page, but it can never send you to another site.
+- **The detailed record tables rank the way the boards do.** Equal values share a place, a row with nothing to show
+  gets a dash instead of a place, and rows with equal values keep their order between refreshes. Three tabs ranked
+  by formulas nobody could see are gone:
+  - Player Standings "Overall": wealth/1000 + kills×50 + contracts×100 + reputation×10 + hours;
+  - Colonist Records "Top Colonists": a kill counted as twenty skill points;
+  - Battle Records "Survival": fewest colonists lost, which a player who never reported a colony led.
+  Guild Standings "Overall" is now "Total Wealth", which is what it always summed.
+- **The Colony Nexus loading panel.** Prepare & Join shows the step it is on and how many steps are done, the
+  server browser shows it while the list is first fetched, and joining or leaving a KMH server replaces RimWorld's
+  loading window with it. The bar is filled only by progress something actually measured; otherwise it sweeps.
+  Advanced & tools has switches for animation, reduced motion and the loading screen itself. It needs no shaders, so
+  it draws the same on 1.6 and 1.7.
+- **Treasury deposits survive a reload correctly.** Each colony's save now carries its own deposit ledger id, sent
+  with every confirmation. If the game is closed or crashes and the next join loads an older save, the server undoes
+  only that colony's deposits made after it, so the goods are back on the map and not also in the vault. Deposits
+  from your other colonies are no longer affected. You are told when this happens. Older saves get an id the next time
+  they are saved.
+- **Other players' settlements appear on the world map again.** RimWorld Together draws each player's settlement
+  with the icon they picked, and does not check the number. A settlement whose owner never picked one (the picker
+  was closed, or the settlement is older than icons) failed with an error and never appeared for anyone else. KMH
+  now draws those with RimWorld Together's first icon, which is what RimWorld Together already does for your own.
+  Nothing of RimWorld Together is changed on disk.
+- **Prepare & Join never deletes a RimWorld Together copy it did not install.** RimWorld Together 26.10.4.1 can
+  update itself: it replaces the loaded copy with a fresh download that carries no KMH marker. A later Prepare & Join
+  set that copy aside like any other, and its tidy-up could delete it. Copies KMH did not install are now always
+  kept, and the review no longer calls your own copy "the copy KMH put in your Mods folder".
+
+### RimWorld 1.7 groundwork (development copy, not in rel-277)
+
+- **A server on another RimWorld version says so and cannot be joined.** On Steam's 1.7 test branch, every 1.6
+  server showed "Ready to join"; the join then hung for a minute. The card now reads "Needs RimWorld 1.6" and the
+  details name both versions and where Steam chooses the branch. There is no Join and no Prepare for it, and nothing
+  on disk changes. A session that reaches such a server anyway keeps KMH off and says why, before Config Enforcement
+  can touch your mod list.
+- **KMH runs on RimWorld 1.7's new engine** with the same files as on 1.6. A handful of Unity details 1.7 does not
+  have (reverb zones, a video seek flag, the GPU vendor name) no longer break the feature that used them, and your
+  saved Global sign-in keeps its owner-only file permissions on the new runtime.
+- **Prepare and join remembers which RimWorld it was started on**, so switching Steam branches between two launches
+  cannot resume a preparation made for the other version. RimWorld Together copies are read the way the game loads
+  them on a version they have no folder for yet.
+- **Without RimWorld Together, KMH stays quietly off** instead of logging errors about its tab and world markers.
+
+### rel-277 (in progress)
+
+- **Withdrawn and bought goods are delivered once, not again on every join.** The record that tells the server
+  "this delivery reached my colony" was never created in a real game: the list that adds KMH's game components to a
+  loaded game had left it out, and so had the one that lands goods held for a colony. No delivery was ever
+  acknowledged, so the server re-sent each one on every join and the colony received it again. Found by playing:
+  the same 99 silver arrived three times. KMH's game components are now found from KMH itself, not listed by hand.
+  On a game from an older build, a delivery still owed lands one last time and is then acknowledged.
+
+- **Prepare and join.** One button in the Server Browser takes you from "this server needs changes" to playing on it:
+  - first it shows exactly what it will do: Workshop mods to subscribe (names and Workshop numbers), optional mods as
+    tick boxes, mods switched on or off, the load order, the RimWorld Together version to install, and the restart;
+  - then it subscribes and downloads (with byte progress, a stall retry and a clear message for an item Steam will
+    not take), asks RimWorld to find the new mods, installs RimWorld Together from its official release page,
+    writes your mod list, and restarts RimWorld;
+  - after the restart it carries on by itself, checks that what loaded is what it set up, asks RimWorld Together
+    for your account if you have none, and joins after a 5-second countdown you can stop;
+  - your own mod list is kept the first time KMH changes it, through any number of servers, and **Restore my mod
+    list** in the browser puts it back. The browser and Config Enforcement now share that one record.
+- **Join asks for your RimWorld Together account first**, as RimWorld Together's own Join does, instead of
+  connecting with an empty name.
+- **After installing a RimWorld Together version, your mod list points at that copy.** A list naming the Workshop
+  copy kept loading the old version after the restart.
+- **Installing another RimWorld Together version works when Steam's library is on another drive.** The package was
+  unpacked next to your save data and then moved into RimWorld's Mods folder, which Windows refuses across drives:
+  every install failed with "Move will not work across volumes". It is now unpacked beside the Mods folder.
+- **Switching RimWorld Together versions back and forth downloads nothing twice.** A server on your Workshop
+  version sets KMH's copy aside so the Workshop copy loads again, and a version KMH installed before for another
+  server is put back from where it was set aside. Only a version that is not on the PC yet is downloaded. The
+  review says which of these it will do.
+- **Restore my mod list also puts back your RimWorld Together copy.** A copy KMH placed in Mods outranks the
+  Workshop one in every mod list, your own restored one included; restoring now sets it aside (and gives back a
+  copy of your own that KMH had set aside).
+- **A preparation that had failed comes back failed**, with its reason and Retry or Cancel, instead of starting again
+  by itself the next time RimWorld opens. A RimWorld Together version that still has not loaded after its restart
+  is reported, not restarted for again. The finished Workshop step counts the mods it downloaded.
+- **A KMH letter that arrives before you have a colony no longer fails.** A guild invite received on RimWorld
+  Together's new-colony pages threw and was only logged; it now shows as an on-screen message.
+- **Server Browser layout:** the details pane is measured, so the Compatibility section no longer disappears on long
+  details; names, verdicts, links and values are cut with "…" and shown whole in a tooltip; the open tab is
+  highlighted; Sort, Tags and Clear are translated; the window keeps a usable minimum size and opens larger on big
+  screens; one primary button replaces the row of step buttons that dropped the RimWorld Together switch.
+- **Wording:** a Guild Hall member row reads "3 quests" (completed, in its tooltip) instead of "3q", and its name and
+  figures no longer overlap. The Account & links window, when you are signed out, points you at its own Steam section
+  instead of telling you to go to Account & links.
+- **Servers past the first 50 are reachable:** "Load more servers", and Favourites, Recent and Friends read their
+  servers by id, so a click on one always opens its details.
+- **An expansion you own but switched off is a mod-list fix**, not "buy it on Steam"; mods installed but off are
+  listed as such, and a list that only needs reordering says so.
+- **A different RimWorld version is named before you join**, compared only as far as the server reports it.
+- **A failed RimWorld Together release lookup is tried again** after two minutes instead of saying "no such
+  release" for the rest of the session; cancelling a download is not reported as a failure.
+- **Post Listing and Post Quest no longer say "0 = never expires"**: the server applies its longest allowed time.
+- **Mail with only silver or items asks for a subject or a message**, which the server always required.
+- **Boot no longer logs "skipped patch class FederationCache"** (an ordinary method was named like a Harmony hook).
+
+- **The Guild Hall shows what is in the guild vault, and you can take it out.** Under the silver line, the vault's
+  goods are listed (federation rewards, guild site output), and ranks allowed to withdraw get **Withdraw items**,
+  which picks the item and quantity. The goods are delivered to your colony; the daily cap for your rank applies.
+- **"Why am I not verified?" has a real answer.** If you joined through a local, private or tunnel address, the
+  Federation window and Account & links (new "This server" line) say so and name the server's public address when
+  the browser knows it, instead of asking a signed-in player to sign in. A refused identity ticket is retried on a
+  growing delay, and signing in mid-session confirms you without a reconnect.
+- **The dashboard counts quests awaiting your review**, and quests waiting for review count as yours.
+- **A guild site's own output is offered only the guild vault and site storage**, labelled "Guild vault"; the colony
+  and marketplace choices the server always refused are gone.
+- **Quest review buttons, and Federation refusal reasons sent as codes, are translated** (English, German, Spanish).
+
+### rel-276 — in development (not released)
+
+- **The Server Browser's Friends tab works.** It lists the servers your Colony Nexus friends are playing on, with
+  their names on the card. Each friend's own privacy settings are respected, and private or unlisted servers never
+  appear. If you are not signed in, or a friend is online somewhere they keep private, the tab says so.
+- **Mod setup tells you what is actually left to do:**
+  - **Subscribe** for missing mods;
+  - **Download** for ones Steam has not fetched or holds an old copy of;
+  - **Steam is downloading…** while it does;
+  - **restart** only once everything is on disk.
+
+  Optional mods are offered on their own button and are never subscribed or switched on unless you choose them.
+- **Set my mod list is safer:**
+  - a mod that only shares a name with the one the server means is never switched on;
+  - your optional mods stay as you had them;
+  - with both a Workshop and a local copy of a mod, the one you use is kept;
+  - a failed apply can no longer restore an old backup over your current list.
+- **Join stays available when a server's mod list cannot be fetched**, since RimWorld Together checks it at the
+  door. A failed fetch is retried instead of being stuck.
+- **Getting a server's RimWorld Together version shows its progress:**
+  - downloading, with Cancel;
+  - installed, restart RimWorld;
+  - failed, with the reason and a retry.
+
+  It also finds versions older than the newest 30 releases.
+- **Quest posters can reject a submitted bounty**, not only approve it.
+- **The Federation window says when activity was never counted** after a long outage.
+
+- **Catching up after a reconnect no longer freezes the game.** KMH spends at most a few milliseconds per frame on
+  messages from the server (12 ms when far behind), skips snapshots that a newer one has already replaced, and if it
+  falls hopelessly behind it reconnects instead of locking up. *Advanced tools → Performance* shows how far behind the
+  game thread is, how many outdated snapshots were skipped and any failures.
+- **Getting another RimWorld Together version is safer.** A download that is too large, stalls or is redirected
+  away from the official release host is stopped. The archive is checked for oversized, unexpected or out-of-place
+  files before anything is installed. A release with no checksum to verify against is never called verified: you
+  are told, and it installs only if you choose to continue.
+- **A withdrawal you could not place yet arrives once.** While you have no colony map or selected caravan, a
+  delivery the server re-sent on each reconnect used to be held once per reconnect, and then every copy landed.
+
+### rel-274 — a handier, moderated Colony Nexus website
+
+- Nothing in the game changes. The *Colony Nexus page* link in the Server Browser opens the website, which gains the
+  following once Colony Nexus Global is on rel-274:
+  - copy a server's address, save favorites, see recently viewed servers, and pick a light or dark theme, all kept
+    in your own browser;
+  - a *What you need* box on each server page: versions, expansions, required mods, whitelist and how to apply;
+  - filters for play style, who can join and new players, a *Good places to start* section, and readable page
+    addresses;
+  - report a listing that breaks the rules, with a moderator deciding what happens, and give a server you like a
+    free boost into *Boosted by players* for a day, once your Colony Nexus account is a week old;
+  - links shared in Discord and elsewhere preview properly.
+
+### rel-273 — the website's finished look
+
+- Nothing in the game changes. The *Colony Nexus page* link in the Server Browser now opens the finished website,
+  with clearer server pages and a page for every situation (maintenance, offline, not found), once Colony Nexus
+  Global is on rel-273.
+
+### rel-272 — share a server's page
+
+- **The Server Browser can give you a server's web page.** When Colony Nexus Global has its website, a selected
+  server's details list its *Colony Nexus page* under Links, ready to copy and send to a friend. The page shows
+  who is playing, what mods the server asks for and how to join.
+- **Oversized chat images are refused before loading.** A PNG or JPEG whose header declares more than 8192 pixels
+  on a side or about 16.7 megapixels is not loaded. The chat says it is too large to show, instead of the game
+  trying to hold a picture that size in memory. Screenshots, 4K images and 12-megapixel photos still show.
+
+### rel-271 — player reports get their own table on Colony Nexus Global
+
+- Nothing in the game changes. Colony Nexus Global stores player reports in their own `player_reports` table, so
+  its database step no longer collides with the older moderation table called `reports`, which is left untouched. A
+  report sent from the main menu, or forwarded by a server, is stored once Global runs rel-271.
+
+### rel-270 — reports, smoother online play, easier reading
+
+- **Report a bug or an idea from inside the game.** The button is in the Colony Nexus tab, under Advanced & tools
+  and on the main menu, and every KMH window that fails to draw now offers "Report this problem".
+  - The window takes a screenshot of the game as it was before it opened, and you choose whether to attach it.
+  - You can also attach diagnostics: the end of the KMH log, the game's recent errors and warnings from every mod,
+    your mod list, frame rate and game speed, system and graphics details, and your KMH settings.
+  - "See what's sent" shows the diagnostics line by line before anything leaves your computer. Passwords, account
+    tokens, chat and save files are never included, and your Windows user folder is removed from every path.
+  - The window says who will receive the report before you send it, and afterwards who actually did. On a server,
+    the owner gets it, and the Colony Nexus team as well if the owner has turned that on. From the main menu it
+    goes to the team through your Colony Nexus Global account. If nobody can receive it, it is only saved.
+  - Every report is also saved under `KMH-Patch/Reports` (the newest 20). "Send again" after a lost answer keeps
+    the same report id, so it is never filed twice.
+- **A large update from the server no longer drops your connection.** A big compressed message, such as the
+  marketplace catalog, unpacked past 64 KB, so the client refused it and reconnected every time it was pushed.
+  The client now unpacks up to 8 MB and tells the server so. An older server that never says what it can unpack
+  is sent anything larger as fragments.
+- **Sending never holds up a frame.** Messages are compressed, split and written on their own thread, in order,
+  instead of inside the click. A large send on a slow uplink used to freeze the game until it finished.
+- **Large transfers are put together off the game's thread**, so a 1 MB snapshot no longer costs a frame to decode
+  and check. Incoming work is spread over a few frames, about 4 ms of each, instead of landing in one.
+- **The client follows the server's frame size.** An owner who set a smaller frame than 64 KB had every larger
+  client frame refused.
+- Every message read used to leave a 40-second timer running until it expired - thousands at once on a busy link.
+  The timer now ends with the read.
+- **Performance panel** under Advanced & tools: frame rate and the slowest 1% of frames, game speed against the
+  speed you picked, what each piece of KMH's per-frame work costs, and network totals. It can also show one line
+  in the corner of the map.
+- **Easier to read.** Secondary text that used the dark grey (#808080) is now a lighter, slightly cool grey
+  (#A9AFB9), in every window and in all three languages.
+- What's New lists both. Every new piece of text is in English, German and Spanish.
+
+### rel-269
+
+- No client changes; the build number follows the rel-269 Server Addon.
+
+### rel-268
+
+- No client changes; the build number follows the rel-268 Server Addon.
+
+### rel-267 — What's New for this release
+
+- **The What's New window describes v1.3.1.** It had gone on showing the v1.3.0 notes. It now covers the server
+  browser, mod compatibility before joining, the Colony Nexus Global account, Guild Federation, settings applied
+  while you join, colonist workers, Discord linking, and why both sides update together - in English, German and
+  Spanish.
+
+### rel-266 — Federation reasons in your language
+
+- **The Federation window explains itself in English, German and Spanish.** Why a guild left, why a federation
+  ended, and why a link has to be proved again are shown as sentences, never as internal codes such as
+  `identity_proven` - including the history written by servers on earlier builds.
+- **History entries read naturally**: who took a guild out or disbanded the federation, which profile fields
+  changed, and which server an invite was for.
+- A weekly objective's supply cache is paid once per guild, even after the guild leaves and rejoins.
+
+### rel-265 — plain text in the Guild Hall
+
+- **A guild's message of the day is shown as plain text.** An officer's message is drawn for every member, and
+  markup in it could restyle the whole Guild Hall.
+- **Player names are drawn as plain text everywhere they appear**: chat, mail, the marketplace, auctions, quests,
+  sites, profiles and the Guild Hall, including its ownership-transfer menu.
+- Changes to your federation reach your server within about a minute, also on a server whose guilds are in more
+  than one federation, where a change could take ten.
+- If your server's Colony Nexus Global registration is revoked, the Federation window says so, rather than showing
+  what it last knew as if nothing had happened.
+
+### rel-264 — Guild Federation
+
+- **Guild Federation.** Guilds on different Colony Nexus servers can join one federation, with its own name, tag,
+  colour, leading guild and history. The **Federation** window has Overview, Members, Objectives, History and
+  Manage tabs, and it is on by default on every server.
+- **Joining takes an invite made for your server.** Each invite works once, for that one server, expires after
+  30 minutes, and can be withdrawn until it is used. Nobody types a raw federation id.
+- **Renown and levels come from verified play** on member servers: approved quests, Living World quests, site
+  production, road sections, outposts and daily activity, each capped per day. Weekly shared objectives pay a
+  small supply cache into your own guild's vault on your own server. Base-game items come first; an expansion item
+  only when your server requires that expansion.
+- **Small local bonuses by level**: +1% site output at level 3; +2% site output and road building at level 6;
+  +3% of each at level 9.
+- **Leaving is not disbanding.** A member guild can leave at any time. The leader hands leadership on first.
+  Disbanding needs the tag typed back, keeps the whole history, and can never be undone.
+- **Founding, joining and managing need your Steam-linked Colony Nexus account**, confirmed on that server. A
+  guildmate who has not linked stays a normal member; their play does not count until they link.
+- **Nothing moves between servers.** The Connected Treasury is off in this release: no silver, items or resources
+  cross from one server to another, and its windows do not appear.
+- The tag of your federation shows beside your guild's name in the Guild Hall.
+- Getting a server's RimWorld Together version from the browser now installs it into RimWorld's own `Mods`
+  folder. It was written to a folder RimWorld never loads, so the switch never took effect.
+
+### Unreleased — the browser tells you what a server is
+
+- **Server listings say something now.** A server's own description appears in the browser under **About this
+  server**, above the numbers — until now every listing looked alike, because the only things shown were a name,
+  a region, some tags and a player count.
+- **Discord and website links**, where the owner published them, with a **Copy** button. They are never opened for
+  you: the address is typed by another server's owner, so it goes to your clipboard and you decide.
+- Saved listings are made inert when they load, the same as freshly fetched ones.
+
+### rel-221 — Global Chat and one identity across servers
+
+- **Global Chat.** A channel shared by every connected KMH server, carried by KMH Global rather than by the server
+  you happen to be on, so it survives that server restarting. Your name in it is your KMH account, not a per-server
+  handle.
+- **You can block someone once and stay blocked**, across servers and across Global Chat, rather than repeating it
+  everywhere.
+- **KMH traffic is compressed** where the server supports it. The saving is largest exactly where it hurt most: a
+  site catalog that used to arrive as nine fragments now arrives in one.
+- **A server name or tag from the directory can no longer become markup.** RimWorld's labels parse rich text, and
+  the browser was drawing text written by other server owners raw - a name could restyle the row around it.
+- The browser understands a server in maintenance and stops offering a Join that would be refused.
+- **Your account token is handled more carefully.** A custom directory address on another machine can no longer be
+  reached over plain `http://` - that put the token on the wire in clear - and `account.json` is restricted to your
+  own Windows account where the platform allows it. Loopback addresses still work for local development.
+- **A link expires on two clocks now**: 30 days without being used, and 180 days from when it was made however
+  often you play. An expired link is re-made from the Account panel and keeps the same KMH player id.
+- **A server on the old protocol ends the session cleanly.** The client says so once, turns KMH off for that
+  session and hydrates nothing, rather than half-loading state a v2 server cannot serve.
+
+### rel-220 — Steam identity
+
+- **Link your Steam account to KMH Global** from in game: the client shows a code, you approve it in a browser. That
+  link is what gives you one identity, one username and one standing across every KMH server.
+
+### rel-219
+
+- No client changes; rel-219 is the server running natively on Linux.
+
+### rel-218 - current-RWT server browser
+
+- **Join actually joins.** The browser's Join button used RWT's own connect path (`Network.Ip`/`Port` then
+  `ClientNetwork.StartFeature`), which is byte for byte what RWT's login dialog does. It is disabled, with the
+  reason beside it, only when something real blocks the join.
+- **No state sits at "pending".** Mod lists are compared against the server's published profile, and a card reads
+  Ready, Ready with optional differences, Mods need changing (naming the mods), Mod list unavailable, No address
+  published, Server full, RimWorld Together differs, KMH version differs, Not ready or Offline.
+- A server on a different RWT release offers RWT's own version downloader where that build has one, and explains the
+  mismatch where it does not.
+- **Chat media volume is remembered.** It always saved; the transport bar read a static field that nothing had
+  loaded, so every launch showed the shipped 60% whatever the settings file said. Muting and looping had the same
+  fault. Settings are updated the moment the slider moves, and only the disk write is debounced.
+- The main-menu entry is larger, carries the KMH mark, and says how many listed servers this client could join now.
+- Favourites can be set from the browser, offline servers stay out of the default view but remain searchable and in
+  Recent, and the Friends tab says what it needs instead of showing an empty list.
+
+### rel-217 — v1.3.1 stabilization candidate
+
+- **Wire protocol v3.** A v2 (1.3.0 or earlier) peer is now refused with both version numbers named, rather than
+  connecting and quietly missing half the release. The client declares the mismatch instead of going silent, so an
+  enforcing server ends its pre-world hold at once rather than after a timeout.
+- Site workers are colonists, not accounts: one player can staff a site with several different colonists up to its
+  capacity. Existing sites re-key themselves on load and keep their XP, cycles and destination.
+- Recall names one colonist when several are assigned, instead of pulling the whole crew off the site.
+- Minified buildings can be deposited: they travel as a full deep-serialized payload only, and are refused outright
+  rather than rebuilt from def+count, which would hand back an empty crate. Item keys now name the building inside,
+  so two minified things are no longer one picker row.
+- Treasury opening fee: an explicit open buys a short access session. Refreshing, reconnecting and reopening inside
+  that window are free, and the request is idempotent, so no retry can debit twice.
+
+### rel-216 — manual acceptance candidate
+
+- Config enforcement verifies the current profile before the server releases world/save progression.
+- Config apply and restart state are transactional and durable; reconnecting with the same profile needs no second restart.
+- Consent text describes reconnect persistence and the zero-or-one restart policy. Manual RimWorld acceptance remains pending.
+
+### Added
+
+- **KMH Servers browser.** A tile on the main menu opens a list of KMH servers with search, All / Official /
+  Favourites / Recent / Friends tabs, and a detail panel showing players, status, region, languages and protocol.
+  It draws from the last completed refresh and never blocks the menu: if KMH Global is unreachable the window
+  still opens and says so, showing saved results.
+- German and Spanish cover every new string.
 
 ## v1.3.0
 
@@ -65,10 +708,6 @@ server offers them. Nothing in your save needs converting.
   instead of opening each conversation one at a time. It appears only when something is unread.
 
 ### Fixed
-
-- **A config download cut off by a dropped connection no longer lingers.** If the server stopped sending part-way
-  through an enforced config profile, the pieces already received were held until a later download replaced them.
-  They are now released when the download is abandoned and when you connect again, so a reconnect starts clean.
 
 - **Animated pictures posted as links now animate.** A gif or animated WebP shared in Discord as a *link* arrived in
   chat as a flattened still, while the same picture posted as an *attachment* animated correctly. Discord attaches a

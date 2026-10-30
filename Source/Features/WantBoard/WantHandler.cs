@@ -5,21 +5,22 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // Fulfilling delivers items from your KMH treasury server-side, so there's nothing to remove client-side - just send the quantity.
+    // Fulfilment draws on the treasury server-side, so nothing is removed client-side.
     internal static class WantHandler
     {
         public static void Register() => KmhDispatcher.RegisterHandler(KmhProtocol.Kind.WantSnapshot, OnSnapshot);
 
         public static bool RequestSnapshot() => KmhDispatcher.Send(KmhProtocol.Kind.WantRequest, null);
 
-        public static bool TryPost(string itemDefName, int qty, int unitPriceSilver, int hours, string visibility,
+        public static bool TryPost(string itemDefName, int qty, int unitPriceMilli, int hours, string visibility,
             int minQuality = 0, string requiredStuff = "", bool allowComplex = false, bool allowTainted = false, bool allowDamaged = false)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.WantPost, new
             {
                 item_def_name     = itemDefName ?? "",
                 qty,
-                unit_price_silver = unitPriceSilver,
+                unit_price_silver = System.Math.Max(1, (int)System.Math.Round(unitPriceMilli / 1000.0)),   // old-server fallback
+                unit_price_milli  = unitPriceMilli,
                 hours,
                 visibility        = visibility ?? "public",
                 min_quality       = minQuality,
@@ -27,7 +28,7 @@ namespace KMHPatch.Features.WantBoard
                 allow_complex     = allowComplex,
                 allow_tainted     = allowTainted,
                 allow_damaged     = allowDamaged,
-            }, KmhOpId.For($"want.post|{itemDefName}|{qty}|{unitPriceSilver}"));
+            }, KmhOpId.For($"want.post|{itemDefName}|{qty}|{unitPriceMilli}"));
             if (sent) KmhNotifications.Neutral("Posting want…");
             else      KmhNotifications.NotConnected();
             return sent;

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace KMHPatch.Features.Chat
 {
-    // The KMH server fetches a watch link into one finished mp4 and serves that; this client only asks and plays.
+    // The KMH server fetches and serves the mp4; this client never contacts the video site.
     internal static class ChatYouTube
     {
         private const float ServerWaitSeconds = 900f;
@@ -42,7 +42,6 @@ namespace KMHPatch.Features.Chat
 
         public static int ServerMaxHeight => _maxHeight;
 
-        // The player's choice, never above what the owner allows.
         public static int WantedHeight()
         {
             int wanted = 0;
@@ -50,7 +49,7 @@ namespace KMHPatch.Features.Chat
             return HeightWithin(wanted, _maxHeight);
         }
 
-        // Left alone, whatever the owner allows: the server fetches once and every viewer after that waits for nothing.
+        // Unset means the owner's maximum: the server fetches once and every later viewer gets it without waiting.
         internal static int HeightWithin(int wanted, int allowed)
         {
             if (allowed <= 0) allowed = 1080;
@@ -72,7 +71,6 @@ namespace KMHPatch.Features.Chat
 
             KmhLog.Info($"YouTube: recognized {id}");
 
-            // Already pulled down once: nothing is asked of the server at all.
             string have = ChatVideoCache.PathFor(id, WantedHeight());
             if (ChatVideoCache.Ready(have))
             {
@@ -110,7 +108,6 @@ namespace KMHPatch.Features.Chat
             return e.Error;
         }
 
-        // A player who clicked play on a two-gigabyte video needs a way out that is not quitting the game.
         public static bool CanStop(string watchUrl)
         {
             string id = VideoIdOf(watchUrl);
@@ -153,7 +150,6 @@ namespace KMHPatch.Features.Chat
             return false;
         }
 
-        // A resolve that finished while another download held the slot; started as soon as that one is out of the way.
         private static void StartQueued()
         {
             if (Downloading()) return;
@@ -164,12 +160,12 @@ namespace KMHPatch.Features.Chat
                 string url = e.Queued;
                 e.Queued = null;
                 KmhLog.Info($"YouTube: {kv.Key} is ready on the KMH server, pulling it down");
-                e.Download = ChatVideoCache.Begin(url, kv.Key, e.Height);
+                e.Download = ChatVideoCache.Begin(url, kv.Key, e.Height, _maxSeconds);
                 return;
             }
         }
 
-        // Polled from the same pump as the image cache. No coroutine: RimWorld gives a mod no MonoBehaviour to run one on.
+        // No coroutine: RimWorld gives a mod no MonoBehaviour to run one on.
         public static void Tick()
         {
             CollectDownloads();
@@ -203,7 +199,7 @@ namespace KMHPatch.Features.Chat
                 if (Downloading()) { e.Queued = got.Video; return; }
 
                 KmhLog.Info($"YouTube: {kv.Key} is ready on the KMH server, pulling it down");
-                e.Download = ChatVideoCache.Begin(got.Video, kv.Key, e.Height);
+                e.Download = ChatVideoCache.Begin(got.Video, kv.Key, e.Height, _maxSeconds);
                 return;
             }
         }
@@ -238,6 +234,9 @@ namespace KMHPatch.Features.Chat
             }
         }
 
+        private static readonly string[] IdPathPrefixes = { "/shorts/", "/embed/", "/live/", "/v/" };
+        private static readonly char[]   IdTerminators  = { '/', '?', '&', '#' };
+
         // Strict about the id's shape because it keys a fetch and rides a request.
         internal static string VideoIdOf(string url)
         {
@@ -253,7 +252,7 @@ namespace KMHPatch.Features.Chat
             if (host == "youtu.be") return Clean(path.TrimStart('/'));
             if (host != "youtube.com" && !host.EndsWith(".youtube.com", StringComparison.Ordinal)) return "";
 
-            foreach (string prefix in new[] { "/shorts/", "/embed/", "/live/", "/v/" })
+            foreach (string prefix in IdPathPrefixes)
                 if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     return Clean(path.Substring(prefix.Length));
 
@@ -300,7 +299,7 @@ namespace KMHPatch.Features.Chat
         private static string Clean(string id)
         {
             if (string.IsNullOrEmpty(id)) return "";
-            int cut = id.IndexOfAny(new[] { '/', '?', '&', '#' });
+            int cut = id.IndexOfAny(IdTerminators);
             if (cut >= 0) id = id.Substring(0, cut);
             if (id.Length != 11) return "";
             foreach (char c in id)

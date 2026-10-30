@@ -6,7 +6,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Reputation
 {
-    // The latest reputation roster. Pushed on handshake and after quest activity, so nothing here polls.
+    // Pushed on handshake and after quest activity, so nothing here polls.
     public static class ReputationCache
     {
         private static Dictionary<string, ReputationEntryDto> _byUser
@@ -28,7 +28,6 @@ namespace KMHPatch.Features.Reputation
 
         public static void Clear() { _byUser = new Dictionary<string, ReputationEntryDto>(StringComparer.OrdinalIgnoreCase); HasSnapshot = false; Version++; }
 
-        // Full roster sorted by score desc - drives the reputation board.
         public static List<ReputationEntryDto> Leaderboard()
         {
             List<ReputationEntryDto> list = new List<ReputationEntryDto>(_byUser.Values);
@@ -36,7 +35,6 @@ namespace KMHPatch.Features.Reputation
             return list;
         }
 
-        // Tier for a username, or "" if we have no record (unknown / neutral players simply get no badge)
         public static string TierFor(string username)
         {
             if (string.IsNullOrEmpty(username)) return "";
@@ -48,8 +46,8 @@ namespace KMHPatch.Features.Reputation
         {
             switch (TierFor(username))
             {
-                case "Trusted":    return " <color=#80ff80>[Trusted]</color>";
-                case "Unreliable": return " <color=#ff8080>[Unreliable]</color>";
+                case "Trusted":    return " <color=#4cc38a>[Trusted]</color>";
+                case "Unreliable": return " <color=#f07167>[Unreliable]</color>";
                 default:           return "";
             }
         }

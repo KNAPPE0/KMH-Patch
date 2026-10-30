@@ -7,7 +7,6 @@ using Verse;
 
 namespace KMHPatch.Features.Guilds
 {
-    // Invite picker: searchable server roster of guildless players (online first, offline invitable too).
     public class Dialog_KMHPlayerPicker : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(460f, 560f);
@@ -32,11 +31,10 @@ namespace KMHPatch.Features.Guilds
         {
             float y = DialogLayout.DrawTitle(rect, "Invite a player");
 
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                "<color=grey>Players not in a guild. Offline players keep the invite until they respond.</color>");
-            y += 24f;
+            y += DialogLayout.LabelWrapped(0f, y, rect.width,
+                "<color=#A9AFB9>Players not in a guild. Offline players keep the invite until they respond.</color>") + 4f;
 
-            _search = Widgets.TextField(new Rect(0f, y, rect.width - 118f, 28f), _search ?? "");
+            _search = DialogLayout.SearchField(new Rect(0f, y, rect.width - 118f, 28f), _search, "Search players");
             if (Widgets.ButtonText(new Rect(rect.width - 110f, y, 110f, 28f), "By name"))
             {
                 Find.WindowStack.Add(new Dialog_KMHTextInput(
@@ -71,9 +69,9 @@ namespace KMHPatch.Features.Guilds
                 Rect row = new Rect(0f, yy, inner.width, rowH - 2f);
                 if (yy % (rowH * 2) < rowH) Widgets.DrawLightHighlight(row);
 
-                string dot = p.Online ? "<color=#7CD37C>●</color>" : "<color=grey>●</color>";
+                string dot = p.Online ? "<color=#4cc38a>●</color>" : "<color=#A9AFB9>●</color>";
                 DialogLayout.LabelTrunc(new Rect(6f, yy + 5f, inner.width - 100f, 22f),
-                    $"{dot} {p.Username}" + (p.Online ? "" : "  <color=grey>(offline)</color>"));
+                    $"{dot} {p.Username}" + (p.Online ? "" : "  <color=#A9AFB9>(offline)</color>"));
                 if (Widgets.ButtonText(new Rect(inner.width - 84f, yy + 2f, 80f, 26f), "Invite"))
                 {
                     _onPick?.Invoke(p.Username);
@@ -83,8 +81,8 @@ namespace KMHPatch.Features.Guilds
             }
             if (shown.Count == 0)
                 DialogLayout.LabelTrunc(new Rect(6f, 4f, inner.width - 12f, 22f),
-                    all.Count == 0 ? "<color=grey>Loading players…</color>"
-                                   : "<color=grey>No guildless player matches that search.</color>");
+                    all.Count == 0 ? "<color=#A9AFB9>Loading players…</color>"
+                                   : "<color=#A9AFB9>No guildless player matches that search.</color>");
             Widgets.EndScrollView();
 
             if (DialogLayout.DrawCloseButton(rect)) Close();

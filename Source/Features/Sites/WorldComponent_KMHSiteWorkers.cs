@@ -8,7 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Sites
 {
-    // Holds a colonist inside a site; records restore by pawn id/name because ThingOwner cross-refs resolve late.
+    // Records restore by pawn id/name because ThingOwner cross-refs resolve late.
     public class WorldComponent_KMHSiteWorkers : WorldComponent, IThingHolder
     {
         private const int UnconfirmedSyncLimit = 4;   // sync passes (~40s each) before an unconfirmed join is recalled
@@ -83,9 +83,8 @@ namespace KMHPatch.Features.Sites
         public bool Hold(Pawn pawn, int siteTile, string username)
         {
             if (pawn == null || pawn.Dead || pawn.Destroyed || siteTile < 0) return false;
-            // True only for THIS pawn: another pawn holding the slot would report a colonist that never left the caravan.
-            HeldWorker existing = FindRecord(siteTile, username);
-            if (existing != null) return existing.Pawn == pawn;
+            // Per pawn, not per player, or a site's extra worker capacity is unreachable.
+            if (FindRecord(siteTile, username, pawn) != null) return true;
             try
             {
                 ThingOwner from = pawn.holdingOwner;
@@ -121,13 +120,14 @@ namespace KMHPatch.Features.Sites
             return rec != null && Recall(siteTile, rec.Username, out where);
         }
 
-        public bool Recall(int siteTile, string username, out string where)
+        // null recalls this player's first colonist, which is what a bare Recall has always meant.
+        public bool Recall(int siteTile, string username, out string where, Pawn pawn = null)
         {
             where = "";
             ReattachRecordPawns();
-            HeldWorker rec = FindRecord(siteTile, username);
+            HeldWorker rec = FindRecord(siteTile, username, pawn);
             if (rec == null) return false;
-            Pawn pawn = rec.Pawn;
+            pawn = rec.Pawn;
 
             if (pawn == null || pawn.Destroyed)
             {
@@ -352,13 +352,36 @@ namespace KMHPatch.Features.Sites
             return null;
         }
 
-        private HeldWorker FindRecord(int siteTile, string username)
+        // pawn == null matches any of that player's colonists at the tile.
+        private HeldWorker FindRecord(int siteTile, string username, Pawn pawn = null)
         {
             foreach (HeldWorker r in _records)
                 if (r != null && r.SiteTile == siteTile
-                    && string.Equals(r.Username ?? "", username ?? "", StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(r.Username ?? "", username ?? "", StringComparison.OrdinalIgnoreCase)
+                    && (pawn == null || r.Pawn == pawn))
                     return r;
             return null;
+        }
+
+        public List<Pawn> HeldPawnsFor(int siteTile, string username)
+        {
+            ReattachRecordPawns();
+            var outp = new List<Pawn>();
+            foreach (HeldWorker r in _records)
+                if (r?.Pawn != null && !r.Pawn.Destroyed && r.SiteTile == siteTile
+                    && string.Equals(r.Username ?? "", username ?? "", StringComparison.OrdinalIgnoreCase))
+                    outp.Add(r.Pawn);
+            return outp;
+        }
+
+        public int HeldCountFor(int siteTile, string username) => HeldPawnsFor(siteTile, username).Count;
+
+        // Every pawn held inside a site, recorded or not: they are still the player's colonists while they work.
+        public void AppendHeldPawns(List<Pawn> into)
+        {
+            if (_held == null || into == null) return;
+            foreach (Pawn p in _held)
+                if (p != null && !p.Destroyed) into.Add(p);
         }
 
         private HeldWorker FindRecordByTile(int siteTile)
@@ -383,7 +406,7 @@ namespace KMHPatch.Features.Sites
             Map map = Find.AnyPlayerHomeMap;
             if (map == null) { Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever); return; }
             IntVec3 cell = DropCellFinder.TradeDropSpot(map);
-            DropPodUtility.DropThingsNear(cell, map, new List<Thing> { pawn }, forbid: false);
+            DropPodUtility.DropThingsNear(cell, map, new List<Thing> { pawn }, canRoofPunch: false, forbid: false);
         }
     }
 }

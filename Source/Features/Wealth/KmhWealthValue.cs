@@ -7,10 +7,9 @@ using Verse;
 
 namespace KMHPatch.Features.Wealth
 {
-    // The one formula for valuing KMH-held goods: payloads at captured per-unit market value x stack, compact entries at base market value; asking and bid prices never count.
+    // The one valuation for KMH-held goods, at market value; asking and bid prices never count.
     internal static class KmhWealthValue
     {
-        // One full-state payload stack (captured per-unit market value x stack; 0 when unpriced).
         public static float Payload(KmhThingPayload p)
             => p != null && p.MarketValue > 0 ? (float)p.MarketValue * Math.Max(1, p.StackCount) : 0f;
 
@@ -21,7 +20,7 @@ namespace KMHPatch.Features.Wealth
             return v;
         }
 
-        // A compact composed key (def|stuff|quality) + count at base market value; only the def drives base value.
+        // Only the def drives base market value.
         public static float CompactKey(string itemKey, int count)
         {
             if (count <= 0 || string.IsNullOrEmpty(itemKey)) return 0f;
@@ -29,7 +28,6 @@ namespace KMHPatch.Features.Wealth
             return CompactDef(defName, count);
         }
 
-        // A raw def name + count at base market value (0 when the def is unknown or valueless).
         public static float CompactDef(string defName, int count)
         {
             if (count <= 0) return 0f;
@@ -37,7 +35,6 @@ namespace KMHPatch.Features.Wealth
             return def != null && def.BaseMarketValue > 0f ? def.BaseMarketValue * count : 0f;
         }
 
-        // The whole silver value of a treasury/vault snapshot: silver + compact items + full-state payloads.
         public static float OfTreasury(TreasurySnapshot s)
         {
             if (s == null) return 0f;
@@ -45,6 +42,16 @@ namespace KMHPatch.Features.Wealth
             if (s.Items != null)
                 foreach (KeyValuePair<string, int> kv in s.Items) v += CompactKey(kv.Key, kv.Value);
             v += Payloads(s.ItemPayloads);
+            return v;
+        }
+
+        public static float OfGuildVault(Guilds.Dto.GuildSnapshot g)
+        {
+            if (g == null) return 0f;
+            float v = Math.Max(0, g.GuildSilver);
+            if (g.GuildItems != null)
+                foreach (KeyValuePair<string, int> kv in g.GuildItems) v += CompactKey(kv.Key, kv.Value);
+            v += Payloads(g.GuildPayloads);
             return v;
         }
     }

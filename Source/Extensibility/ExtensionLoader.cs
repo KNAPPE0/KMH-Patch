@@ -20,6 +20,7 @@ namespace KMHPatch.Extensibility
             {
                 Assembly self = typeof(ExtensionLoader).Assembly;
                 Assembly sdk  = typeof(IKmhClientExtension).Assembly;
+                string sdkName = sdk.GetName().Name;
 
                 int candidateCount = 0;
                 foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
@@ -33,7 +34,7 @@ namespace KMHPatch.Extensibility
                     {
                         foreach (AssemblyName n in asm.GetReferencedAssemblies())
                         {
-                            if (n.Name == sdk.GetName().Name) { refsSdk = true; break; }
+                            if (n.Name == sdkName) { refsSdk = true; break; }
                         }
                     }
                     catch { continue; }

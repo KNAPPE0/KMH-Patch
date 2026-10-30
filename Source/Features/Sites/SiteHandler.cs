@@ -1,4 +1,4 @@
-using KMHPatch.Diagnostics;
+﻿using KMHPatch.Diagnostics;
 using KMHPatch.Features.Sites.Dto;
 using KMHPatch.Notifications;
 using KMHPatch.SubProtocol;
@@ -28,74 +28,42 @@ namespace KMHPatch.Features.Sites
                 archetype     = archetype ?? "",
             });
 
-        // Ask the server for the curated output catalog (server classifies; the picker just renders it).
         public static bool RequestCatalog(bool includeBlocked = false)
             => KmhDispatcher.Send(KmhProtocol.Kind.SiteCatalogRequest, new { include_blocked = includeBlocked });
 
         public static bool AddBuilding(int tile, string kind)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteBuildingAdd, new { tile, kind = kind ?? "" },
-                KmhOpId.For($"site.building_add|{tile}|{kind}"));
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => Send(KmhProtocol.Kind.SiteBuildingAdd, new { tile, kind = kind ?? "" },
+                    KmhOpId.For($"site.building_add|{tile}|{kind}"));
 
         // kind/state pin what the player saw, so a slot that shifted under the confirmation prompt is refused.
         public static bool RemoveBuilding(int tile, int index, string kind, string state)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteBuildingRemove,
-                                           new { tile, index, kind = kind ?? "", state = state ?? "" });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => Send(KmhProtocol.Kind.SiteBuildingRemove, new { tile, index, kind = kind ?? "", state = state ?? "" });
 
         public static bool RepairSite(int tile)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteRepair, new { tile });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => Send(KmhProtocol.Kind.SiteRepair, new { tile });
 
         public static bool ClaimOutpost(int tile, bool forGuild)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteClaim, new { tile, for_guild = forGuild });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => Send(KmhProtocol.Kind.SiteClaim, new { tile, for_guild = forGuild });
 
         public static bool CollectStorage(int tile)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteStorageCollect, new { tile });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => Send(KmhProtocol.Kind.SiteStorageCollect, new { tile });
 
         public static bool TryBuild(int tile, string itemDefName, int baseAmount, int marketValue,
             string accessMode, int ownerTaxPercent, string ownerDestination, int marketplaceUnitPrice,
             string archetype)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteBuild, new
-            {
-                tile                   = tile,
-                item_def_name          = itemDefName ?? "",
-                base_amount            = baseAmount,
-                market_value           = marketValue,
-                access_mode            = accessMode ?? SiteEntry.AccessGuildOnly,
-                owner_tax_percent      = ownerTaxPercent,
-                owner_destination      = ownerDestination ?? SiteEntry.DestTreasury,
-                marketplace_unit_price = marketplaceUnitPrice,
-                archetype              = archetype ?? SiteEntry.ArchetypeCustom,
-            });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
+            => SendSiteSpec(KmhProtocol.Kind.SiteBuild, tile, itemDefName, baseAmount, marketValue,
+                            accessMode, ownerTaxPercent, ownerDestination, marketplaceUnitPrice, archetype);
 
-        // Same fields as a build; the server decides what is allowed and refuses an outpost already set up.
         public static bool TrySetup(int tile, string itemDefName, int baseAmount, int marketValue,
             string accessMode, int ownerTaxPercent, string ownerDestination, int marketplaceUnitPrice,
             string archetype)
-        {
-            bool sent = KmhDispatcher.Send(KmhProtocol.Kind.SiteSetup, new
+            => SendSiteSpec(KmhProtocol.Kind.SiteSetup, tile, itemDefName, baseAmount, marketValue,
+                            accessMode, ownerTaxPercent, ownerDestination, marketplaceUnitPrice, archetype);
+
+        private static bool SendSiteSpec(string kind, int tile, string itemDefName, int baseAmount, int marketValue,
+            string accessMode, int ownerTaxPercent, string ownerDestination, int marketplaceUnitPrice,
+            string archetype)
+            => Send(kind, new
             {
                 tile                   = tile,
                 item_def_name          = itemDefName ?? "",
@@ -107,16 +75,14 @@ namespace KMHPatch.Features.Sites
                 marketplace_unit_price = marketplaceUnitPrice,
                 archetype              = archetype ?? SiteEntry.ArchetypeCustom,
             });
-            if (!sent) KmhNotifications.NotConnected();
-            return sent;
-        }
 
         // present=false re-validates an existing assignment as "pawn away from site" (server pauses that worker).
         public static bool TryJoin(int tile, int baseSkillLevel, string pawnName = "", int pawnLoadId = -1, bool present = true)
             => Send(KmhProtocol.Kind.SiteJoin, new { tile, base_skill_level = baseSkillLevel, pawn_name = pawnName ?? "", pawn_load_id = pawnLoadId, present });
 
-        public static bool TryLeave(int tile)
-            => Send(KmhProtocol.Kind.SiteLeave, new { tile });
+        // pawnLoadId <= 0 pulls every colonist of mine off that site.
+        public static bool TryLeave(int tile, int pawnLoadId = -1)
+            => Send(KmhProtocol.Kind.SiteLeave, new { tile, pawn_load_id = pawnLoadId });
 
         // scope: "mine" for the caller's own share, "site" for the site's own output, empty for the server's default.
         public static bool TrySetDestination(int tile, string destination, string scope = "")
@@ -126,9 +92,9 @@ namespace KMHPatch.Features.Sites
         public static bool TryCancel(int tile)
             => Send(KmhProtocol.Kind.SiteCancel, new { tile });
 
-        private static bool Send(string kind, object data)
+        private static bool Send(string kind, object data, string opId = null)
         {
-            bool sent = KmhDispatcher.Send(kind, data);
+            bool sent = KmhDispatcher.Send(kind, data, opId);
             if (!sent) KmhNotifications.NotConnected();
             return sent;
         }

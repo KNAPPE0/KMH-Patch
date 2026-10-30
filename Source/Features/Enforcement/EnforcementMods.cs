@@ -4,7 +4,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // RimWorld names settings files "Mod_<FolderName>_<Handle>.xml", and FolderName is the Workshop id for Steam mods.
+    // RimWorld names settings Mod_<FolderName>_<Handle>.xml; FolderName is the Workshop id for Steam mods.
     internal static class EnforcementMods
     {
         public static bool IsSafeModConfigFile(string fileName)

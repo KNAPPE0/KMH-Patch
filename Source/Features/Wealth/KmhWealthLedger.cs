@@ -4,7 +4,7 @@ using KMHPatch.Diagnostics;
 
 namespace KMHPatch.Features.Wealth
 {
-    // Sums off-map KMH wealth into the one silver figure vanilla folds into threat scaling. Cached - the storyteller asks several times per roll.
+    // The one silver figure vanilla folds into threat scaling; cached because the storyteller asks several times per roll.
     internal static class KmhWealthLedger
     {
         private static readonly List<IKmhWealthSource> _sources = new List<IKmhWealthSource>();
@@ -22,7 +22,7 @@ namespace KMHPatch.Features.Wealth
             lock (_lock) { if (!_sources.Contains(source)) _sources.Add(source); }
         }
 
-        // Built-in sources are wired lazily (no bootstrap-ordering dependency). Add new systems here as they land.
+        // Wired lazily, so there is no bootstrap-ordering dependency.
         private static void EnsureBuiltins()
         {
             if (_builtinsRegistered) return;
@@ -38,11 +38,10 @@ namespace KMHPatch.Features.Wealth
             Register(new Sources.SiteStorageWealthSource());
         }
 
-        // Server-owned, never a player setting - a local opt-out would hand back the dodge; unknown flags read as enabled, so it stays on against older servers.
+        // Server-owned, never a player setting, or a local opt-out hands back the dodge; unknown flags read as enabled.
         public const  string FeatureKey = "wealth";
         public static bool   Enabled => KMHPatch.Features.KmhFeatures.IsEnabled(FeatureKey);
 
-        // Total off-map KMH wealth (silver) for the local player. 0 when disabled or nothing is held. Cached briefly.
         public static float Total()
         {
             if (!Enabled) return 0f;
@@ -59,7 +58,7 @@ namespace KMHPatch.Features.Wealth
             return sum;
         }
 
-        // Per-source values in the same order and by the same rules Sum uses, so a breakdown can never disagree with the total.
+        // Same order and rules as Sum, so a breakdown can never disagree with the total.
         internal static List<KeyValuePair<string, float>> Breakdown(IEnumerable<IKmhWealthSource> sources)
         {
             var outp = new List<KeyValuePair<string, float>>();
@@ -74,7 +73,7 @@ namespace KMHPatch.Features.Wealth
             return outp;
         }
 
-        // Until vanilla's ~83s recount, a deposit counts twice (stale map total AND ledger), so force one - debounced so a deposit burst cannot make it per-frame.
+        // Until vanilla's ~83s recount a deposit counts twice, so force one, debounced so a burst cannot make it per-frame.
         private const int RecountDebounceTicks = 300;
         private static int _lastForcedRecountTick = -99999;
 
@@ -102,7 +101,7 @@ namespace KMHPatch.Features.Wealth
             lock (_lock) return Breakdown(new List<IKmhWealthSource>(_sources));
         }
 
-        // Only POSITIVE values count, so a buggy source cannot LOWER threat below real wealth, and one throwing source cannot break the total.
+        // Only POSITIVE values count, so a buggy source cannot lower threat and a throwing one cannot break the total.
         internal static float Sum(IEnumerable<IKmhWealthSource> sources)
         {
             if (sources == null) return 0f;

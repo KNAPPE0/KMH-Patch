@@ -6,8 +6,21 @@ namespace KMHPatch.Features.Chat
     public static class ChatChannels
     {
         public const string Server = "server";
+
+        // Owned by Global, so never routed through the server transport.
+        public const string Global = "global";
+
         private const string GuildPrefix = "guild:";
         private const string DmPrefix    = "dm:";
+        // Keyed on GlobalUserId so it survives a server change; deliberately distinct from server-local "dm:".
+        private const string GlobalDmPrefix = "gdm:";
+
+        public static bool IsGlobal(string channel)
+            => string.Equals(channel, Global, StringComparison.Ordinal);
+
+        // Server chat must never become Global by accident: the two ids are distinct and neither prefixes the other.
+        public static bool IsServerLocal(string channel)
+            => string.Equals(channel, Server, StringComparison.Ordinal);
 
         public static string Guild(string guildName) => GuildPrefix + (guildName ?? "");
 
@@ -26,6 +39,14 @@ namespace KMHPatch.Features.Chat
             return aFirst ? $"{DmPrefix}{a}{Sep}{b}" : $"{DmPrefix}{b}{Sep}{a}";
         }
 
+        public static string GlobalDm(string globalUserId) => GlobalDmPrefix + (globalUserId ?? "");
+
+        public static bool IsGlobalDm(string channel)
+            => channel != null && channel.StartsWith(GlobalDmPrefix, StringComparison.Ordinal);
+
+        public static string GlobalDmPeer(string channel)
+            => IsGlobalDm(channel) ? channel.Substring(GlobalDmPrefix.Length) : "";
+
         public static bool IsDm(string channel)    => channel != null && channel.StartsWith(DmPrefix, StringComparison.Ordinal);
         public static bool IsGuild(string channel)  => channel != null && channel.StartsWith(GuildPrefix, StringComparison.Ordinal);
 
@@ -42,7 +63,7 @@ namespace KMHPatch.Features.Chat
             return a.Length > 0 && b.Length > 0 && b.IndexOf(Sep) < 0;
         }
 
-        // The other participant in a DM (lower-cased id form), or null. Callers resolve display casing from the roster.
+        // Lower-cased id form; callers resolve display casing from the roster.
         public static string OtherParty(string channel, string me)
         {
             if (!TryParseDm(channel, out string a, out string b)) return null;

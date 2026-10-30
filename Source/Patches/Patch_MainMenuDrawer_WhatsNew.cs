@@ -16,12 +16,15 @@ namespace KMHPatch.Patches
         [HarmonyPostfix]
         private static void Postfix()
         {
+            KmhDuplicateModCheck.ShowPending();
             if (shown) return;
             shown = true;
 
             KMHPatchSettings s = KMHPatchMod.Settings;
-            bool welcomeWanted  = s == null || s.ShowWelcomeOnLaunch;
-            bool whatsNewWanted = s == null || s.ShowWhatsNewOnUpdate;   // every launch until disabled
+            (bool welcomeWanted, bool whatsNewWanted) = Wanted(s?.ShowWelcomeOnLaunch ?? true, s?.WelcomeSeen ?? false,
+                                                               s?.ShowWhatsNewOnUpdate ?? true, s?.WhatsNewSeen ?? "", KmhProtocol.DisplayVersion);
+            // A new player gets the welcome; the changelog is for those who knew the previous version.
+            if (s != null && welcomeWanted && s.WhatsNewSeen != KmhProtocol.DisplayVersion) { s.WhatsNewSeen = KmhProtocol.DisplayVersion; KMHPatchMod.SaveSettings(); }
 
             if (!whatsNewWanted && !welcomeWanted) return;
 
@@ -39,5 +42,10 @@ namespace KMHPatch.Patches
                 }
             });
         }
+
+        // Welcome once ever, What's New once per version and never on a first launch, or a new player gets four windows.
+        internal static (bool welcome, bool whatsNew) Wanted(bool showWelcome, bool welcomeSeen, bool showWhatsNew, string whatsNewSeen, string build)
+            => (showWelcome && !welcomeSeen,
+                showWhatsNew && (welcomeSeen || !showWelcome) && !string.Equals(whatsNewSeen ?? "", build ?? "", System.StringComparison.Ordinal));
     }
 }

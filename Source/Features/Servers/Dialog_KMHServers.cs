@@ -6,7 +6,6 @@ using Verse;
 
 namespace KMHPatch.Features.Servers
 {
-    // Local list of KMH servers this client has joined before.
     public class Dialog_KMHServers : Window_KMHBase
     {
         private Vector2 _scroll;
@@ -15,22 +14,22 @@ namespace KMHPatch.Features.Servers
 
         protected override void DrawContents(Rect inRect)
         {
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), "KMH Servers");
-
-            Text.Font = GameFont.Small;
+            float top = KMHPatch.UI.DialogLayout.DrawTitle(inRect, UI.KmhText.Get("KMH_Servers_Title", "Colony Nexus Servers"));
             Widgets.Label(
-                new Rect(0f, 34f, inRect.width, 38f),
-                "<color=grey>Servers you have connected to. Versions are from the last time you joined.</color>");
+                new Rect(0f, top, inRect.width, 38f),
+                "<color=#A9AFB9>" + UI.KmhText.Get("KMH_Servers_Subtitle",
+                    "Servers you have connected to. Versions are from the last time you joined.") + "</color>");
 
             List<SeenServersStore.Entry> entries = SeenServersStore.All();
-            Rect listRect = new Rect(0f, 78f, inRect.width, inRect.height - 78f - 40f);
+            float listTop = top + 42f;
+            Rect listRect = new Rect(0f, listTop, inRect.width, inRect.height - listTop - 40f);
 
             if (entries.Count == 0)
             {
                 Widgets.Label(
                     listRect,
-                    "<color=grey>No KMH servers seen yet. Connect to one and it will show up here.</color>");
+                    "<color=#A9AFB9>" + UI.KmhText.Get("KMH_Servers_Empty",
+                        "No Colony Nexus servers seen yet. Connect to one and it will show up here.") + "</color>");
             }
             else
             {
@@ -48,17 +47,21 @@ namespace KMHPatch.Features.Servers
 
                     string kmhColor = entry.KmhVersion == KmhProtocol.BuildVersion ? "#7CD37C" : "#E2C16B";
 
-                    Widgets.Label(
+                    // The name once it is known, because an address is not how a player recognises a server.
+                    string title = string.IsNullOrEmpty(entry.Name) ? Show(entry.Endpoint) : entry.Name;
+                    UI.DialogLayout.LabelTrunc(
                         new Rect(row.x + 8f, row.y + 4f, row.width - 96f, 24f),
-                        $"<b>{Show(entry.Endpoint)}</b>");
+                        $"<b>{title}</b>");
 
-                    Widgets.Label(
+                    string where = string.IsNullOrEmpty(entry.Name) ? "" : $"{Show(entry.Endpoint)}  |  ";
+                    UI.DialogLayout.LabelTrunc(
                         new Rect(row.x + 8f, row.y + 28f, row.width - 16f, 22f),
-                        $"<color={kmhColor}>KMH {Show(entry.KmhVersion)}</color>  |  RWT {Show(entry.RwtVersion)}  |  <color=grey>{Ago(entry.LastSeenTicks)}</color>");
+                        $"<color=#A9AFB9>{where}</color><color={kmhColor}>Colony Nexus {Show(entry.KmhVersion)}</color>  |  RWT {Show(entry.RwtVersion)}  |  <color=#A9AFB9>{Ago(entry.LastSeenTicks)}</color>");
 
-                    if (Widgets.ButtonText(new Rect(row.xMax - 84f, row.y + 4f, 76f, 24f), "Forget"))
+                    if (Widgets.ButtonText(new Rect(row.xMax - 84f, row.y + 4f, 76f, 24f),
+                                           UI.KmhText.Get("KMH_Servers_Forget", "Forget")))
                     {
-                        SeenServersStore.Forget(entry.Endpoint);
+                        SeenServersStore.Forget(entry.IdentityKnown ? entry.ServerId : entry.Endpoint);
                     }
 
                     y += rowH;
@@ -67,15 +70,17 @@ namespace KMHPatch.Features.Servers
                 Widgets.EndScrollView();
             }
 
-            if (Widgets.ButtonText(new Rect(inRect.width - 120f, inRect.height - 32f, 120f, 30f), "Close"))
+            if (Widgets.ButtonText(new Rect(inRect.width - 120f, inRect.height - 32f, 120f, 30f),
+                                   UI.KmhText.Get("KMH_Common_Close", "Close")))
             {
                 Close();
             }
         }
 
-        private static string Show(string value)
+        // Inert here too: the endpoint is a key, so it cannot be changed where it is stored.
+        internal static string Show(string value)
         {
-            return string.IsNullOrEmpty(value) ? "?" : value;
+            return string.IsNullOrEmpty(value) ? "?" : UI.KmhDisplayText.Inert(value);
         }
 
         private static string Ago(long utcTicks)

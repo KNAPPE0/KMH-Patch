@@ -4,7 +4,6 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Chat
 {
-    // Video fetched and served by the KMH server, so nothing has to be installed on this machine.
     internal static class ChatVideoServer
     {
         internal sealed class Answer
@@ -52,10 +51,11 @@ namespace KMHPatch.Features.Chat
             if (!Waiting.TryGetValue(watchUrl, out Answer answer)) return;
             Waiting.Remove(watchUrl);
 
-            string reason = env.GetString("reason") ?? "";
+            // The title is whatever the video's uploader wrote, and both are drawn under the chat line.
+            string reason = UI.KmhDisplayText.Inert(env.GetString("reason") ?? "", 160);
             string video = env.GetString("video") ?? "";
             int port = env.GetInt("port", 0);
-            answer.Title = env.GetString("title") ?? "";
+            answer.Title = UI.KmhDisplayText.Inert(env.GetString("title") ?? "", 120);
 
             if (reason.Length > 0 || video.Length == 0 || port <= 0)
             {

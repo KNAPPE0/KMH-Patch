@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace KMHPatch.Features.Chat
 {
-    // Who is on this server, from the server's own connection list - a name here is never a claim a client made.
+    // From the server's own connection list: a name here is never a claim a client made.
     internal static class ChatRosterCache
     {
         private const float RefreshSeconds = 20f;
@@ -20,7 +20,6 @@ namespace KMHPatch.Features.Chat
         public static IReadOnlyList<string> Offline => _offline;
         public static bool Known => _online.Count > 0 || _offline.Count > 0;
 
-        // Bumped on every roster the server sends, so views can cache rows instead of rebuilding them per frame.
         public static int Version { get; private set; }
 
         public static void Register()
@@ -50,7 +49,6 @@ namespace KMHPatch.Features.Chat
             return false;
         }
 
-        // Names that start with what is being typed, online first: the person you are talking to is usually here.
         public static List<string> Match(string prefix, int max)
         {
             var hits = new List<string>();
@@ -84,11 +82,9 @@ namespace KMHPatch.Features.Chat
             Version++;
         }
 
-        // How long ago this player was last here, or "" for someone the server has never timed.
         public static string LastSeenOf(string name)
             => _seen.TryGetValue(name ?? "", out long ticks) ? KmhAgo.Since(ticks) : "";
 
-        // Time spent actually playing here, or "" when the server has none recorded.
         public static string ActiveOf(string name)
             => _active.TryGetValue(name ?? "", out long seconds) && seconds > 0 ? KmhAgo.Span(seconds) : "";
 
@@ -101,7 +97,7 @@ namespace KMHPatch.Features.Chat
             foreach (string n in env.GetStringArray("online")) if (!string.IsNullOrWhiteSpace(n)) _online.Add(n);
             foreach (string n in env.GetStringArray("offline")) if (!string.IsNullOrWhiteSpace(n)) _offline.Add(n);
 
-            // Positional, so a length mismatch is dropped whole - one player's time under another's name is worse than none.
+            // Positional: a length mismatch drops the lot, since one player's time under another's name is worse than none.
             Join(_seen, _offline, env.GetLongArray("seen"));
             Join(_active, _online, env.GetLongArray("active"));
             Version++;

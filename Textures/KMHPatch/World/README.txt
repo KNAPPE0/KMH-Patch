@@ -19,17 +19,16 @@ wrong on the world map. Contract check section 43 now fails the build if any KMH
 puts the same image in both slots, names a non-Expanding path in the expanding slot,
 uses vanilla art, or names a file that does not exist.
 
-Style: white silhouettes on transparent
----------------------------------------
+Style: the art in its own colours, state on the rim
+---------------------------------------------------
 
-Like vanilla's own expanding icons, and for a concrete reason - KMH tints markers by
-state (claimable gold, hostile red, defeated grey, dormant dimmed, captured by owner).
-A coloured icon fights that tint and the colour stops meaning anything. The archetype
-markers previously used the coloured Noto Emoji button icons and had exactly this
-problem: a hostile marker could not actually turn red.
+The icon is drawn untinted; tinting it washed a shield into a single-colour blob. State
+is the rim RimWorld draws around an expanding icon, in the Colony Nexus palette
+(KmhMarkerColors): your sites gold, another player's blue, unclaimed silver (white
+while the claim window is open), hostile red, defeated or dormant grey.
 
-Colour is never the only signal. Anything a player must not miss also changes shape or
-draw priority - see KmhMarkerArt.ColorFor / PriorityFor.
+Colour is never the only signal. Anything a player must not miss also changes the
+label or draw priority - see KmhMarkerArt.LabelFor / PriorityFor.
 
 Drawn for 22 pixels
 -------------------

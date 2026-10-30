@@ -1,22 +1,17 @@
-# KMH Patch
+# KMH: Colony Nexus
 
 The client mod for **RimWorld Together** - a full player-driven economy in one
-KMH tab: marketplace, auctions, treasuries, a quest board, guilds, reputation,
+Colony Nexus tab: marketplace, auctions, treasuries, a quest board, guilds, reputation,
 production sites, server-wide events, and a Server Standings hub. It pairs with
-the **[KMH Server Addon](../KMH-Server-Addon)** and lights up on its own when you
+the **[KMH: Colony Nexus Server Addon](../KMH-Server-Addon)** and lights up on its own when you
 join a KMH server; on any other server it stays dormant, so it's safe to leave
 enabled everywhere.
 
 ## RWT version
 
-KMH v1.3.0 is verified against the nine most recent RWT releases:
-
-| RWT release | Status |
-| --- | --- |
-| 26.8.31.1, 26.8.16.1 (1), 26.8.16.1, 26.8.9.1, 26.7.25.1 | supported |
-| 26.6.23.1, 26.6.9.1, 26.6.8.1 | supported |
-| 26.5.24.1 | supported — oldest |
-| 26.4.18.1 and older | **not supported** |
+Colony Nexus v1.3.1 runs on RimWorld 1.7 with RWT **26.10.20.1** and on RimWorld
+1.6 with RWT **26.10.15.1**. A server runs one of them, and the server browser
+names each server's RimWorld version before you join.
 
 The mod ships all three client builds and auto-detects which RWT generation
 you're on, so there is nothing to configure. Below 26.5.24.1 RWT moved a core
@@ -26,15 +21,21 @@ normally.
 
 **On RWT 26.6.23.1 and newer, RWT chat is not a reliable KMH carrier — the KMH
 API transport (now on by default) is the recommended/required path there.** Make
-sure the server runs KMH v1.3.0 with its API transport enabled (also the
+sure the server runs KMH v1.3.1 with its API transport enabled (also the
 default).
 
-Update the **KMH Patch** and the **KMH Server Addon** together so both sides
-match.
+Update **KMH: Colony Nexus** and the **Colony Nexus Server Addon** together — v1.3.1 speaks
+protocol v3 and a v1.3.0 or v1.2.x peer on either side is refused with both
+version numbers named, rather than left waiting.
+
+Server owners: v1.3.1 **regenerates every tunable config from its own
+defaults** on first boot rather than migrating your values. Your previous files
+are copied into `KMH-Data-Backups` first, and the boot refuses to migrate at all
+if that copy cannot be made and verified.
 
 ## What you get
 
-Everything lives in one **KMH** tab with a live dashboard of your silver,
+Everything lives in one **Colony Nexus** tab with a live dashboard of your silver,
 quests, listings, guild, and Discord link:
 
 - **Marketplace** - sell from a caravan (item, quantity, price, public or
@@ -56,6 +57,10 @@ quests, listings, guild, and Discord link:
 - **Guild Hall** - ranks, invites, buyable perks, a shared vault with per-rank
   daily limits, an MOTD, and alliance/rivalry diplomacy that gates guild-only
   visibility.
+- **Guild Federation** - join guilds on other Colony Nexus servers into one
+  federation with its own name, tag and leader. Earn renown from verified play,
+  take on weekly shared objectives, and unlock small local bonuses. Nothing ever
+  moves between servers.
 - **Sites** - build production sites on the world map, staff them with workers
   who earn XP, and route the output to treasury, marketplace, or colony. Each
   site has an archetype (Farmland, Quarry, Woodland, Ranch, Roadworks or Custom)
@@ -98,15 +103,22 @@ quests, listings, guild, and Discord link:
   versions)* - talks to a KMH server over its own port instead of RWT chat
   whenever the server advertises it; falls back to chat if that's unreachable,
   and the KMH tab shows which path is live. Toggle in mod settings.
+- **Report a bug or idea** - from the Colony Nexus tab, Advanced & tools or the
+  main menu, with an optional screenshot and diagnostics you can read before
+  anything is sent. The window says who received it, and keeps a copy on your
+  computer.
+- **Performance panel** - under Advanced & tools: frame rate, the slowest 1% of
+  frames, game speed against the speed you picked, and what KMH costs each
+  frame, with an optional one-line readout over the map.
 
-Icons are optional - drop `.png`/`.dds` files in `Textures/KMHPatch/UI/` and
+Icons are optional - drop `.png` files in `Textures/KMHPatch/UI/` and
 the buttons pick them up; without them everything still works as text.
 
 ## Install & update
 
 This folder is a RimWorld mod. Copy it into RimWorld's `Mods/` folder, enable
-**KMH Patch** in the mod list **below** RimWorld Together, and restart. The KMH
-tab appears on its own when you join a KMH server. To update, replace the folder
+**KMH: Colony Nexus** in the mod list **below** RimWorld Together, and restart. The
+Colony Nexus tab appears on its own when you join a KMH server. To update, replace the folder
 (or update from the Steam Workshop) and restart — nothing of yours to wipe.
 
 ## Extending

@@ -15,7 +15,7 @@ namespace KMHPatch.Features.Sites
     {
         private static float _lastReconcileReal = -999f;
 
-        // Tiles the current world doesn't have. Reconcile runs continuously, so warn once each instead of every pass.
+        // Warned once per tile: reconcile runs continuously.
         private static readonly HashSet<int> _warnedTiles = new HashSet<int>();
 
         // A site built on another world names a tile this planet lacks, and resolving it throws deep inside RimWorld.
@@ -26,7 +26,7 @@ namespace KMHPatch.Features.Sites
             catch { return false; }
         }
 
-        // Reconcile retries failed tiles every pass; logging per pass once cost a player 218 identical lines.
+        // Reconcile retries failed tiles every pass, so each is logged once.
         private static readonly Dictionary<int, string> _warnedPlacements = new Dictionary<int, string>();
 
         internal static bool ShouldWarnPlacement(Dictionary<int, string> seen, int tile, string reason)
@@ -46,7 +46,7 @@ namespace KMHPatch.Features.Sites
         {
             if (!_warnedTiles.Add(tile)) return;
             KmhLog.Warn($"{what} sits on world tile {tile}, which this planet does not have - marker skipped. " +
-                        "The entry still works from the KMH tab; it was created on a different world.");
+                        "The entry still works from the Colony Nexus tab; it was created on a different world.");
         }
 
         // RimWorld.Planet.World qualified - the KMHPatch.Features.World namespace would otherwise shadow bare 'World'
@@ -77,7 +77,7 @@ namespace KMHPatch.Features.Sites
             foreach (WorldObject wo in Find.WorldObjects.AllWorldObjects)
                 if (wo is KMHSiteWorldObject m) existing.Add(m);
 
-            // Not connected / no data: drop any leftover markers (covers disconnect and loading a save offline) and stop.
+            // No data: drop leftover markers, which covers disconnect and loading a save offline.
             if (!KmhDispatcher.IsKmhServer || !SiteCache.HasSnapshot || SiteCache.Snapshot?.Sites == null)
             {
                 foreach (KMHSiteWorldObject m in existing) Find.WorldObjects.Remove(m);
@@ -99,7 +99,7 @@ namespace KMHPatch.Features.Sites
             foreach (KMHSiteWorldObject m in existing)
             {
                 int tile = m.Tile.tileId;
-                if (have.Contains(tile)) { Find.WorldObjects.Remove(m); continue; }   // dedupe stray doubles
+                if (have.Contains(tile)) { Find.WorldObjects.Remove(m); continue; }
                 // A def is fixed at creation, so a site turning into an outpost must be recreated or it keeps the old art.
                 if (desired.TryGetValue(tile, out SiteEntry s) && DefNameFor(s) == m.def?.defName)
                 { Apply(m, s); have.Add(tile); }
@@ -155,7 +155,6 @@ namespace KMHPatch.Features.Sites
             bool want = KmhDispatcher.IsKmhServer && g?.Hall != null && g.Hall.HasHall && g.Hall.Tile >= 0;
             if (want && !TileExists(g.Hall.Tile)) { WarnMissingTileOnce(g.Hall.Tile, "Guild hall"); want = false; }
 
-            // Remove anything that isn't the wanted hall (disconnect, hall removed/moved, or a stray duplicate).
             bool applied = false;
             foreach (Guilds.KMHGuildHallWorldObject h in existing)
             {

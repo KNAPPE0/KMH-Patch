@@ -7,11 +7,10 @@ namespace KMHPatch.Patches
     // A hunt target that bleeds out after a colonist hurt it still counts; a predator or disease death does not.
     internal static class KmhRecentDamage
     {
-        private const int AttributionWindowTicks = 60000;  // ~1 in-game day (GlobalQuestKillAttributionWindowTicks)
-        private const int MinDamageForAttribution = 1;     // (GlobalQuestMinDamageForAttribution)
-        private const int MaxTracked = 512;                // bound memory; prune oldest when exceeded
+        private const int AttributionWindowTicks = 60000;  // mirrors GlobalQuestKillAttributionWindowTicks
+        private const int MinDamageForAttribution = 1;     // mirrors GlobalQuestMinDamageForAttribution
+        private const int MaxTracked = 512;
 
-        // pawn.thingIDNumber -> last game tick a player-faction source damaged it.
         private static readonly Dictionary<int, int> _lastPlayerDamageTick = new Dictionary<int, int>();
 
         public static void Record(Pawn victim, DamageInfo dinfo)
@@ -19,7 +18,7 @@ namespace KMHPatch.Patches
             if (victim == null || victim.Dead) return;
             if (dinfo.Amount < MinDamageForAttribution) return;
             Thing inst = dinfo.Instigator;
-            if (inst == null || inst.Faction != Faction.OfPlayer) return;   // only player-caused damage attributes
+            if (inst == null || inst.Faction != Faction.OfPlayer) return;
             int now = CurTick();
             _lastPlayerDamageTick[victim.thingIDNumber] = now;
             if (_lastPlayerDamageTick.Count > MaxTracked) Prune(now);
@@ -48,7 +47,7 @@ namespace KMHPatch.Patches
             foreach (KeyValuePair<int, int> kv in _lastPlayerDamageTick)
                 if (now - kv.Value > AttributionWindowTicks) (drop ?? (drop = new List<int>())).Add(kv.Key);
             if (drop != null) foreach (int k in drop) _lastPlayerDamageTick.Remove(k);
-            // Still too big (many recent entries)? Drop arbitrary ones - correctness is best-effort, memory is bounded.
+            // Still over the cap: drop arbitrary entries; attribution is best-effort, memory must stay bounded.
             if (_lastPlayerDamageTick.Count > MaxTracked)
             {
                 drop = new List<int>();

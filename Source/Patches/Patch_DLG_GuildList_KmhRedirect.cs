@@ -9,7 +9,7 @@ using Verse;
 
 namespace KMHPatch.Patches
 {
-    // Patched manually, not by attribute: the type is absent in some RWT builds and a typed reference would throw during scanning.
+    // By hand, not by attribute: the type is absent in some RWT builds and a typed reference throws during scanning.
     internal static class Patch_DLG_GuildList_KmhRedirect
     {
         public static void TryApply(Harmony harmony)
@@ -21,7 +21,7 @@ namespace KMHPatch.Patches
                 Type t = RwtCompat.ResolveType(ns, "DLG_GuildList", ns + ".DLG_GuildList", ns + ".Guild.DLG_GuildList");
                 if (t == null)
                 {
-                    KmhLog.Info("Guild redirect: DLG_GuildList not present in this RWT build - skipped (use the KMH tab's Guild Hall).");
+                    KmhLog.Info("Guild redirect: DLG_GuildList not present in this RWT build - skipped (use the Colony Nexus tab's Guild Hall).");
                     return;
                 }
 

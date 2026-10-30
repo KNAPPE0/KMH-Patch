@@ -36,7 +36,7 @@ namespace KMHPatch.Features.Quests.Dto
         public const string StateOpen          = "open";
         public const string StateClaimed       = "claimed";
         public const string StateSubmitted     = "submitted";
-        public const string StatePendingReview = "pending_review"; // proof submitted, awaiting poster
+        public const string StatePendingReview = "pending_review";
         public const string StateCompleted     = "completed";
         public const string StateExpired       = "expired";
         public const string StateCancelled     = "cancelled";
@@ -68,12 +68,11 @@ namespace KMHPatch.Features.Quests.Dto
         [JsonProperty("title")]               public string Title           { get; set; } = "";
         [JsonProperty("description")]         public string Description     { get; set; } = "";
 
-        // Bounty (escrowed at post time)
+        // Escrowed at post time.
         [JsonProperty("bounty_silver")]       public int    BountySilver    { get; set; } = 0;
         [JsonProperty("bounty_items")]        public Dictionary<string, int> BountyItems
             { get; set; } = new Dictionary<string, int>();
 
-        // Delivery target - DeliverItem kind only
         [JsonProperty("target_item_def_name")] public string TargetItemDefName { get; set; } = "";
         [JsonProperty("target_item_qty")]      public int    TargetItemQty     { get; set; } = 0;
         // 0 = any quality; 1..7 = Awful..Legendary, delivered items must match or beat it

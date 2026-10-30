@@ -33,7 +33,6 @@ namespace KMHPatch.Features.Quests
             return SendMutation(KmhProtocol.Kind.QuestCancel, questId, "Cancel sent");
         }
 
-        // Claimer drops a quest they claimed (it returns to the board). Costs the claimer reputation server-side
         public static bool TryAbandon(long questId)
         {
             return SendMutation(KmhProtocol.Kind.QuestAbandon, questId, "Abandon sent");
@@ -45,7 +44,6 @@ namespace KMHPatch.Features.Quests
             return SendMutation(KmhProtocol.Kind.QuestVerify, questId, "Completion reported");
         }
 
-        // Moves a Custom quest to PendingReview for the poster to approve or reject.
         public static bool TrySubmitProof(long questId, string proofText, string proofImageUrl)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestSubmitProof, new
@@ -59,7 +57,6 @@ namespace KMHPatch.Features.Quests
             return sent;
         }
 
-        // Poster approves or rejects a PendingReview submission, with an optional note shown to the claimer
         public static bool TryReview(long questId, bool approve, string note)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestReview, new
@@ -98,21 +95,12 @@ namespace KMHPatch.Features.Quests
             return SendMutation(KmhProtocol.Kind.QuestApprove, questId, "Approval sent");
         }
 
-        // No delivery target, so the server marks it manual sign-off; expiresInHours 0 = never, > 0 = expire + refund.
+        // No delivery target, so the server marks it manual sign-off.
         public static bool TryPostBounty(string title, string description, int bountySilver,
                                          string visibility = QuestVisibilityPublic,
                                          int    expiresInHours = 0)
         {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                KmhNotifications.Rejected("Quest needs a title");
-                return false;
-            }
-            if (bountySilver < 0)
-            {
-                KmhNotifications.Rejected("Bounty silver cannot be negative");
-                return false;
-            }
+            if (!ValidPost(title, bountySilver)) return false;
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.QuestPost, new
             {
                 kind          = "bounty",
@@ -140,16 +128,7 @@ namespace KMHPatch.Features.Quests
             string visibility     = QuestVisibilityPublic,
             int    expiresInHours = 0)
         {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                KmhNotifications.Rejected("Quest needs a title");
-                return false;
-            }
-            if (bountySilver < 0)
-            {
-                KmhNotifications.Rejected("Bounty silver cannot be negative");
-                return false;
-            }
+            if (!ValidPost(title, bountySilver)) return false;
             if (string.IsNullOrWhiteSpace(targetItemDefName))
             {
                 KmhNotifications.Rejected("Target item is required");
@@ -175,6 +154,21 @@ namespace KMHPatch.Features.Quests
             if (sent) KmhNotifications.Neutral("Posting quest…");
             else      KmhNotifications.NotConnected();
             return sent;
+        }
+
+        private static bool ValidPost(string title, int bountySilver)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                KmhNotifications.Rejected("Quest needs a title");
+                return false;
+            }
+            if (bountySilver < 0)
+            {
+                KmhNotifications.Rejected("Bounty silver cannot be negative");
+                return false;
+            }
+            return true;
         }
 
         private static bool SendMutation(string kind, long questId, string flashOnSent)

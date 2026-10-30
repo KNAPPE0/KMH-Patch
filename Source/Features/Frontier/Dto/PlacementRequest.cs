@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Frontier.Dto
 {
-    // What the server asks: derive a candidate tile from this nonce, skipping these. Mirror of the server DTO.
+    // Mirror of the server DTO.
     public class PlacementRequest
     {
         [JsonProperty("token_id")]      public string TokenId  { get; set; } = "";

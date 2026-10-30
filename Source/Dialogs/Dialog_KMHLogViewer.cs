@@ -40,7 +40,7 @@ namespace KMHPatch.Dialogs
             float titleW  = Mathf.Max(0f, inRect.width - statusW - 8f);
 
             Text.Font = GameFont.Medium;
-            UI.DialogLayout.LabelTrunc(new Rect(0f, 0f, titleW, headerH), "KMH Log");
+            UI.DialogLayout.LabelTrunc(new Rect(0f, 0f, titleW, headerH), "Colony Nexus Log");
             Text.Font = GameFont.Small;
 
             if (statusW > 0f)
@@ -117,13 +117,13 @@ namespace KMHPatch.Dialogs
             if (!File.Exists(path))
             {
                 _lines.Add($"(no log file at {path} yet)");
-                _statusLine = "<color=grey>no file</color>";
+                _statusLine = "<color=#A9AFB9>no file</color>";
                 return;
             }
 
             try
             {
-                // Read safely while KMH may still be writing.
+                // Shared read: KMH may still be writing the file.
                 using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (StreamReader sr = new StreamReader(fs))
                 {
@@ -137,7 +137,7 @@ namespace KMHPatch.Dialogs
                     _lines.AddRange(tail);
                 }
 
-                _statusLine = $"<color=grey>{_lines.Count} line(s), tail of {Path.GetFileName(path)}</color>";
+                _statusLine = $"<color=#A9AFB9>{_lines.Count} line(s), tail of {Path.GetFileName(path)}</color>";
 
                 _scroll = new Vector2(0f, float.MaxValue);
             }

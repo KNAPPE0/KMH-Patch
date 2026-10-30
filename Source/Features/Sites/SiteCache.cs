@@ -3,7 +3,6 @@ using KMHPatch.Features.Sites.Dto;
 
 namespace KMHPatch.Features.Sites
 {
-    // client cache for the latest custom-sites snapshot
     public static class SiteCache
     {
         public static SiteSnapshot Snapshot       { get; private set; }

@@ -6,7 +6,7 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Chat
 {
-    // Chat in and out. Each send carries a fresh token, so a retry or reconnect cannot post the same line twice.
+    // Each send carries a fresh token so a retry or reconnect cannot post the same line twice.
     internal static class ChatHandler
     {
         public static void Register()
@@ -18,6 +18,7 @@ namespace KMHPatch.Features.Chat
             ChatMediaRefreshClient.Register();
             ChatVideoServer.Register();
             ChatRosterCache.Register();
+            ChatOverlay.Register();
         }
 
         public static bool RequestSnapshot(string channel = ChatCache.ServerChannel)
@@ -35,6 +36,16 @@ namespace KMHPatch.Features.Chat
         {
             body = (body ?? "").Trim();
             if (body.Length == 0) return false;
+
+            // Global Chat bypasses the server transport so it works from the main menu and survives server outages.
+            if (ChatChannels.IsGlobal(channel))
+            {
+                if (Features.Global.GlobalChatClient.Send(body)) return true;
+                string why = Features.Global.GlobalChatClient.WhyCannotSend();
+                KmhNotifications.Rejected(why.Length > 0 ? why : "Global Chat is not ready yet.");
+                return false;
+            }
+
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.ChatSend, new
             {
                 channel = channel ?? ChatCache.ServerChannel,
@@ -49,14 +60,23 @@ namespace KMHPatch.Features.Chat
         {
             ChatSnapshot snap = env?.DataAs<ChatSnapshot>();
             if (snap == null || string.IsNullOrEmpty(snap.Channel)) { KmhLog.Warn("Chat snapshot had no parseable payload, ignoring"); return; }
+            if (GlobalOwned(snap.Channel)) return;
             ChatCache.ApplySnapshot(snap.Channel, snap.Messages);
         }
 
         private static void OnMessage(KmhEnvelope env)
         {
             ChatMessagePush push = env?.DataAs<ChatMessagePush>();
-            if (push?.Message == null) return;
+            if (push?.Message == null || GlobalOwned(push.Message.Channel)) return;
             ChatCache.Append(push.Message);
+        }
+
+        // Global's channels come only from Global; a game server writing into them would be speaking as Global.
+        internal static bool GlobalOwned(string channel)
+        {
+            if (!ChatChannels.IsGlobal(channel) && !ChatChannels.IsGlobalDm(channel)) return false;
+            KmhLog.Warn("Chat: dropped a line the game server sent on a Global channel.");
+            return true;
         }
 
         private static void OnModeration(KmhEnvelope env)

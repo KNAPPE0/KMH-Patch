@@ -4,7 +4,6 @@ using KMHPatch.Features.World.Dto;
 
 namespace KMHPatch.Features.World
 {
-    // client cache for the latest world snapshot (active events + server quests)
     public static class WorldCache
     {
         public static WorldSnapshot Snapshot       { get; private set; }
@@ -13,7 +12,7 @@ namespace KMHPatch.Features.World
         public static bool HasSnapshot => Snapshot != null;
         public static bool HasEvents => ActiveEvents().Count > 0;
 
-        // EndsUtcTicks == 0 means instantaneous or force-expired, not "runs forever" - disagree with the weather component and the UI advertises weather the engine refuses.
+        // EndsUtcTicks 0 means instantaneous or force-expired, not "forever"; the weather component must agree.
         public static System.Collections.Generic.List<WorldEventDto> ActiveEvents()
         {
             var list = new System.Collections.Generic.List<WorldEventDto>();
@@ -50,7 +49,7 @@ namespace KMHPatch.Features.World
             if (snapshot == null) return;
             if (Snapshot != null && snapshot.Revision < Snapshot.Revision) return;
 
-            // Seed silently on the session's first snapshot (a reconnect clears it too): no "fired" for events already running when the player joined.
+            // No diff on the session's first snapshot, so events already running at join never raise "fired".
             List<WorldEventDto> oldActive = Snapshot == null ? null : ActiveEvents();
 
             Snapshot       = Sanitize(snapshot);
@@ -65,7 +64,6 @@ namespace KMHPatch.Features.World
             KmhCacheEvents.Raise(Updated, "World");
         }
 
-        // Compare the active-event set across a snapshot swap and raise fired/ended to extensions. Keyed by event Id.
         private static void RaiseWorldEventDiffs(List<WorldEventDto> oldActive, List<WorldEventDto> newActive)
         {
             var oldIds = new HashSet<long>(); foreach (WorldEventDto e in oldActive) oldIds.Add(e.Id);
@@ -82,7 +80,7 @@ namespace KMHPatch.Features.World
                         { Id = e.Id, Type = e.Type ?? "", Title = e.Title ?? "" });
         }
 
-        // Harden server text before it reaches a rich-text Label: unbalanced markup throws mid-draw and blanks the KMH tab.
+        // Harden server text for rich-text Labels: unbalanced markup throws mid-draw and blanks the KMH tab.
         private static WorldSnapshot Sanitize(WorldSnapshot s)
         {
             if (s == null) return null;
@@ -122,7 +120,6 @@ namespace KMHPatch.Features.World
             return s;
         }
 
-        // null -> ""; cap length; optionally neutralize angle brackets so embedded/unbalanced tags render literally.
         private static string Safe(string v, int maxLen, bool stripMarkup = true)
         {
             if (string.IsNullOrEmpty(v)) return "";

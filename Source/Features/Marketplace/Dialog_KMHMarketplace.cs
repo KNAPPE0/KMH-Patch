@@ -11,10 +11,10 @@ using Verse;
 
 namespace KMHPatch.Features.Marketplace
 {
-    // Marketplace browse: per-listing rows with ownership-gated Buy…/Cancel, newest-first.
     public class Dialog_KMHMarketplace : Window_KMHBase
     {
-        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(1040f, 620f);
+        public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(Mathf.Clamp(Verse.UI.screenWidth * 0.62f, 1040f, 1400f),
+                                                                                  Mathf.Clamp(Verse.UI.screenHeight * 0.78f, 620f, 920f));
 
         private Vector2  _scroll;
 
@@ -31,13 +31,16 @@ namespace KMHPatch.Features.Marketplace
         {
             switch (m)
             {
-                case SortMode.PriceAsc:  return "Price ↑";
-                case SortMode.PriceDesc: return "Price ↓";
-                case SortMode.QtyDesc:   return "Qty ↓";
-                case SortMode.NameAsc:   return "Name A-Z";
-                default:                 return "Newest";
+                case SortMode.PriceAsc:  return KmhText.Get("KMH_Market_SortPriceAsc", "Price ↑");
+                case SortMode.PriceDesc: return KmhText.Get("KMH_Market_SortPriceDesc", "Price ↓");
+                case SortMode.QtyDesc:   return KmhText.Get("KMH_Market_SortQtyDesc", "Qty ↓");
+                case SortMode.NameAsc:   return KmhText.Get("KMH_Market_SortNameAsc", "Name A-Z");
+                default:                 return KmhText.Get("KMH_Market_SortNewest", "Newest");
             }
         }
+
+        private static readonly SortMode[] SortModes =
+            { SortMode.Newest, SortMode.PriceAsc, SortMode.PriceDesc, SortMode.QtyDesc, SortMode.NameAsc };
 
         private static readonly string[] CommonCategories =
         {
@@ -47,7 +50,23 @@ namespace KMHPatch.Features.Marketplace
 
         // The stored values are ThingCategoryDef defNames, which the filter matches on; only the display differs.
         private static string CategoryName(string cat)
-            => cat == "All" ? "All categories" : cat == "BodyParts" ? "Body parts" : cat;
+        {
+            switch (cat)
+            {
+                case "All":          return KmhText.Get("KMH_Market_CatAll", "All categories");
+                case "Resources":    return KmhText.Get("KMH_Market_CatResources", "Resources");
+                case "Manufactured": return KmhText.Get("KMH_Market_CatManufactured", "Manufactured");
+                case "Foods":        return KmhText.Get("KMH_Market_CatFoods", "Foods");
+                case "Drugs":        return KmhText.Get("KMH_Market_CatDrugs", "Drugs");
+                case "Medicine":     return KmhText.Get("KMH_Market_CatMedicine", "Medicine");
+                case "Weapons":      return KmhText.Get("KMH_Market_CatWeapons", "Weapons");
+                case "Apparel":      return KmhText.Get("KMH_Market_CatApparel", "Apparel");
+                case "Plants":       return KmhText.Get("KMH_Market_CatPlants", "Plants");
+                case "BodyParts":    return KmhText.Get("KMH_Market_CatBodyParts", "Body parts");
+                case "Other":        return KmhText.Get("KMH_Market_CatOther", "Other");
+                default:             return cat;
+            }
+        }
 
         private static IEnumerable<string> CategoryNames()
         {
@@ -60,6 +79,53 @@ namespace KMHPatch.Features.Marketplace
         private string                   _visibleCategory;
         private bool                     _vcMine, _vcMyGuild;
         private SortMode                 _vcSort;
+
+        private readonly RowTextCache _rowText = new RowTextCache();
+        private object         _statsFor;
+        private LoadedLanguage _statsLanguage;
+        private string         _stats;
+        private float          _colsWidth = -1f;
+        private float[]        _cols;
+
+        internal sealed class RowText { public string Item, Qty, Unit, Total, Listed; public long Second = -1; }
+
+        // A row's text is built once per snapshot, language and second, not on every frame it is drawn.
+        internal sealed class RowTextCache
+        {
+            private readonly Dictionary<long, RowText> _rows = new Dictionary<long, RowText>();
+            private object         _source;
+            private LoadedLanguage _language;
+            private bool           _english;
+
+            internal RowText TextFor(MarketplaceListing r, object source, long now)
+            {
+                if (!ReferenceEquals(_source, source) || _language != LanguageDatabase.activeLanguage || _english != KmhText.EnglishOnlyForTest)
+                {
+                    _rows.Clear();
+                    _source = source; _language = LanguageDatabase.activeLanguage; _english = KmhText.EnglishOnlyForTest;
+                }
+                if (!_rows.TryGetValue(r.Id, out RowText t))
+                {
+                    t = new RowText
+                    {
+                        Qty   = $"{r.RemainingQty}<color=#A9AFB9>/{r.OriginalQty}</color>",
+                        Unit  = UnitText(r.UnitPriceDisplay),
+                        Total = $"<b>{SilverFmt.Format(r.TotalAskingSilver(r.RemainingQty))}</b>",
+                    };
+                    _rows[r.Id] = t;
+                }
+                long second = now / TimeSpan.TicksPerSecond;
+                if (t.Second != second)
+                {
+                    // The demand arrow and the times change without a new snapshot.
+                    string item = FormatItemName(r) + MarketDemand.Arrow(r.ItemDefName);
+                    if (r.IsAutoListing) item = "<color=#9090ff>" + KmhText.Get("KMH_Market_AutoTag", "[auto]") + "</color> " + item;
+                    if (!string.IsNullOrEmpty(r.StateNote)) item += $" <color=#A9AFB9>({r.StateNote})</color>";
+                    t.Item = item; t.Listed = FormatListedExpires(r, now); t.Second = second;
+                }
+                return t;
+            }
+        }
 
         public Dialog_KMHMarketplace()
         {
@@ -79,23 +145,24 @@ namespace KMHPatch.Features.Marketplace
             MarketplaceCache.Updated -= OnSnapshotUpdated;
         }
 
-        // Also invalidate the cached filtered view so the fresh snapshot rebuilds it.
         private void OnSnapshotUpdated()
         {
             _visible = null;
             MarkRefreshed();
         }
 
+        protected override Features.Discord.KmhActivity PresenceActivity => Features.Discord.KmhActivity.Marketplace;
+
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "Player Marketplace");
+            float y = DialogLayout.DrawTitle(rect, KmhText.Get("KMH_Market_Title", "Player Marketplace"), DialogLayout.LiveBadgeReserve);
             DialogLayout.DrawLiveBadge(rect, SecondsSinceRefresh, HasReceivedData, 0f);
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             if (!MarketplaceCache.HasSnapshot)
             {
                 DialogLayout.LabelTrunc(new Rect(0f, y + 4f, rect.width, 20f),
-                    "<color=grey>Loading marketplace…</color>");
+                    "<color=#A9AFB9>" + KmhText.Get("KMH_Market_Loading", "Loading marketplace…") + "</color>");
                 if (DialogLayout.DrawCloseButton(rect)) Close();
                 return;
             }
@@ -104,19 +171,26 @@ namespace KMHPatch.Features.Marketplace
 
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                $"House pool: {SilverFmt.Format(s.HouseSilverPool)}  |  " +
-                $"Lifetime trades: {s.LifetimeTradesCompleted}  |  " +
-                $"Lifetime silver traded: {SilverFmt.Format(s.LifetimeSilverTraded)}");
+            if (!ReferenceEquals(_statsFor, s) || _statsLanguage != LanguageDatabase.activeLanguage)
+            {
+                _stats = KmhText.Get("KMH_Market_Stats", "House pool: {0}  |  Lifetime trades: {1}  |  Lifetime silver traded: {2}",
+                    SilverFmt.Format(s.HouseSilverPool), s.LifetimeTradesCompleted, SilverFmt.Format(s.LifetimeSilverTraded));
+                _statsFor = s; _statsLanguage = LanguageDatabase.activeLanguage;
+            }
+            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f), _stats);
             GUI.color = oldCol;
             y += 24f;
 
-            // Measured, never fixed to one resolution, and a row each so the pinned buttons cannot slide under the search field.
             float catW = DialogLayout.DropdownWidth(CategoryNames(), 110f, 200f);
 
-            float mineW  = DialogLayout.TightCheckboxWidth("Only mine");
-            float guildW = DialogLayout.TightCheckboxWidth("My guild only");
-            float sortW  = Mathf.Clamp(Text.CalcSize($"Sort: {SortLabel(SortMode.NameAsc)}").x + 26f, 110f, 170f);
+            string onlyMine    = KmhText.Get("KMH_Market_OnlyMine", "Only mine");
+            string myGuildOnly = KmhText.Get("KMH_Market_MyGuildOnly", "My guild only");
+            float mineW  = DialogLayout.TightCheckboxWidth(onlyMine);
+            float guildW = DialogLayout.TightCheckboxWidth(myGuildOnly);
+            // Sized for the widest option, so the toolbar does not shift when the sort changes.
+            float sortLabelW = 0f;
+            foreach (SortMode m in SortModes) sortLabelW = Mathf.Max(sortLabelW, Text.CalcSize(SortLabel(m)).x);
+            float sortW  = Mathf.Clamp(Text.CalcSize(KmhText.Get("KMH_Browser_SortBy", "Sort: {0}", "")).x + sortLabelW + 26f, 110f, 170f);
 
             // The toggles and sort take a row of their own before the search field is squeezed below readability.
             const float searchMin = 210f;
@@ -125,7 +199,8 @@ namespace KMHPatch.Features.Marketplace
                 ? rect.width - catW - mineW - guildW - sortW - 24f
                 : Mathf.Max(120f, rect.width - catW - 8f);
 
-            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter, "Filter by item or seller");
+            _filter = DialogLayout.SearchField(new Rect(0f, y, filterW, 28f), _filter,
+                KmhText.Get("KMH_Market_FilterHint", "Filter by item or seller"));
 
             if (DialogLayout.DrawDropdownButton(new Rect(filterW + 8f, y, catW, 28f), CategoryName(_categoryFilter)))
             {
@@ -140,28 +215,34 @@ namespace KMHPatch.Features.Marketplace
 
             float togY = filterOneRow ? y : y + 32f;
             float cbx  = filterOneRow ? filterW + catW + 20f : 0f;
-            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, "Only mine",     ref _onlyMine);
-            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, "My guild only", ref _onlyMyGuild);
+            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, onlyMine,    ref _onlyMine);
+            cbx = DialogLayout.DrawTightCheckbox(cbx, togY + 4f, myGuildOnly, ref _onlyMyGuild);
 
             if (rect.width - sortW - 4f >= cbx
-                && Widgets.ButtonText(new Rect(rect.width - sortW, togY, sortW, 28f), $"Sort: {SortLabel(_sort)}"))
+                && Widgets.ButtonText(new Rect(rect.width - sortW, togY, sortW, 28f),
+                                      KmhText.Get("KMH_Browser_SortBy", "Sort: {0}", SortLabel(_sort))))
                 DialogLayout.EnumFloatMenu<SortMode>(SortLabel, m => _sort = m);
 
             y = togY + DialogLayout.ToolbarRowH;
 
+            string wantLabel    = KmhText.Get("KMH_Report_Area_WantBoard", "Want Board");
+            string auctionLabel = KmhText.Get("KMH_Report_Area_Auctions", "Auctions");
+            string refreshLabel = KmhText.Get("KMH_GH_Refresh", "Refresh");
+            string postLabel    = KmhText.Get("KMH_Market_PostListing", "Post listing");
+
             // All four share the shrink evenly, so the left and right pairs never meet in the middle.
             float actW = Mathf.Max(
-                Mathf.Max(IconButton.WidthFor("Want board", false), IconButton.WidthFor("Auctions", false)),
-                Mathf.Max(IconButton.WidthFor("Refresh",    false), IconButton.WidthFor("Post listing", true)));
+                Mathf.Max(IconButton.WidthFor(wantLabel,    false), IconButton.WidthFor(auctionLabel, false)),
+                Mathf.Max(IconButton.WidthFor(refreshLabel, false), IconButton.WidthFor(postLabel,    true)));
             actW = Mathf.Max(70f, Mathf.Min(actW, (rect.width - 32f) / 4f));
 
-            if (Widgets.ButtonText(new Rect(0f, y, actW, 28f), "Want board"))
+            if (Widgets.ButtonText(new Rect(0f, y, actW, 28f), wantLabel))
                 Find.WindowStack.Add(new Features.WantBoard.Dialog_KMHWantBoard());
-            if (Widgets.ButtonText(new Rect(actW + 8f, y, actW, 28f), "Auctions"))
+            if (Widgets.ButtonText(new Rect(actW + 8f, y, actW, 28f), auctionLabel))
                 Find.WindowStack.Add(new Features.Auctions.Dialog_KMHAuctions());
-            if (Widgets.ButtonText(new Rect(rect.width - actW * 2f - 8f, y, actW, 28f), "Refresh"))
+            if (Widgets.ButtonText(new Rect(rect.width - actW * 2f - 8f, y, actW, 28f), refreshLabel))
                 MarketplaceHandler.RequestSnapshot();
-            if (IconButton.Draw(new Rect(rect.width - actW, y, actW, 28f), KMHTextures.Post, "Post listing"))
+            if (IconButton.Draw(new Rect(rect.width - actW, y, actW, 28f), KMHTextures.Post, postLabel))
                 Dialog_KMHPostListing.Open();
 
             y += 32f;
@@ -182,13 +263,18 @@ namespace KMHPatch.Features.Marketplace
         private static void DrawHeader(Rect r)
         {
             float[] cols = ColumnXs(r.width);
-            DialogLayout.LabelTrunc(new Rect(cols[0], r.y, cols[1] - cols[0], r.height), "<b>Item</b>");
-            DialogLayout.DrawCenteredLabel(new Rect(cols[1], r.y, cols[2] - cols[1], r.height), "<b>Qty</b>");
-            DialogLayout.DrawCenteredLabel(new Rect(cols[2], r.y, cols[3] - cols[2], r.height), "<b>Unit</b>");
-            DialogLayout.DrawCenteredLabel(new Rect(cols[3], r.y, cols[4] - cols[3], r.height), "<b>Total</b>");
-            DialogLayout.LabelTrunc(new Rect(cols[4], r.y, cols[5] - cols[4], r.height), "<b>Seller</b>");
-            DialogLayout.DrawCenteredLabel(new Rect(cols[5], r.y, ListedW(r.width, cols[5]), r.height), "<b>Listed</b>");
-            // Action column has no header text - buttons speak for themselves.
+            DialogLayout.LabelTrunc(new Rect(cols[0], r.y, cols[1] - cols[0], r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColItem", "Item") + "</b>");
+            DialogLayout.DrawCenteredLabel(new Rect(cols[1], r.y, cols[2] - cols[1], r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColQty", "Qty") + "</b>");
+            DialogLayout.DrawCenteredLabel(new Rect(cols[2], r.y, cols[3] - cols[2], r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColUnit", "Unit") + "</b>");
+            DialogLayout.DrawCenteredLabel(new Rect(cols[3], r.y, cols[4] - cols[3], r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColTotal", "Total") + "</b>");
+            DialogLayout.LabelTrunc(new Rect(cols[4], r.y, cols[5] - cols[4], r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColSeller", "Seller") + "</b>");
+            DialogLayout.DrawCenteredLabel(new Rect(cols[5], r.y, ListedW(r.width, cols[5]), r.height),
+                "<b>" + KmhText.Get("KMH_Market_ColListed", "Listed") + "</b>");
         }
 
         private void DrawRows(Rect box, MarketplaceSnapshot s)
@@ -197,18 +283,6 @@ namespace KMHPatch.Features.Marketplace
 
             string mine        = KmhSession.Me;
             string filterLower = (_filter ?? "").Trim().ToLower();
-
-            // Null when the caller is in no guild.
-            HashSet<string> myGuildMembers = null;
-            if (_onlyMyGuild)
-            {
-                GuildSnapshot g = GuildCache.Guild;
-                if (g?.Members != null)
-                {
-                    myGuildMembers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (GuildMemberDto m in g.Members) myGuildMembers.Add(m.Username);
-                }
-            }
 
             bool inputsChanged =
                 _visible == null
@@ -221,6 +295,17 @@ namespace KMHPatch.Features.Marketplace
 
             if (inputsChanged)
             {
+                HashSet<string> myGuildMembers = null;
+                if (_onlyMyGuild)
+                {
+                    GuildSnapshot g = GuildCache.Guild;
+                    if (g?.Members != null)
+                    {
+                        myGuildMembers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (GuildMemberDto m in g.Members) myGuildMembers.Add(m.Username);
+                    }
+                }
+
                 List<MarketplaceListing> source = s.Listings ?? new List<MarketplaceListing>();
                 List<MarketplaceListing> filtered = new List<MarketplaceListing>(source.Count);
 
@@ -273,22 +358,28 @@ namespace KMHPatch.Features.Marketplace
 
             List<MarketplaceListing> rows = _visible;
             long now = DateTime.UtcNow.Ticks;
-            // 'mine' already computed above for the filter pass; reused here for the per-row 'is mine?' check
 
-            // Naming the active filters, because an empty table under a filter otherwise looks like an empty market.
-            string empty;
-            if (s.Listings == null || s.Listings.Count == 0)
-                empty = "<color=grey>No open listings. Be the first to sell something!</color>";
-            else
+            // Names the active filters, or an empty table under a filter looks like an empty market.
+            string empty = null;
+            if (rows.Count == 0)
             {
-                List<string> active = new List<string>();
-                if (!string.IsNullOrEmpty(filterLower)) active.Add($"the search \"{_filter.Trim()}\"");
-                if (_categoryFilter != "All")           active.Add($"category {CategoryName(_categoryFilter)}");
-                if (_onlyMine)                          active.Add("Only mine");
-                if (_onlyMyGuild)                       active.Add("My guild only");
-                empty = active.Count == 0
-                    ? "<color=grey>No listings to show.</color>"
-                    : $"<color=grey>{s.Listings.Count} listing{(s.Listings.Count == 1 ? "" : "s")} open, but none match {string.Join(" + ", active.ToArray())}.</color>";
+                if (s.Listings == null || s.Listings.Count == 0)
+                    empty = "<color=#A9AFB9>" + KmhText.Get("KMH_Market_EmptyNone", "No open listings. Be the first to sell something!") + "</color>";
+                else
+                {
+                    List<string> active = new List<string>();
+                    if (!string.IsNullOrEmpty(filterLower)) active.Add(KmhText.Get("KMH_Market_FilterSearch", "the search \"{0}\"", _filter.Trim()));
+                    if (_categoryFilter != "All")           active.Add(KmhText.Get("KMH_Market_FilterCategory", "category {0}", CategoryName(_categoryFilter)));
+                    if (_onlyMine)                          active.Add(KmhText.Get("KMH_Market_OnlyMine", "Only mine"));
+                    if (_onlyMyGuild)                       active.Add(KmhText.Get("KMH_Market_MyGuildOnly", "My guild only"));
+                    int open = s.Listings.Count;
+                    empty = active.Count == 0
+                        ? "<color=#A9AFB9>" + KmhText.Get("KMH_Market_EmptyFiltered", "No listings to show.") + "</color>"
+                        : "<color=#A9AFB9>" + (open == 1
+                            ? KmhText.Get("KMH_Market_NoMatchOne", "1 listing open, but it does not match {0}.", string.Join(" + ", active.ToArray()))
+                            : KmhText.Get("KMH_Market_NoMatchMany", "{0} listings open, but none match {1}.", open, string.Join(" + ", active.ToArray())))
+                          + "</color>";
+                }
             }
 
             // Only the visible rows draw - a busy/modded marketplace can have hundreds of listings.
@@ -296,7 +387,9 @@ namespace KMHPatch.Features.Marketplace
             {
                 MarketplaceListing r = rows[i];
                 float ly = row.y;
-                float[] cols = ColumnXs(row.width);
+                if (row.width != _colsWidth) { _cols = ColumnXs(row.width); _colsWidth = row.width; }
+                float[] cols = _cols;
+                RowText text = _rowText.TextFor(r, s.Listings, now);
                 if (Mouse.IsOver(row))
                 {
                     string demandTip = MarketDemand.Tip(r.ItemDefName);
@@ -307,31 +400,22 @@ namespace KMHPatch.Features.Marketplace
                 ItemLabels.DrawIcon(new Rect(cols[0] + 2f, ly + 1f, iconSize, iconSize), r.ItemDefName);
                 UI.KmhItemInfo.ButtonForDef(cols[0] + iconSize + 4f, ly + 2f, r.ItemDefName, r.StuffDefName);
 
-                string itemLabel = FormatItemName(r) + MarketDemand.Arrow(r.ItemDefName);
-                if (r.IsAutoListing) itemLabel = $"<color=#9090ff>[auto]</color> {itemLabel}";
-                if (!string.IsNullOrEmpty(r.StateNote)) itemLabel += $" <color=grey>({r.StateNote})</color>";   // full-state note (tainted/damaged/legacy)
                 DialogLayout.LabelTrunc(new Rect(cols[0] + iconSize + UI.KmhItemInfo.Size + 8f, ly + 2f,
-                    Mathf.Max(0f, cols[1] - cols[0] - iconSize - UI.KmhItemInfo.Size - 10f), rowH - 4f), itemLabel);
+                    Mathf.Max(0f, cols[1] - cols[0] - iconSize - UI.KmhItemInfo.Size - 10f), rowH - 4f), text.Item);
 
-                DialogLayout.DrawCenteredLabel(new Rect(cols[1], ly + 2f, cols[2] - cols[1], rowH - 4f),
-                    $"{r.RemainingQty}<color=grey>/{r.OriginalQty}</color>");
-                DialogLayout.DrawCenteredLabel(new Rect(cols[2], ly + 2f, cols[3] - cols[2], rowH - 4f),
-                    r.UnitPriceDisplay.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                DialogLayout.DrawCenteredLabel(new Rect(cols[3], ly + 2f, cols[4] - cols[3], rowH - 4f),
-                    $"<b>{SilverFmt.Format(r.TotalAskingSilver(r.RemainingQty))}</b>");
-                DialogLayout.LabelTrunc(new Rect(cols[4] + 4f, ly + 2f, cols[5] - cols[4] - 4f, rowH - 4f),
-                    string.IsNullOrEmpty(r.SellerUsername) ? "<color=grey>-</color>" : LinkedAccountsCache.Format(r.SellerUsername));
+                DialogLayout.DrawCenteredLabel(new Rect(cols[1], ly + 2f, cols[2] - cols[1], rowH - 4f), text.Qty);
+                DialogLayout.DrawCenteredLabel(new Rect(cols[2], ly + 2f, cols[3] - cols[2], rowH - 4f), text.Unit);
+                DialogLayout.DrawCenteredLabel(new Rect(cols[3], ly + 2f, cols[4] - cols[3], rowH - 4f), text.Total);
+                KmhPlayerMenu.NameCell(new Rect(cols[4] + 4f, ly + 2f, cols[5] - cols[4] - 4f, rowH - 4f), r.SellerUsername);
                 DialogLayout.DrawCenteredLabel(
-                    new Rect(cols[5], ly + 2f, ListedW(row.width, cols[5]), rowH - 4f),
-                    FormatListedExpires(r, now));
+                    new Rect(cols[5], ly + 2f, ListedW(row.width, cols[5]), rowH - 4f), text.Listed);
 
-                // Action button column: Cancel for own listings, Buy for others.
                 float aw = ActionW(row.width);
                 Rect actionRect = new Rect(row.width - aw + 4f, ly + 2f, Mathf.Max(1f, aw - 8f), rowH - 4f);
                 bool isMine = KmhSession.Same(r.SellerUsername, mine);
                 if (isMine)
                 {
-                    if (IconButton.Draw(actionRect, KMHTextures.Cancel, "Cancel"))
+                    if (IconButton.Draw(actionRect, KMHTextures.Cancel, KmhText.Get("KMH_Common_Cancel", "Cancel")))
                     {
                         MarketplaceHandler.TryCancel(r.Id);
                     }
@@ -340,12 +424,17 @@ namespace KMHPatch.Features.Marketplace
                 {
                     // Captured, or the lambda would read a later row by the time the player picks an amount.
                     MarketplaceListing captured = r;
-                    if (IconButton.Draw(actionRect, KMHTextures.Buy, "Buy"))
+                    // Bought goods land in this game, so what it cannot load is not offered.
+                    string cannot = KmhItemDisplayService.MissingForListingCached(false, r.Id, r.ItemDefName, r.StuffDefName, r.EscrowPayloads);
+                    string buyLabel = KmhText.Get("KMH_GH_Buy", "Buy");
+                    if (cannot != null) IconButton.DrawDisabled(actionRect, KMHTextures.Buy, buyLabel, cannot);
+                    else if (IconButton.Draw(actionRect, KMHTextures.Buy, buyLabel))
                     {
                         Find.WindowStack.Add(new Dialog_KMHAmountInput(
-                            title: $"Buy {FormatItemName(captured)} from {captured.SellerUsername}",
-                            confirmLabel: "Buy",
-                            unitLabel: "units",
+                            title: KmhText.Get("KMH_Market_BuyTitle", "Buy {0} from {1}",
+                                               FormatItemName(captured), KmhDisplayText.Inert(captured.SellerUsername)),
+                            confirmLabel: buyLabel,
+                            unitLabel: KmhText.Get("KMH_Market_Units", "units"),
                             maxHint: captured.RemainingQty,
                             onConfirm: qty => MarketplaceHandler.TryBuy(captured.Id, qty)));
                     }
@@ -361,19 +450,18 @@ namespace KMHPatch.Features.Marketplace
             float body   = Mathf.Max(160f, right - 10f);
             return new float[]
             {
-                10f,                  // 0 Item
-                10f + body * 0.42f,   // 1 Qty
-                10f + body * 0.54f,   // 2 Unit
-                10f + body * 0.68f,   // 3 Total
-                10f + body * 0.82f,   // 4 Seller
-                right                 // 5 Listed/Expires (right-most)
+                10f,
+                10f + body * 0.42f,
+                10f + body * 0.54f,
+                10f + body * 0.68f,
+                10f + body * 0.82f,
+                right
             };
         }
 
         // Shrinks on a narrow window: a fixed width against a proportional grid drives the last column negative.
         private static float ActionW(float w) => Mathf.Min(ActionColumnWidth, Mathf.Max(48f, w * 0.14f));
 
-        // Whatever is left between the last column and the action button, never negative.
         internal static float ListedW(float w, float col5) => Mathf.Max(0f, w - col5 - ActionW(w) - 4f);
 
         // Capped so a wide dialog spends the extra room on the item name rather than on a date.
@@ -388,7 +476,7 @@ namespace KMHPatch.Features.Marketplace
         private static bool MatchesCategory(string key, string category)
         {
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(category) || string.Equals(category, "All", StringComparison.OrdinalIgnoreCase)) return true;
-            ItemKeys.Split(key, out string defName, out _, out _);   // composed def|stuff|quality -> base def
+            ItemKeys.Split(key, out string defName, out _, out _);
             ThingDef td;
             try { td = DefDatabase<ThingDef>.GetNamedSilentFail(defName); }
             catch { td = null; }
@@ -418,25 +506,25 @@ namespace KMHPatch.Features.Marketplace
             string expires;
             if (r.ExpiresUtcTicks <= 0)
             {
-                expires = "<color=grey>-</color>";
+                expires = "<color=#A9AFB9>-</color>";
             }
             else if (nowTicks >= r.ExpiresUtcTicks)
             {
-                expires = "<color=#ff8080>expired</color>";
+                expires = "<color=#f07167>" + KmhText.Get("KMH_Dialog_Expired", "expired") + "</color>";
             }
             else
             {
-                expires = $"in {FormatDuration(r.ExpiresUtcTicks - nowTicks)}";
+                expires = KmhText.Get("KMH_Market_ExpiresIn", "in {0}", FormatDuration(r.ExpiresUtcTicks - nowTicks));
             }
             return $"{listed}  /  {expires}";
         }
 
         private static string FormatAgo(long utcTicks, long nowTicks)
         {
-            if (utcTicks <= 0) return "<color=grey>-</color>";
+            if (utcTicks <= 0) return "<color=#A9AFB9>-</color>";
             long delta = nowTicks - utcTicks;
-            if (delta < 0) return "just now";
-            return FormatDuration(delta) + " ago";
+            if (delta < 0) return KmhText.Get("KMH_Ago_JustNow", "just now");
+            return KmhText.Get("KMH_Ago_Ago", "{0} ago", FormatDuration(delta));
         }
 
         private static string FormatDuration(long ticks)
@@ -451,5 +539,9 @@ namespace KMHPatch.Features.Marketplace
             }
             catch { return "?"; }
         }
+
+        // Fewer decimals as the price grows: 10.756 read as noise, 0.125 still needs all three.
+        internal static string UnitText(double unit)
+            => unit.ToString(unit >= 10 ? "0.#" : unit >= 1 ? "0.##" : "0.###", System.Globalization.CultureInfo.InvariantCulture);
     }
 }

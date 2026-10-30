@@ -4,7 +4,7 @@ using System.Xml.Linq;
 
 namespace KMHPatch.Features.Enforcement
 {
-    // Server config wins except personal fields; any parse error falls back to server text so a bad config can never emit broken XML.
+    // Any parse error falls back to the server text, so a bad config can never emit broken XML.
     internal static class ConfigMerge
     {
         public static string MergePreservingPersonal(string serverText, string playerText)
@@ -12,14 +12,13 @@ namespace KMHPatch.Features.Enforcement
             if (string.IsNullOrEmpty(playerText)) return serverText;
             try
             {
-                XDocument sDoc = XDocument.Parse(serverText);
+                XDocument sDoc = ParseNoDtd(serverText);
                 XElement sSet = sDoc.Descendants("ModSettings").FirstOrDefault();
-                XElement pSet = XDocument.Parse(playerText).Descendants("ModSettings").FirstOrDefault();
+                XElement pSet = ParseNoDtd(playerText).Descendants("ModSettings").FirstOrDefault();
                 if (sSet == null || pSet == null) return serverText;
 
                 bool changed = false;
 
-                // Server fields that are personal: take the player's value if they have one.
                 foreach (XElement sField in sSet.Elements().ToList())
                 {
                     if (!ConfigHeuristics.IsPersonalField(sField.Name.LocalName)) continue;
@@ -29,7 +28,6 @@ namespace KMHPatch.Features.Enforcement
                     changed = true;
                 }
 
-                // Personal fields the player has that the server omitted: keep them.
                 foreach (XElement pField in pSet.Elements())
                 {
                     if (!ConfigHeuristics.IsPersonalField(pField.Name.LocalName)) continue;
@@ -42,6 +40,14 @@ namespace KMHPatch.Features.Enforcement
                 return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" + sDoc.ToString(SaveOptions.None);
             }
             catch { return serverText; }
+        }
+
+        // No DTD and no resolver: server text never expands entities or reaches for another file.
+        private static XDocument ParseNoDtd(string text)
+        {
+            var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null };
+            using (var reader = System.Xml.XmlReader.Create(new System.IO.StringReader(text), settings))
+                return XDocument.Load(reader);
         }
     }
 }

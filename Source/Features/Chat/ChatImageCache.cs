@@ -6,10 +6,10 @@ using UnityEngine.Networking;
 
 namespace KMHPatch.Features.Chat
 {
-    // Fetched only on a click, because fetching tells that host the player's IP: one at a time, capped, timed out, LRU.
+    // Fetched only on a click, because fetching tells that host the player's IP.
     internal static class ChatImageCache
     {
-        // A chat log scrolls past hundreds of images; holding them all is how a mod gets blamed for a memory leak.
+        // A chat log scrolls past hundreds of images; holding them all is a memory leak.
         private const int   MaxCached      = 6;
         private const float TimeoutSeconds = 15f;
 
@@ -25,14 +25,12 @@ namespace KMHPatch.Features.Chat
 
         public static int MaxBytes => _maxBytes;
 
-        // From the hello. 0/absent means the server never said, so KMH keeps its own conservative default.
         public static void SetServerMaxBytes(int bytes)
         {
             _maxBytes = ClampMaxBytes(bytes);
             KmhLog.Debug($"Chat image: size cap set to {_maxBytes / 1024}KB (server said {bytes})");
         }
 
-        // Held between a floor and a ceiling: a client must not be talked into holding an arbitrary amount of data.
         internal static int ClampMaxBytes(int bytes)
         {
             if (bytes <= 0) return DefaultMaxBytes;
@@ -46,8 +44,8 @@ namespace KMHPatch.Features.Chat
         private sealed class Entry
         {
             public State     State;
-            public Texture2D Texture;        // still images
-            public KmhGif.Animation Gif;     // animated gifs - several textures and their frame timings
+            public Texture2D Texture;
+            public KmhGif.Animation Gif;
             public string    Error = "";
             public bool      Permanent;      // the host's answer will not change, so not even a click should ask again
             public float     LastUsed;
@@ -58,7 +56,6 @@ namespace KMHPatch.Features.Chat
 
             public bool HasImage => Gif != null ? Gif.Frames.Count > 0 : Texture != null;
 
-            // An animation holds a texture PER FRAME, so six of them is not six pictures' worth of memory.
             public long Pixels
                 => Gif != null ? (long)Gif.Width * Gif.Height * Gif.Frames.Count
                  : Texture != null ? (long)Texture.width * Texture.height : 0L;
@@ -71,11 +68,26 @@ namespace KMHPatch.Features.Chat
         private static string          _activeUrl;
         private static float           _startedAt;
 
+        internal const string NotWebMedia = "not a secure web link";
+
+        // A game server names these urls, so only absolute https with a host may be fetched, played or opened.
+        internal static bool IsWebMedia(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            foreach (char c in url) if (c <= ' ') return false;
+            try
+            {
+                return Uri.TryCreate(url, UriKind.Absolute, out Uri u) && u != null
+                    && u.Scheme == Uri.UriSchemeHttps && !string.IsNullOrEmpty(u.Host) && string.IsNullOrEmpty(u.UserInfo);
+            }
+            catch { return false; }
+        }
+
         // A key is either a URL this client fetches or a RESOLVER ID the server converted - the privacy distinction.
         internal static bool IsResolvedId(string key)
             => !string.IsNullOrEmpty(key) && key.IndexOf("://", StringComparison.Ordinal) < 0;
 
-        // For an animation this hands back a DIFFERENT texture as time passes, so callers never have to know.
+        // For an animation this returns a DIFFERENT texture as time passes, so ask every frame.
         public static bool IsReady(string url, out Texture2D tex)
         {
             tex = null;
@@ -87,7 +99,6 @@ namespace KMHPatch.Features.Chat
             return tex != null;
         }
 
-        // The still size of an image, so layout can reserve a constant height instead of resizing every frame.
         public static bool TrySize(string url, out int w, out int h)
         {
             w = h = 0;
@@ -113,7 +124,6 @@ namespace KMHPatch.Features.Chat
             return IsResolvedId(url) ? ChatMediaClient.FailureFor(url) : null;
         }
 
-        // Server-converted bytes land in the same cache, so nothing that draws knows which path they came from.
         private static void AdoptResolved(string id)
         {
             if (_byUrl.TryGetValue(id, out Entry have) && have.State == State.Ready) return;
@@ -126,7 +136,7 @@ namespace KMHPatch.Features.Chat
             else StoreStill(id, bytes);
         }
 
-        // A host that answered 404 answers 404 again: auto-load asked once per frame and hammered one dead link for a minute.
+        // A host that answered 404 answers 404 again, and auto-load would hammer a dead link every frame.
         public static bool CanRetry(string url)
         {
             if (string.IsNullOrEmpty(url)) return false;
@@ -135,7 +145,6 @@ namespace KMHPatch.Features.Chat
             return _byUrl.TryGetValue(url, out Entry e) && e.State == State.Failed && !e.Permanent;
         }
 
-        // The player asking again, which is the only thing that clears a failure. A permanent one stays failed.
         public static void Retry(string url)
         {
             if (!CanRetry(url)) return;
@@ -163,6 +172,13 @@ namespace KMHPatch.Features.Chat
         }
 
         private static void Begin(string url)
+        {
+            // UnityWebRequest reads file: urls from disk, and a UNC one reaches out to another machine.
+            if (!IsWebMedia(url)) { Fail(url, NotWebMedia, permanent: true); return; }
+            Send(url);
+        }
+
+        private static void Send(string url)
         {
             try
             {
@@ -193,18 +209,18 @@ namespace KMHPatch.Features.Chat
 
             if (!_active.isDone)
             {
-                // Cut off MID-FLIGHT: checking after isDone held the whole file in memory before rejecting it.
+                // Cut off mid-flight: checking after isDone holds the whole file in memory before rejecting it.
                 if (_active.downloadedBytes > (ulong)_maxBytes)
                 {
                     Fail(_activeUrl, $"too large - {_active.downloadedBytes / (1024 * 1024)}MB, over the server's {_maxBytes / (1024 * 1024)}MB limit", true);
-                    Cleanup();
+                    ReleaseActive();
                     return;
                 }
                 // The request's own timeout is the primary guard; this catches the case where it never fires.
                 if (Time.realtimeSinceStartup - _startedAt > TimeoutSeconds * 2f)
                 {
                     Fail(_activeUrl, "timed out");
-                    Cleanup();
+                    ReleaseActive();
                 }
                 return;
             }
@@ -236,7 +252,6 @@ namespace KMHPatch.Features.Chat
                 }
                 else if (LooksLikeHtml(bytes, contentType))
                 {
-                    // The server should send no share page, but one reaching an image decoder must not read as a corrupt picture.
                     Fail(_activeUrl, "that link is a web page, not an image file", true);
                 }
                 else if (KmhGif.LooksLikeGif(bytes))
@@ -249,24 +264,23 @@ namespace KMHPatch.Features.Chat
                 }
                 else
                 {
-                    // Naming the format matters: 'not a readable image' told a player nothing and looked like a KMH bug.
                     string unsupported = UnsupportedFormat(bytes);
                     if (unsupported != null) Fail(_activeUrl, unsupported, true);
                     else StoreStill(_activeUrl, bytes);
                 }
             }
             catch (Exception ex) { Fail(_activeUrl, ex.Message); }
-            finally { Cleanup(); }
+            finally { ReleaseActive(); }
         }
 
-        // Nothing here decodes webp, and a video belongs to the player. By magic number - Discord serves webp as .png.
+        // By magic number: Discord serves webp as .png, and nothing here decodes webp or video.
         private static string UnsupportedFormat(byte[] b)
         {
             if (b == null || b.Length < 12) return null;
 
             if (IsWebp(b))
             {
-                // Animated and static webp are different problems: Discord's proxy answers 415 for a gif of an animated one.
+                // Animated and static webp differ: Discord's proxy answers 415 when asked for a gif of an animated one.
                 return IsAnimatedWebp(b)
                     ? "animated WebP - RimWorld has no decoder for it, and Discord's proxy cannot convert one to GIF"
                     : "WebP - RimWorld has no decoder for it; the server can ask Discord's proxy for a PNG instead";
@@ -280,7 +294,7 @@ namespace KMHPatch.Features.Chat
             if (b[0] == 0x1A && b[1] == 0x45 && b[2] == 0xDF && b[3] == 0xA3)
                 return "this is a video, not an image";
 
-            return null;   // let Unity try - it may well be a png or jpg
+            return null;
         }
 
         // RIFF....WEBP
@@ -289,7 +303,7 @@ namespace KMHPatch.Features.Chat
                && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46
                && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50;
 
-        // An animated webp carries per-frame ANMF chunks; a static one is a server-side choice that can be fixed.
+        // An animated webp carries per-frame ANMF chunks.
         internal static bool IsAnimatedWebp(byte[] b)
         {
             if (!IsWebp(b)) return false;
@@ -299,7 +313,7 @@ namespace KMHPatch.Features.Chat
             return false;
         }
 
-        // A share link answers with a page, and feeding that to a texture loader read as 'not a readable image'.
+        // A share link answers with a page, which a texture loader reports as an unreadable image.
         internal static bool LooksLikeHtml(byte[] b, string contentType)
         {
             if (!string.IsNullOrEmpty(contentType)
@@ -314,7 +328,6 @@ namespace KMHPatch.Features.Chat
             return head.StartsWith("<!doctype") || head.StartsWith("<html") || head.StartsWith("<head") || head.StartsWith("<?xml");
         }
 
-        // Status codes worth naming. Anything else keeps Unity's own message.
         internal static string HttpFailure(long status, string unityError)
         {
             switch (status)
@@ -353,21 +366,19 @@ namespace KMHPatch.Features.Chat
             if (gif == null || gif.Frames.Count == 0) { Fail(url, "could not decode this gif", true); return; }
             KmhLog.Debug($"Chat image: decoded gif {gif.Width}x{gif.Height}, {gif.Frames.Count} frame(s), "
                        + $"{(gif.IsAnimated ? "animated" : "single frame")}");
-
-            Entry e = _byUrl[url];
-            e.State = State.Ready; e.Gif = gif;
-            e.StartedAt = Time.realtimeSinceStartup;
-            e.LastUsed  = e.StartedAt;
-            Evict();
+            StoreAnimation(url, gif);
         }
 
-        // Falls back to the still rather than failing: one frame of a sticker is worth more than an error.
         private static void StoreApng(string url, byte[] bytes)
         {
             KmhGif.Animation anim = KmhApng.Decode(bytes);
             if (anim == null || anim.Frames.Count == 0) { StoreStill(url, bytes); return; }
             KmhLog.Debug($"Chat image: decoded animated png {anim.Width}x{anim.Height}, {anim.Frames.Count} frame(s)");
+            StoreAnimation(url, anim);
+        }
 
+        private static void StoreAnimation(string url, KmhGif.Animation anim)
+        {
             Entry e = _byUrl[url];
             e.State = State.Ready; e.Gif = anim;
             e.StartedAt = Time.realtimeSinceStartup;
@@ -375,9 +386,23 @@ namespace KMHPatch.Features.Chat
             Evict();
         }
 
+        // A 12-megapixel photo fits; a header claiming more is refused before Unity allocates for it.
+        internal const int  MaxStillSide   = 8192;
+        internal const long MaxStillPixels = 4096L * 4096;
+
+        internal static string StillRefusal(byte[] bytes)
+        {
+            if (!KmhImageHeader.TryReadSize(bytes, out int w, out int h)) return "not a readable image - its size could not be read";
+            if (w > MaxStillSide || h > MaxStillSide || (long)w * h > MaxStillPixels)
+                return $"too large to show - {w}x{h}, over the {MaxStillSide}px side and {MaxStillPixels / 1000000}M pixel limit";
+            return null;
+        }
+
         private static void StoreStill(string url, byte[] bytes)
         {
-            // mipChain off: drawn at roughly its own size, so mips cost memory for a sharpness nobody sees.
+            string refused = StillRefusal(bytes);
+            if (refused != null) { Fail(url, refused, true); return; }
+            // No mipmaps: drawn near its own size, so mips would only cost memory.
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!tex.LoadImage(bytes))
             {
@@ -385,6 +410,8 @@ namespace KMHPatch.Features.Chat
                 Fail(url, "not a readable image", true);
                 return;
             }
+            // Never read back, so the CPU copy is let go; 1.7 ignores LoadImage's own non-readable flag.
+            try { tex.Apply(false, true); } catch (Exception) { }
             Entry e = _byUrl[url];
             e.State = State.Ready; e.Texture = tex; e.LastUsed = Time.realtimeSinceStartup;
             Evict();
@@ -414,13 +441,13 @@ namespace KMHPatch.Features.Chat
                 || status == 410 || status == 415 || status == 451;
         }
 
-        private static void Cleanup()
+        private static void ReleaseActive()
         {
             try { _active?.Dispose(); } catch { }
             _active = null; _activeUrl = null;
         }
 
-        // Least-recently-drawn wins, and the texture is DESTROYED - Unity textures are not garbage collected.
+        // Evicted textures are DESTROYED: Unity textures are not garbage collected.
         private static void Evict()
         {
             while (CountReady() > MaxCached || ReadyPixels() > MaxCachedPixels)
@@ -460,15 +487,13 @@ namespace KMHPatch.Features.Chat
             if (e.Gif != null) { e.Gif.Dispose(); e.Gif = null; }
         }
 
-        // Server switch, or the player turning previews off. Everything goes, textures included.
         public static void Clear()
         {
             foreach (var kv in _byUrl) Destroy(kv.Value);
             _byUrl.Clear();
-            Cleanup();
+            ReleaseActive();
         }
 
-        // A player deciding whether to contact a host should be told which one; the path is noise.
         public static string HostOf(string url)
         {
             // Resolved media never leaves the KMH connection, so naming a third-party host would be a lie.

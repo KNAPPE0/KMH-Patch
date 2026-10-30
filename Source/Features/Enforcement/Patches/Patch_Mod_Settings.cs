@@ -8,7 +8,7 @@ using Verse;
 
 namespace KMHPatch.Features.Enforcement.Patches
 {
-    // The targets are virtual, so base plus every override gets patched - one Harmony patch per mod, hence install-on-demand.
+    // Virtual targets: every override needs its own Harmony patch, hence install-on-demand.
     internal static class EnforcementSettingsPatches
     {
         private static bool _installed;
@@ -17,6 +17,7 @@ namespace KMHPatch.Features.Enforcement.Patches
         {
             if (_installed) return;
             _installed = true;
+            ModSettingsWriteGuard.EnsureInstalled();
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -26,36 +27,28 @@ namespace KMHPatch.Features.Enforcement.Patches
                 var writePrefix  = new HarmonyMethod(typeof(EnforcementSettingsPatches), nameof(WritePrefix));
 
                 int n = 0;
-                foreach (MethodBase m in DrawTargets())  { try { h.Patch(m, prefix: drawPrefix, postfix: drawPostfix); n++; } catch { } }
-                foreach (MethodBase m in WriteTargets()) { try { h.Patch(m, prefix: writePrefix); n++; } catch { } }
+                foreach (MethodBase m in Targets(nameof(Verse.Mod.DoSettingsWindowContents), new[] { typeof(Rect) }))
+                { try { h.Patch(m, prefix: drawPrefix, postfix: drawPostfix); n++; } catch { } }
+                foreach (MethodBase m in Targets(nameof(Verse.Mod.WriteSettings), Type.EmptyTypes))
+                { try { h.Patch(m, prefix: writePrefix); n++; } catch { } }
                 KmhLog.Info($"Enforcement: mod-settings lock installed ({n} method(s), {sw.ElapsedMilliseconds}ms)");
             }
             catch (Exception ex) { KmhLog.Error($"Enforcement: settings-lock install failed: {ex}"); }
         }
 
-        private static IEnumerable<MethodBase> DrawTargets()
+        private static IEnumerable<MethodBase> Targets(string method, Type[] args)
         {
-            yield return AccessTools.Method(typeof(Verse.Mod), nameof(Verse.Mod.DoSettingsWindowContents));
+            yield return AccessTools.Method(typeof(Verse.Mod), method);
             foreach (Type t in typeof(Verse.Mod).AllSubclassesNonAbstract())
             {
-                MethodInfo m = AccessTools.DeclaredMethod(t, nameof(Verse.Mod.DoSettingsWindowContents), new[] { typeof(Rect) });
-                if (m != null) yield return m;
-            }
-        }
-
-        private static IEnumerable<MethodBase> WriteTargets()
-        {
-            yield return AccessTools.Method(typeof(Verse.Mod), nameof(Verse.Mod.WriteSettings));
-            foreach (Type t in typeof(Verse.Mod).AllSubclassesNonAbstract())
-            {
-                MethodInfo m = AccessTools.DeclaredMethod(t, nameof(Verse.Mod.WriteSettings), Type.EmptyTypes);
+                MethodInfo m = AccessTools.DeclaredMethod(t, method, args);
                 if (m != null) yield return m;
             }
         }
 
         private static bool _diagLogged;
 
-        // __args[0] is the Rect; reading by position dodges per-override param-name differences that would break a named Rect parameter
+        // Positional __args[0]: overrides name the Rect parameter differently, which breaks a named binding.
         public static bool DrawPrefix(Verse.Mod __instance, object[] __args)
         {
             if (!_diagLogged)
@@ -77,16 +70,16 @@ namespace KMHPatch.Features.Enforcement.Patches
         }
 
         public static bool WritePrefix(Verse.Mod __instance)
-            => EnforcementCache.IsModEditable(__instance); // false = skip the write
+            => EnforcementCache.IsModEditable(__instance);
 
-        // Safety net: first Options open installs the lock, covering stale edge cases without paying the cost at startup
+        // Safety net: the first Options open installs the lock, so startup never pays for it.
         [HarmonyPatch(typeof(RimWorld.Dialog_Options), MethodType.Constructor, new Type[0])]
         internal static class Patch_Dialog_Options_Ctor
         {
             [HarmonyPostfix]
             private static void Postfix()
             {
-                if (EnforcementCache.IsLockActive()
+                if (EnforcementCache.IsLockActive() || EnforcementProfileApplier.RestoreAwaitsRestart
                     || (SubProtocol.KmhDispatcher.IsKmhServer && EnforcementCache.IsAdmin))
                     EnsureInstalled();
             }

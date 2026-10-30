@@ -7,12 +7,12 @@ using Verse;
 
 namespace KMHPatch.Features.Roadworks
 {
-    // KMH's roads are indistinguishable from worldgen's after a reload, so without this saved claim record they would read as foreign and never be cleaned up.
+    // After a reload KMH's roads look like worldgen's; without this saved claim record they could never be cleaned up.
     public class WorldComponent_KMHRoads : WorldComponent
     {
         private static WorldComponent_KMHRoads _instance;
 
-        // key -> what we wrote. Flattened for Scribe; Applied stays Verse-free so the rules stay testable.
+        // Flattened for Scribe; Applied stays Verse-free so the rules stay testable.
         private readonly Dictionary<string, KmhRoadReconcile.Applied> _applied =
             new Dictionary<string, KmhRoadReconcile.Applied>();
 
@@ -35,7 +35,14 @@ namespace KMHPatch.Features.Roadworks
 
         public override void WorldComponentTick() => TryReconcile(2f);
 
-        // A new server numbers revisions independently, but the claims are kept: they record roads KMH wrote that still need cleaning up.
+        public override void WorldComponentUpdate()
+        {
+            if (!RimWorld.Planet.WorldRendererUtility.WorldRendered) return;
+            try { KmhRoutePreview.DrawProjects(); }
+            catch (System.Exception ex) { Verse.Log.ErrorOnce("[KMH] Roadworks: drawing planned roads failed - " + ex.Message, 0x4b4d4852); }
+        }
+
+        // A new server numbers revisions independently; claims are kept because they record KMH roads still to clean up.
         public static void ForgetApplied()
         {
             if (_instance != null) _instance._appliedRevision = -1;
@@ -54,7 +61,7 @@ namespace KMHPatch.Features.Roadworks
         private float _lastVerifyReal = -999f;
         private bool  _saidDrift;
 
-        // The revision says what the server wants, never what the planet still shows: a road wiped behind our back went unnoticed forever while the revision sat unchanged.
+        // The revision tracks the server, not the planet: without this a road wiped behind our back stays gone.
         private bool DriftedFromClaims()
         {
             if (_applied.Count == 0) return false;
@@ -87,7 +94,7 @@ namespace KMHPatch.Features.Roadworks
 
         private void Reconcile()
         {
-            // No snapshot means not heard from the server yet; reading it as "no roads" would tear up every KMH road on a slow connect.
+            // No snapshot yet is not "no roads": reading it so would tear up every KMH road on a slow connect.
             if (!KmhRoadNetwork.HasSnapshot) return;
             if (KmhRoadNetwork.Revision == _appliedRevision && !DriftedFromClaims()) return;
 
@@ -165,7 +172,7 @@ namespace KMHPatch.Features.Roadworks
                              $"{redrawn} map layer(s) redrawn (revision {KmhRoadNetwork.Revision}).");
         }
 
-        // SetDirty<T>(layer) matches the PlanetLayer the draw layer holds, so a tile carrying another instance silently marks nothing. Counted here, swept when none matched.
+        // SetDirty matches the draw layer's own PlanetLayer instance; when none matches, every roads layer is swept.
         private static bool _warnedNoLayer;
 
         private static int MarkRoadsDirty(HashSet<PlanetLayer> layers)
@@ -173,7 +180,7 @@ namespace KMHPatch.Features.Roadworks
             int marked = 0, roadLayers = 0;
             try
             {
-                // Typed as the BASE: AllDrawLayers holds global layers too, and naming the subclass here threw a cast on the first one.
+                // Typed as the base: AllDrawLayers holds global layers too, and casting to the subclass here throws.
                 foreach (WorldDrawLayerBase dl in Find.World.renderer.AllDrawLayers)
                 {
                     if (!(dl is WorldDrawLayer_Roads roads)) continue;

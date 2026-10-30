@@ -42,9 +42,11 @@ namespace KMHPatch.Features.Auctions
             bool hasPayload = snap?.ItemPayloads != null && snap.ItemPayloads.Count > 0;
             if (!hasSimple && !hasPayload)
             {
-                Notifications.KmhNotifications.Rejected(Treasury.TreasuryCache.HasPendingItems()
-                    ? $"You have {Treasury.TreasuryCache.PendingItemUnits()} item(s) pending in your treasury - save your game to finalize them before auctioning"
-                    : "Your treasury has no items to auction - deposit some to your vault first");
+                int pending = Treasury.TreasuryCache.PendingItemUnits();
+                Notifications.KmhNotifications.Rejected(
+                    pending == 1 ? KmhText.Get("KMH_PostAuction_PendingOne", "You have 1 item pending in your treasury - save your game to finalize it before auctioning")
+                  : pending > 1  ? KmhText.Get("KMH_PostAuction_PendingMany", "You have {0} items pending in your treasury - save your game to finalize them before auctioning", pending)
+                  : KmhText.Get("KMH_PostAuction_NoItems", "Your treasury has no items to auction - deposit some to your vault first"));
                 return false;
             }
             Find.WindowStack.Add(new Dialog_KMHPostAuction(
@@ -55,20 +57,21 @@ namespace KMHPatch.Features.Auctions
 
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "Post auction - from your treasury");
+            float y = DialogLayout.DrawTitle(rect, KmhText.Get("KMH_PostAuction_Title", "Post auction - from your treasury"));
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             const float labelW = 190f;
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Item");
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), KmhText.Get("KMH_Market_ColItem", "Item"));
             string itemDisplay = string.IsNullOrEmpty(_itemKey)
-                ? "<color=grey>(pick from treasury)</color>"
-                : $"{ItemKeys.LabelForKey(_itemKey)}  <color=grey>(available x{_itemAvailable})</color>";
+                ? "<color=#A9AFB9>" + KmhText.Get("KMH_PostListing_PickFromTreasury", "(pick from treasury)") + "</color>"
+                : ItemKeys.LabelForKey(_itemKey) + "  <color=#A9AFB9>"
+                  + KmhText.Get("KMH_PostListing_Available", "(available x{0})", _itemAvailable) + "</color>";
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
             {
                 UI.KmhItemPickerService.Open(
-                    title:           "Pick item to auction",
-                    pickActionLabel: "Select",
+                    title:           KmhText.Get("KMH_PostAuction_PickTitle", "Pick item to auction"),
+                    pickActionLabel: KmhText.Get("KMH_PostListing_Select", "Select"),
                     source:          _treasuryItems,
                     onPick:          (key, qty) =>
                     {
@@ -91,26 +94,28 @@ namespace KMHPatch.Features.Auctions
             }
             y += 30f;
 
-            y = Row(rect, y, "Quantity",            ref _qty);
-            y = Row(rect, y, "Starting bid (silver)", ref _startingBid);
-            y = Row(rect, y, "Min raise (silver)",  ref _minIncrement);
-            y = Row(rect, y, "Buyout (silver, 0=none)", ref _buyout);
-            y = Row(rect, y, "Duration (hours)",    ref _hours);
+            y = Row(rect, y, KmhText.Get("KMH_PostListing_Quantity", "Quantity"), ref _qty);
+            y = Row(rect, y, KmhText.Get("KMH_PostAuction_StartingBid", "Starting bid (silver)"), ref _startingBid);
+            y = Row(rect, y, KmhText.Get("KMH_PostAuction_MinRaise", "Min raise (silver)"), ref _minIncrement);
+            y = Row(rect, y, KmhText.Get("KMH_PostAuction_Buyout", "Buyout (silver, 0=none)"), ref _buyout);
+            y = Row(rect, y, KmhText.Get("KMH_PostAuction_Duration", "Duration (hours)"), ref _hours);
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
-            string visLabel = _visibility == "guild_only" ? "Guild + allies only" : "Public (all servers)";
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), KmhText.Get("KMH_PostListing_Visibility", "Visibility"));
+            string visPublic = KmhText.Get("KMH_PostListing_VisPublic", "Public (all servers)");
+            string visGuild  = KmhText.Get("KMH_PostListing_VisGuild", "Guild + allies only");
+            string visLabel = _visibility == "guild_only" ? visGuild : visPublic;
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), visLabel))
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
-                    new FloatMenuOption("Public (all servers)", () => _visibility = "public"),
-                    new FloatMenuOption("Guild + allies only",  () => _visibility = "guild_only"),
+                    new FloatMenuOption(visPublic, () => _visibility = "public"),
+                    new FloatMenuOption(visGuild,  () => _visibility = "guild_only"),
                 }));
             y += 30f;
 
             const float btnW = 120f, btnH = 32f;
             float btnY = rect.height - btnH - 4f;
-            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, "Cancel")) Close();
-            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, "Post")) Submit();
+            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, KmhText.Get("KMH_Common_Cancel", "Cancel"))) Close();
+            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, KmhText.Get("KMH_PostListing_Post", "Post"))) Submit();
         }
 
         private static float Row(Rect rect, float y, string label, ref string value)
@@ -123,22 +128,28 @@ namespace KMHPatch.Features.Auctions
 
         private void Submit()
         {
-            if (string.IsNullOrEmpty(_itemKey)) { Reject("Pick an item first"); return; }
-            if (!int.TryParse(T(_qty), out int qty) || qty <= 0) { Reject("Quantity: positive whole number"); return; }
+            if (string.IsNullOrEmpty(_itemKey)) { Reject(KmhText.Get("KMH_PostListing_PickItemFirst", "Pick an item first")); return; }
+            if (!int.TryParse(T(_qty), out int qty) || qty <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadQty", "Quantity: positive whole number")); return; }
 
             // Re-read: the vault can change between the draw and Submit.
             _itemAvailable = CurrentAvailable();
             if (_itemAvailable <= 0)
-            { Reject($"{ItemKeys.LabelForKey(_itemKey)} is no longer in your treasury"); return; }
+            { Reject(KmhText.Get("KMH_PostListing_NoLongerHeld", "{0} is no longer in your treasury", ItemKeys.LabelForKey(_itemKey))); return; }
             if (qty > _itemAvailable)
-            { Reject($"You only have {_itemAvailable} of that to auction"); return; }
+            { Reject(KmhText.Get("KMH_PostAuction_OnlyHave", "You only have {0} of that to auction", _itemAvailable)); return; }
 
-            if (!int.TryParse(T(_startingBid), out int start) || start <= 0) { Reject("Starting bid: positive whole number"); return; }
-            if (!int.TryParse(T(_minIncrement), out int inc) || inc <= 0) { Reject("Min raise: positive whole number"); return; }
+            if (!int.TryParse(T(_startingBid), out int start) || start <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadStart", "Starting bid: positive whole number")); return; }
+            if (!int.TryParse(T(_minIncrement), out int inc) || inc <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadRaise", "Min raise: positive whole number")); return; }
             int buyout = 0;
-            if (T(_buyout).Length > 0 && (!int.TryParse(T(_buyout), out buyout) || buyout < 0)) { Reject("Buyout: 0 (none) or a positive whole number"); return; }
-            if (buyout > 0 && buyout < start) { Reject("Buyout must be at least the starting bid"); return; }
-            if (!int.TryParse(T(_hours), out int hours) || hours <= 0) { Reject("Duration: positive whole number of hours"); return; }
+            if (T(_buyout).Length > 0 && (!int.TryParse(T(_buyout), out buyout) || buyout < 0))
+            { Reject(KmhText.Get("KMH_PostAuction_BadBuyout", "Buyout: 0 (none) or a positive whole number")); return; }
+            if (buyout > 0 && buyout < start)
+            { Reject(KmhText.Get("KMH_PostAuction_BuyoutBelowStart", "Buyout must be at least the starting bid")); return; }
+            if (!int.TryParse(T(_hours), out int hours) || hours <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadDuration", "Duration: positive whole number of hours")); return; }
 
             bool ok = string.IsNullOrEmpty(_fingerprint)
                 ? AuctionHandler.TryPost(_itemKey, "", 0, qty, start, inc, buyout, hours, _visibility)

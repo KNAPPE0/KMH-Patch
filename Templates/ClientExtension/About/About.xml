@@ -7,7 +7,7 @@
     - <name> is what shows up in the mods list
     - <author> + <description> as you like
 
-  modDependencies + loadAfter together ensure KMHPatch is loaded
+  modDependencies + loadAfter together ensure Colony Nexus is loaded
   BEFORE your extension so its host singleton is available when
   your assembly's IKmhClientExtension.Register fires.
 
@@ -28,7 +28,7 @@
   <modDependencies>
     <li>
       <packageId>knappe.kmh.patch</packageId>
-      <displayName>KMH Patch</displayName>
+      <displayName>KMH: Colony Nexus</displayName>
       <steamWorkshopUrl>steam://url/CommunityFilePage/PLACEHOLDER</steamWorkshopUrl>
       <downloadUrl>https://github.com/KNAPPE0/KMH-Patch/releases</downloadUrl>
     </li>

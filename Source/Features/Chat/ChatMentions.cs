@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace KMHPatch.Features.Chat
 {
-    // Pure so the rules can be checked headless: getting this wrong is a missed message or a pointless notification.
     internal static class ChatMentions
     {
         // A Discord line can carry @everyone, which must never become a way to notify a whole server from outside it.
@@ -20,7 +19,6 @@ namespace KMHPatch.Features.Chat
         internal static bool IsNameChar(char c)
             => char.IsLetterOrDigit(c) || c == '_' || c == '-';
 
-        // Every @name in the body, reserved words excluded. Duplicates are kept out; order follows the text.
         internal static List<string> Find(string body)
         {
             var found = new List<string>();
@@ -56,7 +54,7 @@ namespace KMHPatch.Features.Chat
             return false;
         }
 
-        // The name being typed at the end of the box, or null. "@" alone counts: the roster is the point of the list.
+        // A bare "@" counts: listing the roster is the point.
         internal static string PartialAt(string input)
         {
             if (string.IsNullOrEmpty(input)) return null;
@@ -66,11 +64,10 @@ namespace KMHPatch.Features.Chat
             if (at > 0 && IsNameChar(input[at - 1])) return null;
 
             for (int i = at + 1; i < input.Length; i++)
-                if (!IsNameChar(input[i])) return null;   // the mention already ended; nothing is being typed
+                if (!IsNameChar(input[i])) return null;
             return input.Substring(at + 1);
         }
 
-        // Replaces the partial being typed with the chosen name, leaving everything before it alone.
         internal static string Complete(string input, string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return input ?? "";
@@ -80,7 +77,6 @@ namespace KMHPatch.Features.Chat
             return text.Substring(0, at) + "@" + name + " ";
         }
 
-        // What the input box should hold after clicking a name in the roster.
         internal static string Insert(string input, string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return input ?? "";

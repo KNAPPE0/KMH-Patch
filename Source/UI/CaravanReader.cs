@@ -38,7 +38,7 @@ namespace KMHPatch.UI
                 {
                     if (t?.def == null) continue;
                     // composed key so different material/quality stacks never merge
-                    string key = ItemKeys.Compose(t.def.defName, t.Stuff?.defName, ItemKeys.QualityIndexOf(t));
+                    string key = ItemKeys.KeyFor(t);
                     if (!result.TryGetValue(key, out int cur)) cur = 0;
                     result[key] = cur + t.stackCount;
                 }

@@ -15,12 +15,12 @@ namespace KMHPatch.Features.Sites
         public int    SiteWorkers;
         public int    SiteMaxWorkers;
 
-        // The entry this marker was last reconciled from. Drives the label and the map look; never saved.
+        // Never saved; set by the reconciler.
         public SiteEntry Entry;
 
         public override string Label => KmhMarkerArt.LabelFor(Entry, SiteItem);
 
-        // Overridden because the def names one texture, so a site changed identity as the player zoomed.
+        // The def names one texture; without this a site would change identity as the player zooms.
         public override Material Material
         {
             get
@@ -76,14 +76,14 @@ namespace KMHPatch.Features.Sites
         // Resolved by the reconciler rather than here: this is read every frame the world draws.
         public bool MineToManage;
 
-        // White: the zoomed-out icon keeps its own colours too, and the halo patch draws ownership behind it.
+        // White: the zoomed-out icon keeps its own colours too, and ExpandingMaterial's border carries ownership.
         public override Color ExpandingIconColor => Color.white;
 
         public override float ExpandingIconPriority => KmhMarkerArt.PriorityFor(Entry, base.ExpandingIconPriority);
 
         public override string GetInspectString()
         {
-            string s = KmhMarkerArt.IsOutpost(Entry) ? "KMH Frontier outpost" : "KMH production site";
+            string s = KmhMarkerArt.IsOutpost(Entry) ? "Frontier outpost" : "Production site";
 
             string archetype = KmhMarkerArt.ArchetypeWord(Entry?.Archetype);
             if (archetype.Length > 0) s += $"\nType: {archetype}";
@@ -93,11 +93,11 @@ namespace KMHPatch.Features.Sites
                 string state = KmhMarkerArt.StateWord(Entry.OutpostState);
                 if (state.Length > 0) s += $"\nState: {state}";
                 if (Entry.CanClaim) s += "\n<color=#FFD65C>You can claim this location.</color>";
-                if (!string.IsNullOrEmpty(Entry.CapturedBy)) s += $"\nTaken by: {Entry.CapturedBy}";
+                if (!string.IsNullOrEmpty(Entry.CapturedBy)) s += $"\nTaken by: {KmhDisplayText.GuildName(Entry.CapturedBy)}";
             }
 
             if (!string.IsNullOrEmpty(SiteItem))  s += $"\nProduces: {SiteItem}";
-            if (!string.IsNullOrEmpty(SiteOwner)) s += $"\nOwner: {SiteOwner}";
+            if (!string.IsNullOrEmpty(SiteOwner)) s += $"\nOwner: {KmhDisplayText.GuildName(SiteOwner)}";
             if (Entry != null && Entry.Stability < 100) s += $"\nCondition: {Entry.Stability}%";
             s += $"\nWorkers: {SiteWorkers}/{SiteMaxWorkers}";
             return s;
@@ -107,8 +107,8 @@ namespace KMHPatch.Features.Sites
         {
             yield return new Command_Action
             {
-                defaultLabel = "Manage KMH sites",
-                defaultDesc  = "Open the KMH sites dialog to join as a worker, set the reward destination, or cancel.",
+                defaultLabel = "Manage sites",
+                defaultDesc  = "Open the Sites dialog to join as a worker, set the reward destination, or cancel.",
                 icon         = KMHTextures.Sites ?? BaseContent.BadTex,
                 action       = () => Find.WindowStack.Add(new Dialog_KMHSites())
             };

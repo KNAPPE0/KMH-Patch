@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>KMH Patch for RimWorld Together</name>
+  <name>KMH: Colony Nexus</name>
   <author>KNAPPE0</author>
   <packageId>knappe.kmh.patch</packageId>
   <supportedVersions>
     <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
-  <modVersion>1.3.0</modVersion>
+  <modVersion>1.3.1</modVersion>
 
-  <description>KMH is a community feature pack for the official RimWorld Together mod
+  <description>KMH: Colony Nexus is a community feature pack for the official RimWorld Together mod
 
-It adds an in-game KMH tab with:
+Works on RimWorld 1.6 and 1.7. On 1.7 it needs RimWorld Together's own 1.7 release (26.10.20.1 or newer).
+
+It adds an in-game Colony Nexus tab with:
 
 Trade and wealth
 - a player marketplace (buy/sell, search, guild-only listings)
 - timed auctions and a want-to-buy board
 - treasury vaults, personal and guild
-- off-map wealth counts toward RimWorld's raid scaling, so parking value in KMH is not a safe haven (the server decides whether this is on)
+- off-map wealth counts toward RimWorld's raid scaling, so parking value in Colony Nexus is not a safe haven (the server decides whether this is on)
 
 Work and territory
 - custom production sites with workers and reward routing
@@ -27,6 +30,7 @@ Work and territory
 
 People
 - guilds with ranks, buyable perks, alliances, and a shared vault
+- Guild Federation: guilds on different servers join one federation with renown, weekly objectives and small local bonuses - nothing moves between servers
 - a Communications hub: server chat, guild chat and direct messages in one window
 - player mail with silver, item and full-condition gear attachments - recallable while unread, and returned if never claimed
 - per-channel notification levels and player blocking
@@ -36,9 +40,11 @@ World and records
 - a quest board: deliver, bounty, hunt, build, escort, defend, and custom quests
 - server-wide events and co-op/competitive global quests (Living World)
 - Server Standings: player, guild, colony, colonist, trade, battle, site and Frontier records with profiles and a season archive
+- leaderboards in game and on the Colony Nexus website, with images to share
+- a server browser with Prepare and Join: it sets up the server's mods and RimWorld Together version, then joins
 - an optional Discord bridge
 
-KMH only activates when you connect to a KMH-enabled server. Features the server has not enabled stay hidden.
+Colony Nexus only activates when you connect to a Colony Nexus server. Features the server has not enabled stay hidden.
 
 Client mod (this): https://github.com/KNAPPE0/KMH-Patch
 Server addon: https://github.com/KNAPPE0/KMH-Server-Addon

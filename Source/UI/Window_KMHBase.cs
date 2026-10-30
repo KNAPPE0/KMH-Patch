@@ -18,13 +18,19 @@ namespace KMHPatch
 
         protected abstract void DrawContents(Rect inRect);
 
+        // Below 1 the window's background is drawn see-through (Patch_WindowDrawing_KmhGlass); contents stay solid.
+        internal virtual float BackgroundOpacity => 1f;
+
+        // What this screen means on Discord. None for screens that are nobody else's business.
+        protected virtual Features.Discord.KmhActivity PresenceActivity
+            => Features.Discord.KmhActivity.None;
+
         private Action   _autoRefresh;
         private float    _refreshTimer;
         // Marked on RECEIPT, never on send, or a screen reads "live" while no snapshot has ever arrived.
         private DateTime _lastRefreshUtc = DateTime.MinValue;
         private DateTime _firstRequestUtc = DateTime.MinValue;
 
-        // How long a screen waits for its first snapshot before saying so instead of claiming to be loading.
         private const int NoResponseSeconds = 15;
 
         protected void EnableAutoRefresh(Action requestSnapshot)
@@ -116,7 +122,6 @@ namespace KMHPatch
             windowRect.height = Mathf.Max(windowRect.height, minSize.y);
         }
 
-        // A remembered size, never smaller than the window can draw itself at nor bigger than the screen.
         protected static Vector2 SizeWithin(float savedW, float savedH, float minW, float minH)
             => new Vector2(Mathf.Clamp(savedW, minW, Mathf.Max(minW, Verse.UI.screenWidth  - 40f)),
                            Mathf.Clamp(savedH, minH, Mathf.Max(minH, Verse.UI.screenHeight - 40f)));
@@ -134,9 +139,13 @@ namespace KMHPatch
             // Snapshot text state so a broken draw can't leak anchor/font settings into the rest of the UI.
             TextAnchor anchor = Text.Anchor;
             GameFont   font   = Text.Font;
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             try
             {
+                Features.Discord.KmhPresenceActivity.Note(PresenceActivity);
                 DrawContents(inRect);
+                long took = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                if (took >= KmhSlowWork.SlowTicks) KmhSlowWork.Note(GetType().Name, took);
             }
             catch (Exception ex)
             {
@@ -145,11 +154,14 @@ namespace KMHPatch
                 if (!_loggedThisOpen)
                 {
                     _loggedThisOpen = true; // once per open - don't flood the log at 60fps
+                    _drawFault = ex.GetType().Name + ": " + ex.Message;
                     KmhLog.Error($"{GetType().Name}.DrawContents threw: {ex}");
                 }
                 DrawError(inRect);
             }
         }
+
+        private string _drawFault = "";
 
         public override void PostClose()
         {
@@ -157,18 +169,35 @@ namespace KMHPatch
             _loggedThisOpen = false;
         }
 
-        private static void DrawError(Rect inRect)
+        private void DrawError(Rect inRect)
         {
             GameFont   font   = Text.Font;
             TextAnchor anchor = Text.Anchor;
-            Text.Font   = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(inRect,
-                "<color=#ff8080>This KMH panel hit an error and couldn't finish drawing.</color>\n\n" +
-                "It's safe to close and reopen it. Details are in the KMH log " +
-                "(Mods → KMH Patch settings → Open KMH log folder).");
-            Text.Anchor = anchor;
-            Text.Font   = font;
+            Color      color  = GUI.color;
+            try
+            {
+                Text.Font   = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                string text = "<color=#f07167>" + KmhText.Get("KMH_Error_PanelFailed", "This Colony Nexus panel hit an error and couldn't finish drawing.")
+                            + "</color>\n\n" + KmhText.Get("KMH_Error_PanelHelp",
+                                "It's safe to close and reopen it. Details are in the Colony Nexus log (Mods → {0} settings → Open Colony Nexus log folder).",
+                                Constants.DisplayName);
+                float h = Text.CalcHeight(text, inRect.width);
+                Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, h), text);
+
+                Rect button = new Rect(inRect.x, inRect.y + h + 10f, Mathf.Min(260f, inRect.width), 32f);
+                if (button.yMax <= inRect.yMax && !(this is Features.Reports.Dialog_KMHReport)
+                    && Widgets.ButtonText(button, KmhText.Get("KMH_Error_Report", "Report this problem")))
+                    Features.Reports.KmhReportClient.Open(Features.Reports.ReportKinds.Bug,
+                        KmhText.Get("KMH_Error_ReportTitle", "{0} could not draw", GetType().Name),
+                        _drawFault);
+            }
+            finally
+            {
+                Text.Anchor = anchor;
+                Text.Font   = font;
+                GUI.color   = color;
+            }
         }
     }
 }

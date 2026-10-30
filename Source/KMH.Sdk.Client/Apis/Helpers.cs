@@ -14,11 +14,7 @@ namespace KMH.Sdk.Client.Apis
         T      DataAs<T>() where T : class;
     }
 
-    /// <summary>
-    /// Pipes extension messages through KMH's logger so output is
-    /// prefixed with the extension's name + lands in the dedicated
-    /// KMH log file alongside Verse.Log.
-    /// </summary>
+    /// <summary>Writes to the KMH log, each line prefixed with the extension's name.</summary>
     public interface IClientLog
     {
         void Info(string message);
@@ -27,37 +23,29 @@ namespace KMH.Sdk.Client.Apis
         void Error(string message, Exception ex);
     }
 
-    /// <summary>
-    /// Transient in-game toast notifications. Use sparingly - RimWorld
-    /// players have lots of messages already.
-    /// </summary>
+    /// <summary>Transient in-game toasts; use sparingly, RimWorld players already get plenty of messages.</summary>
     public interface INotifications
     {
-        /// <summary>Green "things went well" toast.</summary>
+        /// <summary>A success toast.</summary>
         void Positive(string message);
 
-        /// <summary>Yellow "request rejected by server" toast.</summary>
+        /// <summary>A toast for a request the server refused.</summary>
         void Rejected(string message);
 
-        /// <summary>Plain neutral toast for informational events.</summary>
+        /// <summary>A neutral informational toast.</summary>
         void Neutral(string message);
     }
 
-    /// <summary>Subscribe to client-side lifecycle + snapshot events.</summary>
-    /// <remarks>
-    /// Handlers fire on RimWorld's main thread (snapshot callbacks
-    /// arrive via the patch's main-thread queue). Long-running work
-    /// should be queued to your own background worker.
-    /// </remarks>
+    /// <summary>Lifecycle and snapshot events, raised on RimWorld's main thread, so keep handlers cheap.</summary>
     public interface IKmhClientEvents
     {
-        /// <summary>Handshake completed - KMH server confirmed compatible.</summary>
+        /// <summary>The handshake with a compatible KMH server completed.</summary>
         event Action<KmhServerConnectedEvent> KmhServerConnected;
 
-        /// <summary>Connection dropped. Caches will be reset shortly after.</summary>
+        /// <summary>The connection dropped; raised before the caches are cleared.</summary>
         event Action<KmhServerDisconnectedEvent> KmhServerDisconnected;
 
-        /// <summary>Treasury cache refreshed (new snapshot from server).</summary>
+        /// <summary>Treasury cache refreshed.</summary>
         event Action<TreasuryCacheUpdatedEvent> TreasuryCacheUpdated;
 
         /// <summary>Marketplace cache refreshed.</summary>
@@ -66,7 +54,7 @@ namespace KMH.Sdk.Client.Apis
         /// <summary>Quest cache refreshed.</summary>
         event Action<QuestCacheUpdatedEvent> QuestCacheUpdated;
 
-        /// <summary>Caller's guild snapshot refreshed.</summary>
+        /// <summary>The local player's guild cache refreshed.</summary>
         event Action<GuildCacheUpdatedEvent> GuildCacheUpdated;
 
         /// <summary>Cross-guild leaderboard cache refreshed.</summary>
@@ -107,6 +95,15 @@ namespace KMH.Sdk.Client.Apis
 
         /// <summary>Player mail cache refreshed (inbox, unread count, or outgoing escrow changed).</summary>
         event Action<MailCacheUpdatedEvent> MailCacheUpdated;
+
+        /// <summary>This player's federated silver operations changed durably on the server.</summary>
+        event Action<ConnectedTreasuryUpdatedEvent> ConnectedTreasuryUpdated;
+
+        /// <summary>The guild's federated silver operations changed durably on the server.</summary>
+        event Action<ConnectedGuildUpdatedEvent> ConnectedGuildUpdated;
+
+        /// <summary>The guild's federation - profile, members, objectives or this server's link - changed.</summary>
+        event Action<FederationUpdatedEvent> FederationUpdated;
 
         /// <summary>The local player received a treasury withdrawal or reward (silver/items landed in the colony).</summary>
         event Action<KmhGrantReceivedEvent> GrantReceived;

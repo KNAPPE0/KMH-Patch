@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using KMHPatch.Diagnostics;
 using UnityEngine;
 using UnityEngine.Video;
@@ -34,13 +34,12 @@ namespace KMHPatch.Features.Chat
 
         public const float DefaultVolume = 0.6f;
 
-        // Owner ceiling in seconds, 0 = none. Checked once prepared and before Play, so a long clip is refused, not cut off.
+        // 0 = none; checked once prepared and before Play, so a long clip is refused rather than cut off.
         private static int _maxSeconds;
 
         public static void SetMaxSeconds(int seconds) => _maxSeconds = seconds < 0 ? 0 : seconds;
         public static int MaxSeconds => _maxSeconds;
 
-        // Pure so the rule can be checked without a running game.
         internal static bool ExceedsLimit(double lengthSeconds, int maxSeconds)
             => maxSeconds > 0 && lengthSeconds > 0d && lengthSeconds > maxSeconds;
 
@@ -50,10 +49,18 @@ namespace KMHPatch.Features.Chat
         // A dragged volume slider waits for the drag to settle rather than writing settings 60 times a second.
         private const float PrefsSaveDelay = 1f;
 
+        internal sealed class MediaPrefs { public bool Muted; public float Volume; public bool Loop; }
+
+        internal static MediaPrefs PrefsForTest;
+
         public static bool IsPlaying(string url) => _state == State.Playing && _url == url;
         public static bool IsPreparing(string url) => _state == State.Preparing && _url == url;
         public static bool IsActive(string url) => _url == url && (_state == State.Preparing || _state == State.Playing);
-        public static string FailureFor(string url) => _state == State.Failed && _url == url ? _error : null;
+        public static string FailureFor(string url)
+            => _state == State.Failed && _url == url ? _error : _refused.Length > 0 && _refused == url ? NotPlayable : null;
+
+        // Kept apart from the current video, so a refused row does not stop what is already playing.
+        private static string _refused = "";
 
         public static string Url => _url;
         public static bool AnythingPlaying => _state == State.Playing;
@@ -67,10 +74,8 @@ namespace KMHPatch.Features.Chat
             typeof(Dialog_KMHVideoWindow),
         };
 
-        // Exposed so a test can catch a window missing from the list.
         internal static System.Type[] WatcherTypes => Watchers;
 
-        // A video with nowhere to draw is a decoder and a download still running for nothing.
         public static void StopIfNobodyWatching()
         {
             try
@@ -82,10 +87,12 @@ namespace KMHPatch.Features.Chat
             catch { }
             Stop();
         }
-        public static bool Muted => _muted;
+        // Each loads prefs first, or the bar draws the default until something else loads them.
+        public static bool Muted { get { LoadPrefs(); return _muted; } }
+        public static bool Looping { get { LoadPrefs(); return _loop; } }
+        public static float Volume { get { LoadPrefs(); return _volume; } }
+
         public static bool Paused => _paused;
-        public static bool Looping => _loop;
-        public static float Volume => _volume;
 
         // A clip that reached its end is not stalled, and calling that "buffering" for ever looks like a broken video.
         public static bool Buffering
@@ -106,7 +113,7 @@ namespace KMHPatch.Features.Chat
             }
         }
 
-        // Through a RenderTexture: what VideoPlayer hands out in APIOnly mode is bottom-up here and drew upside down.
+        // Through a RenderTexture: what VideoPlayer hands out in APIOnly mode is bottom-up here and draws upside down.
         public static Texture Frame => _state == State.Playing ? _target : null;
 
         public static int Width  => _player != null && _player.width  > 0 ? (int)_player.width  : 16;
@@ -122,18 +129,31 @@ namespace KMHPatch.Features.Chat
             get { try { return _player != null && _player.isPrepared ? _player.length : 0d; } catch { return 0d; } }
         }
 
-        // A live stream has no length and nothing to scrub through, so the seek bar is hidden rather than drawn dead.
         public static bool CanSeek
         {
-            get { try { return _state == State.Playing && _player != null && _player.canSetTime && Length > 0.5d; } catch { return false; } }
+            get { try { return _state == State.Playing && _player != null && Compat.KmhUnityCompat.CanSetTime(_player) && Length > 0.5d; } catch { return false; } }
         }
 
-        // Starting a different video stops the current one.
-        public static void Play(string url) => Play(url, url, _maxSeconds);
+        internal const string NotPlayable = "only secure web links play here";
+
+        // This url came from a server, so a local file is never accepted.
+        public static void Play(string url)
+        {
+            if (!string.IsNullOrEmpty(url) && !ChatImageCache.IsWebMedia(url)) { Refuse(url); return; }
+            Play(url, url, _maxSeconds);
+        }
 
         public static void Play(string key, string mediaUrl, int limitSeconds)
         {
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(mediaUrl)) return;
+            // VideoPlayer opens whatever scheme it is handed.
+            if (!ChatImageCache.IsWebMedia(mediaUrl) && !ChatVideoCache.IsCachedPlayable(mediaUrl)) { Refuse(key); return; }
+            if (_refused == key) _refused = "";
+            Start(key, mediaUrl, limitSeconds);
+        }
+
+        private static void Start(string key, string mediaUrl, int limitSeconds)
+        {
             if (_url == key && _stream == mediaUrl && (_state == State.Preparing || _state == State.Playing)) return;
 
             LoadPrefs();
@@ -156,7 +176,7 @@ namespace KMHPatch.Features.Chat
 
                 // Unity does not wire audio up for a url source: routing must be set before Prepare or it plays silently.
                 _player.audioOutputMode = VideoAudioOutputMode.AudioSource;
-                _player.controlledAudioTrackCount = 1;
+                Compat.KmhUnityCompat.SetControlledAudioTrackCount(_player, 1);
                 _player.EnableAudioTrack(0, true);
                 _player.SetTargetAudioSource(0, _audio);
                 ApplyAudio();
@@ -171,10 +191,9 @@ namespace KMHPatch.Features.Chat
             if (_state != State.Playing || _player == null) return;
             try
             {
-                // At the end there is nothing to pause: the button is the only way back to the start.
                 if (Finished)
                 {
-                    if (_player.canSetTime) _player.time = 0d;
+                    if (Compat.KmhUnityCompat.CanSetTime(_player)) _player.time = 0d;
                     _player.Play();
                     TryPlayAudio();
                     _paused = false;
@@ -191,7 +210,7 @@ namespace KMHPatch.Features.Chat
         {
             LoadPrefs();
             _muted = !_muted;
-            ApplyAudio();
+            ApplyAudioSafe();
             MarkPrefsDirty();
         }
 
@@ -204,7 +223,7 @@ namespace KMHPatch.Features.Chat
             // Touching the volume at all is a request to hear it, even at the level it already had.
             if (_muted && _volume > 0f) { _muted = false; changed = true; }
             if (!changed) return;
-            ApplyAudio();
+            ApplyAudioSafe();
             MarkPrefsDirty();
         }
 
@@ -231,7 +250,6 @@ namespace KMHPatch.Features.Chat
 
         public static void Nudge(double delta) => Seek(SeekTarget(Position, delta, Length));
 
-        // Polled once per frame from the KMH update pump, like the image cache.
         public static void Tick()
         {
             SavePrefsIfSettled();
@@ -260,7 +278,6 @@ namespace KMHPatch.Features.Chat
 
             try
             {
-                // Sized from the video itself, so a portrait clip is not stretched into a letterbox.
                 int w = Mathf.Clamp((int)_player.width, 16, 1920);
                 int h = Mathf.Clamp((int)_player.height, 16, 1080);
                 if (_target == null || _target.width != w || _target.height != h)
@@ -319,7 +336,6 @@ namespace KMHPatch.Features.Chat
             catch { }
         }
 
-        // Tears the host object down rather than leaving a hidden GameObject and a decoder alive.
         public static void Clear()
         {
             Stop();
@@ -328,16 +344,20 @@ namespace KMHPatch.Features.Chat
             _host = null; _player = null; _audio = null;
         }
 
-        // Re-read so a change in Mod Options is heard on the video already playing.
+        // Dropping a pending write is safe: MarkPrefsDirty already put the choice into settings; only the disk write waits.
         public static void SyncFromSettings()
         {
             _prefsLoaded = false;
             _prefsDirtyAt = -1f;
             LoadPrefs();
-            try { if (_player != null) _player.isLooping = _loop; } catch { }
-            ApplyAudio();
+            try { ApplyLoop(); } catch { }
+            ApplyAudioSafe();
         }
 
+        // Separate method, like Now(): an extern Unity member binds when its caller compiles, failing outside the game.
+        private static void ApplyLoop() { if (_player != null) _player.isLooping = _loop; }
+
+        private static void ApplyAudioSafe() { try { ApplyAudio(); } catch { } }
 
         public static float ClampVolume(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
 
@@ -359,7 +379,6 @@ namespace KMHPatch.Features.Chat
             return h > 0 ? $"{h}:{m:00}:{s:00}" : $"{m}:{s:00}";
         }
 
-        // Shared by the inline row and the fullscreen window so neither stretches a portrait clip.
         public static Rect FitInto(int videoW, int videoH, Rect box)
         {
             float aspect = videoH > 0 ? (float)videoW / videoH : 16f / 9f;
@@ -369,7 +388,6 @@ namespace KMHPatch.Features.Chat
             if (h > box.height) { h = box.height; w = h * aspect; }
             return new Rect(box.x + (box.width - w) * 0.5f, box.y + (box.height - h) * 0.5f, w, h);
         }
-
 
         private static void EnsureHost()
         {
@@ -395,7 +413,7 @@ namespace KMHPatch.Features.Chat
             a.spatialBlend          = 0f;
             a.bypassListenerEffects = true;
             a.bypassReverbZones     = true;
-            a.reverbZoneMix         = 0f;
+            Compat.KmhUnityCompat.SetReverbZoneMix(a, 0f);
             a.dopplerLevel          = 0f;
             a.panStereo             = 0f;
             a.spread                = 0f;
@@ -428,6 +446,11 @@ namespace KMHPatch.Features.Chat
             _prefsLoaded = true;
             try
             {
+                if (PrefsForTest != null)
+                {
+                    _muted = PrefsForTest.Muted; _volume = ClampVolume(PrefsForTest.Volume); _loop = PrefsForTest.Loop;
+                    return;
+                }
                 KMHPatchSettings s = KMHPatchMod.Settings;
                 if (s == null) { _prefsLoaded = false; return; }   // settings not up yet; try again next call
                 _muted  = s.ChatVideoMuted;
@@ -437,15 +460,32 @@ namespace KMHPatch.Features.Chat
             catch { }
         }
 
+        // Settings update at once and only the disk write waits, so no reader meanwhile sees or saves a stale value.
         private static void MarkPrefsDirty()
         {
-            try { _prefsDirtyAt = Time.realtimeSinceStartup; } catch { _prefsDirtyAt = -1f; }
+            try
+            {
+                if (PrefsForTest != null)
+                {
+                    PrefsForTest.Muted = _muted; PrefsForTest.Volume = _volume; PrefsForTest.Loop = _loop;
+                }
+                else
+                {
+                    KMHPatchSettings s = KMHPatchMod.Settings;
+                    if (s != null) { s.ChatVideoMuted = _muted; s.ChatVideoVolume = _volume; s.ChatVideoLoop = _loop; }
+                }
+            }
+            catch { }
+            try { _prefsDirtyAt = Now(); } catch { _prefsDirtyAt = -1f; }
         }
+
+        // Own method on purpose: an extern Unity property binds when the CALLER compiles, throwing before its try block.
+        private static float Now() => Time.realtimeSinceStartup;
 
         private static void SavePrefsIfSettled()
         {
             if (_prefsDirtyAt < 0f) return;
-            if (Time.realtimeSinceStartup - _prefsDirtyAt < PrefsSaveDelay) return;
+            if (Now() - _prefsDirtyAt < PrefsSaveDelay) return;
             _prefsDirtyAt = -1f;
             SavePrefs();
         }
@@ -453,6 +493,7 @@ namespace KMHPatch.Features.Chat
         private static void SavePrefs()
         {
             _prefsDirtyAt = -1f;
+            if (PrefsForTest != null) return;
             try
             {
                 KMHPatchSettings s = KMHPatchMod.Settings;
@@ -463,6 +504,12 @@ namespace KMHPatch.Features.Chat
                 KMHPatchMod.SaveSettings();
             }
             catch (Exception ex) { KmhLog.Warn($"Chat video: saving playback settings threw - {ex.Message}"); }
+        }
+
+        private static void Refuse(string key)
+        {
+            _refused = key ?? "";
+            KmhLog.Warn("Chat video: refused a link that is neither https nor a cached download.");
         }
 
         private static void Fail(string why)

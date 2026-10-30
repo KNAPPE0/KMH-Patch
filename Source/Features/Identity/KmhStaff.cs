@@ -35,10 +35,12 @@ namespace KMHPatch.Features.Identity
 
                 string role  = (bits[0] ?? "").Trim().ToLowerInvariant();
                 string label = (bits[1] ?? "").Trim();
-                if (role.Length == 0 || label.Length == 0) continue;
+                if (!IsKnownRole(role) || label.Length == 0) continue;
                 // A label is concatenated into rich text, so markup is refused outright rather than stripped.
                 if (label.IndexOf('<') >= 0 || label.IndexOf('>') >= 0) continue;
                 if (label.Length > 12) label = label.Substring(0, 12);
+                // A server names its own roles, never Colony Nexus's: such a label falls back to the plain one.
+                if (UI.KmhBrandWords.ClaimsAuthority(label)) label = DefaultLabel(role);
 
                 Color c = UI.KmhTheme.TryHex(bits[2], out Color parsed) ? parsed : Color.white;
                 _badges[role] = new Badge { Label = label, Color = c };
@@ -49,7 +51,10 @@ namespace KMHPatch.Features.Identity
         public static int RoleCount  => _roles.Count;
         public static int BadgeCount => _badges.Count;
 
-        public static bool IsStaff(string username) => !string.IsNullOrEmpty(RoleOf(username));
+        public static bool IsStaff(string username) { string r = RoleOf(username); return !string.IsNullOrEmpty(r) && r != "sim"; }
+
+        // Whether the standings may rank the server's simulated playtest accounts (role "sim").
+        public static bool SimulatedRanked;
 
         // Only decides whether to show a staff action; the server re-checks every one, so a lie here is simply refused.
         public static bool CanModerate(string username)
@@ -75,7 +80,7 @@ namespace KMHPatch.Features.Identity
                 if (bits.Length < 2) continue;
                 string user = (bits[0] ?? "").Trim();
                 string role = (bits[1] ?? "").Trim().ToLowerInvariant();
-                if (user.Length == 0 || role.Length == 0) continue;
+                if (user.Length == 0 || !IsKnownRole(role)) continue;
                 _roles[user] = role;
             }
         }
@@ -85,8 +90,9 @@ namespace KMHPatch.Features.Identity
         {
             if (string.IsNullOrWhiteSpace(username)) return "";
 
-            // The bootstrap map first: it covers every config-listed name, online or not.
-            if (_roles.TryGetValue(username.Trim(), out string mapped)) return mapped;
+            // The bootstrap map first: it covers every config-listed name, online or not. Not trimmed, as the server does
+            // not: RWT keeps "Name " and "Name" as two accounts, and the padded one is not the staff member.
+            if (_roles.TryGetValue(username, out string mapped)) return mapped;
 
             // Then the snapshot, the only source for a live RWT admin on no list, which needs RWT's own user store.
             try
@@ -108,7 +114,6 @@ namespace KMHPatch.Features.Identity
             return $"<color={UI.KmhTheme.Hex(c)}>[{label}]</color>{suffix}";
         }
 
-        // For callers that draw their own rect rather than concatenating rich text.
         public static bool TryBadge(string username, out string label, out Color color)
             => TryBadgeForRole(RoleOf(username), out label, out color);
 
@@ -122,20 +127,37 @@ namespace KMHPatch.Features.Identity
             return true;
         }
 
-        // Said in words on hover. "Mod" is not self-explanatory to someone who just joined.
+        private static readonly string[] KnownRoles = { "owner", "developer", "admin", "moderator", "op", "sim" };
+
+        internal static bool IsKnownRole(string role) => System.Array.IndexOf(KnownRoles, role) >= 0;
+
+        internal static string DefaultLabel(string role)
+        {
+            switch (role)
+            {
+                case "owner": return "Owner"; case "developer": return "Dev"; case "admin": return "Admin";
+                case "moderator": return "Mod"; case "op": return "OP"; case "sim": return "SIM";
+                default: return "";
+            }
+        }
+
+        // Said in words on hover, and always as this server's title: "Mod" is not self-explanatory to someone who just joined.
         public static string Tooltip(string username)
         {
             string role = RoleOf(username);
             if (string.IsNullOrEmpty(role)) return null;
+            string what;
             switch (role)
             {
-                case "owner":     return "Server owner.";
-                case "developer": return "Developer on this server's team.";
-                case "admin":     return "Server administrator.";
-                case "moderator": return "Moderator - can remove messages and act on reports.";
-                case "op":        return "Trusted operator on this server.";
+                case "owner":     what = "Server owner."; break;
+                case "developer": what = "Developer on this server's team."; break;
+                case "admin":     what = "Server administrator."; break;
+                case "moderator": what = "Moderator - can remove messages and act on reports."; break;
+                case "op":        what = "Trusted operator on this server."; break;
+                case "sim":       return "Simulated player - a test account the server runs, not a person.";
                 default:          return null;
             }
+            return what + " Set by this server, not a Colony Nexus title.";
         }
     }
 }

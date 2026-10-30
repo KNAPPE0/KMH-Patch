@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace KMHPatch.Features.Chat
 {
-    // Only stops the client offering a retry that cannot succeed, since a message with no media reference has nothing to ask.
+    // Display hint only: stops offering a retry that cannot succeed for a message with no media reference.
     internal static class ChatSignedLink
     {
         internal static DateTime? ExpiryUtc(string url)

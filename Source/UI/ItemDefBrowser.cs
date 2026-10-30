@@ -5,10 +5,9 @@ using Verse;
 
 namespace KMHPatch.UI
 {
-    // Builds picker options from tradeable item defs only, using -1 as unlimited/no available-count display.
     internal static class ItemDefBrowser
     {
-        // Cache item picker defs once; DefDatabase is stable after load and rescanning every open is wasteful.
+        // DefDatabase is stable after load, so one scan serves every picker.
         private static Dictionary<string, int> _cache;
 
         public static Dictionary<string, int> AllPickableItems()
@@ -27,7 +26,7 @@ namespace KMHPatch.UI
                     if (td.tradeability == Tradeability.None)           continue;
                     // Shared safety gate: keeps minified wrappers, corpses, pawns and non-items out of every picker.
                     if (!Items.KmhItemSafety.IsSafeDef(td, out _))      continue;
-                    // BaseMarketValue can be 0 for placeholder defs; allow 0 - server may still validate
+                    // No market-value filter: placeholder defs report 0, and the server validates anyway.
                     result[td.defName] = -1; // -1 = unlimited (no count display)
                 }
             }

@@ -4,10 +4,10 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.World.Dto
 {
-    // Mirror of the addon-side DTO: property names stay byte-identical, and type tags ride as strings so renames never corrupt old data.
+    // Mirrors the addon DTO byte for byte; type tags are strings so renames never corrupt old data.
     public class WorldSnapshot
     {
-        // Monotonic server stamp; one older than the applied snapshot is dropped, since two transports can deliver out of order.
+        // Server-stamped; one older than the applied snapshot is dropped because transports reorder.
         [JsonProperty("revision")] public long Revision { get; set; } = 0;
         [JsonProperty("events")]        public List<WorldEventDto>  Events       { get; set; } = new List<WorldEventDto>();
         [JsonProperty("server_quests")] public List<ServerQuestDto> ServerQuests { get; set; } = new List<ServerQuestDto>();
@@ -77,7 +77,7 @@ namespace KMHPatch.Features.World.Dto
         [JsonProperty("goal_qty")]        public int    GoalQty       { get; set; } = 0;
         [JsonProperty("progress_qty")]    public int    ProgressQty   { get; set; } = 0;
         [JsonProperty("reward_pool")]     public long   RewardPool    { get; set; } = 0;
-        // Server-owned bookkeeping (pool-backed vs minted reward). Carried for DTO parity; the client doesn't use it.
+        // Server-owned bookkeeping (pool-backed vs minted reward), carried for DTO parity; the client ignores it.
         [JsonProperty("reserved_from_pool")] public long ReservedFromPool { get; set; } = 0;
         [JsonProperty("state")]           public string State         { get; set; } = StateActive;
         [JsonProperty("winner")]          public string Winner        { get; set; } = "";

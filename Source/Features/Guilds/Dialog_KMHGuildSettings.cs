@@ -10,7 +10,6 @@ namespace KMHPatch.Features.Guilds
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(520f, 540f);
 
-        // Working copy - we mutate this freely; only on Save do we send.
         private GuildSettingsDto _draft;
 
         // Held as strings so partial typing like "12-" or an empty box cannot crash the parse.
@@ -44,11 +43,10 @@ namespace KMHPatch.Features.Guilds
 
             Color oldCol = GUI.color;
             GUI.color = DialogLayout.MutedColor;
-            DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f),
+            y += DialogLayout.LabelWrapped(0f, y, rect.width,
                 "Tax percents apply to every member's earnings. " +
-                "Per-rank caps: -1 unlimited, 0 disabled.");
+                "Per-rank caps: -1 unlimited, 0 disabled.") + 4f;
             GUI.color = oldCol;
-            y += 22f;
 
             Text.Font = GameFont.Medium;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "Tax rates");
@@ -114,13 +112,11 @@ namespace KMHPatch.Features.Guilds
                 Notifications.KmhNotifications.Rejected("Tax percents must be 0..50");
                 return false;
             }
-            // Caps: allow -1 (unlimited) or >= 0.
             if (!TryParseInt(_memberCap,  out int memberCap,  nonNegative: false, fieldName: "Member cap"))    return false;
             if (!TryParseInt(_officerCap, out int officerCap, nonNegative: false, fieldName: "Officer cap"))   return false;
             if (!TryParseInt(_modCap,     out int modCap,     nonNegative: false, fieldName: "Moderator cap")) return false;
             if (!TryParseInt(_adminCap,   out int adminCap,   nonNegative: false, fieldName: "Admin cap"))     return false;
 
-            // -1 is the only allowed negative.
             if (memberCap  < -1 || officerCap < -1 || modCap < -1 || adminCap < -1)
             {
                 Notifications.KmhNotifications.Rejected("Caps must be -1, 0, or positive");

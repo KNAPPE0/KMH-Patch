@@ -11,7 +11,7 @@ namespace KMHPatch.UI
         {
             public string DefName;
             public string Label;
-            public Def    Icon;   // optional - drawn via Widgets.DefIcon when set
+            public Def    Icon;
         }
 
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(640f, 600f);
@@ -101,7 +101,7 @@ namespace KMHPatch.UI
             if (visible.Count == 0)
             {
                 DialogLayout.LabelTrunc(new Rect(8f, 8f, viewRect.width, 20f),
-                    _source.Count == 0 ? "<color=grey>Nothing available.</color>" : "<color=grey>No matches.</color>");
+                    _source.Count == 0 ? "<color=#A9AFB9>Nothing available.</color>" : "<color=#A9AFB9>No matches.</color>");
             }
             Widgets.EndScrollView();
         }

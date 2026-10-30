@@ -13,10 +13,10 @@ namespace KMHPatch.Features.Quests
     // Auto-reports observable claimed quests, while Report stays the fallback for quests we can't verify.
     public class QuestAutoVerify : GameComponent
     {
-        private const int IntervalTicks = 250; // ~4s at 1x
+        private const int IntervalTicks = 250;
         private int _next;
 
-        private const int RetryTicks = 1800; // ~30s: re-report while the quest stays Claimed (server may gate early verifies)
+        private const int RetryTicks = 1800;
 
         private HashSet<long>        _sent         = new HashSet<long>();
         private Dictionary<long, int> _huntBaseline = new Dictionary<long, int>();
@@ -74,7 +74,6 @@ namespace KMHPatch.Features.Quests
                     QuestHandler.TryVerify(q.Id);
                     _sent.Add(q.Id);
                     _sentAtTick[q.Id] = nowTick;
-                    // Confirms the player-quest auto-verify pipeline fired (the manual Report button is the fallback).
                     if (first) KmhLog.Info($"KMH: auto-verified claimed quest #{q.Id} ({q.Kind}).");
                 }
             }
@@ -101,7 +100,7 @@ namespace KMHPatch.Features.Quests
             for (int i = 0; i < maps.Count; i++)
             {
                 Map map = maps[i];
-                // own colonies only - a visited/hosted player's map renders their structures as Faction.OfPlayer, which would falsely satisfy a build quest
+                // Own colonies only: a visited player's map shows their structures as Faction.OfPlayer too.
                 if (map?.listerThings == null || !map.IsPlayerHome) continue;
                 List<Thing> things = map.listerThings.ThingsOfDef(def);
                 for (int j = 0; j < things.Count; j++)

@@ -3,7 +3,6 @@ using KMHPatch.SubProtocol;
 
 namespace KMHPatch.Features.Seasons
 {
-    // Receives kmh.archive.season into SeasonArchiveCache + the request the Season Archive board sends on open.
     internal static class SeasonHandler
     {
         public static void Register() => KmhDispatcher.RegisterHandler(KmhProtocol.Kind.SeasonArchive, OnSnapshot);

@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace KMHPatch.Features.Sites.Dto
 {
-    // Mirror of the server SiteCatalogSnapshot; the picker renders this instead of the def database so it cannot drift.
+    // Server mirror; the picker renders this rather than the def database so it cannot drift.
     public class SiteCatalogSnapshot
     {
         [JsonProperty("entries")]           public List<SiteCatalogEntry> Entries { get; set; } = new List<SiteCatalogEntry>();
@@ -32,9 +32,8 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("est_cycle_min")] public int    EstCycleMinutes{ get; set; } = 0;
         [JsonProperty("allowed")]       public bool   Allowed        { get; set; } = true;
         [JsonProperty("block_reason")]  public string BlockReason    { get; set; } = "";
-        // Server-classified production family (plant/forestry/mineral/animal/crafted/construction/unknown).
         [JsonProperty("family")]        public string Family         { get; set; } = "unknown";
-        // Comma-separated, computed server-side; Roadworks uses a predicate, so the client must never re-derive this.
+        // Computed server-side; Roadworks uses a predicate, so the client must never re-derive this.
         [JsonProperty("arch")]          public string AllowedArchetypes { get; set; } = "";
     }
 
@@ -50,5 +49,4 @@ namespace KMHPatch.Features.Sites.Dto
         [JsonProperty("custom")]       public bool   IsCustom    { get; set; } = false;
         [JsonProperty("roadworks")]    public bool   UnlocksRoadworks { get; set; } = false;
     }
-
 }

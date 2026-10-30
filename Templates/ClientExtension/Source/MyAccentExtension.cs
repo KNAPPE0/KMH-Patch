@@ -5,7 +5,7 @@ using KMH.Sdk.Client.Events;
 
 namespace MyAccent
 {
-    // Template: a toast on each new marketplace listing. The loader requires a parameterless constructor.
+    // Template: a toast whenever your own marketplace listings grow. The loader requires a parameterless constructor.
     public sealed class MyAccentExtension : IKmhClientExtension
     {
         public string Name    => "My KMH Accent";

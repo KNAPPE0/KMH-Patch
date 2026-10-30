@@ -296,6 +296,7 @@ namespace KMHPatch.Extensibility
     {
         public string LabelFor(string defName)                                    => UI.ItemLabels.ResolveLabel(defName);
         public string ResolveStuffedLabel(string itemDefName, string stuffDefName) => UI.ItemLabels.ResolveStuffedLabel(itemDefName, stuffDefName);
+        public string MissingContent(string defName, string stuffDefName = null)  => UI.KmhItemDisplayService.MissingForListing(defName, stuffDefName, null);
     }
 
     internal sealed class AuctionCacheAdapter : IAuctionCache

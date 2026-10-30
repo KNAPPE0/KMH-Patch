@@ -1,5 +1,6 @@
 KMH world-map marker art is from Google Noto Emoji
-(https://github.com/googlefonts/noto-emoji), licensed under the Apache License 2.0.
+(https://github.com/googlefonts/noto-emoji), licensed under the Apache License 2.0
+(full text in Textures/KMHPatch/LICENSE-Apache-2.0.txt).
 
 The same source as the KMH button icons under Textures/KMHPatch/UI, so the tab and
 the world map speak one visual language.

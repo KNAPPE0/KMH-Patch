@@ -20,6 +20,12 @@ namespace KMHPatch.Features.Chat.Dto
         // Opaque re-fetch handle: Discord signs CDN urls for 24h but history keeps messages for 48.
         [JsonProperty("media_ref")]      public string MediaRef      { get; set; } = "";
 
+        // Global Chat only, set by this client: the sender's Global account, never a server's wire field.
+        [JsonIgnore]                     public string SenderGlobalId { get; set; } = "";
+
+        // Global Chat only, set by this client: the server whose Discord bridge relayed the line, as Global names it.
+        [JsonIgnore]                     public string RelayedBy { get; set; } = "";
+
         public bool FromDiscord => Origin == "discord";
 
         // The name is a self-chosen display string, not a player; old servers omit the flag and correctly read false.

@@ -98,6 +98,10 @@ namespace KMH.Sdk.Client.Apis
         string LabelFor(string defName);
 
         string ResolveStuffedLabel(string itemDefName, string stuffDefName);
+
+        /// <summary>Why this game cannot hold the item (its def, material or crated building is from an inactive DLC or mod),
+        /// or null; check it before offering to buy, bid on or withdraw the item here.</summary>
+        string MissingContent(string defName, string stuffDefName = null);
     }
 
     public interface IAuctionCache

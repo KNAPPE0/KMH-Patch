@@ -1,28 +1,55 @@
-using System;
+﻿using System;
 using RimWorld;
 using Verse;
 
 namespace KMHPatch.UI
 {
-    // Item keys preserve stuff + quality across treasury, market, and quest flows; format must match server ItemKey.cs or vault lookups break.
+    // The format must match the server's ItemKey.cs, or vault lookups break.
     public static class ItemKeys
     {
         public const char Sep = '|';
 
         public static string Compose(string defName, string stuffDefName, int qualityIndex)
+            => Compose(defName, stuffDefName, qualityIndex, null);
+
+        // Every minifiable building in Core shares one minifiedDef, so without innerDefName a bed and a
+        // vanometric cell are the same key. Appended fourth, so the server still reads segment 0.
+        public static string Compose(string defName, string stuffDefName, int qualityIndex, string innerDefName)
         {
-            if (string.IsNullOrEmpty(stuffDefName) && qualityIndex <= 0) return defName ?? "";
-            return $"{defName}{Sep}{stuffDefName ?? ""}{Sep}{qualityIndex}";
+            if (string.IsNullOrEmpty(innerDefName))
+            {
+                if (string.IsNullOrEmpty(stuffDefName) && qualityIndex <= 0) return defName ?? "";
+                return $"{defName}{Sep}{stuffDefName ?? ""}{Sep}{qualityIndex}";
+            }
+            return $"{defName}{Sep}{stuffDefName ?? ""}{Sep}{qualityIndex}{Sep}{innerDefName}";
         }
 
         public static void Split(string key, out string defName, out string stuffDefName, out int qualityIndex)
+            => Split(key, out defName, out stuffDefName, out qualityIndex, out _);
+
+        public static void Split(string key, out string defName, out string stuffDefName, out int qualityIndex,
+                                 out string innerDefName)
         {
-            defName = key ?? ""; stuffDefName = ""; qualityIndex = 0;
+            defName = key ?? ""; stuffDefName = ""; qualityIndex = 0; innerDefName = "";
             if (string.IsNullOrEmpty(key) || key.IndexOf(Sep) < 0) return;
             string[] parts = key.Split(Sep);
             defName = parts[0];
             if (parts.Length > 1) stuffDefName = parts[1];
             if (parts.Length > 2 && int.TryParse(parts[2], out int q) && q >= 0 && q <= 7) qualityIndex = q;
+            if (parts.Length > 3) innerDefName = parts[3];
+        }
+
+        public static string DisplayDefOf(string key)
+        {
+            Split(key, out string def, out _, out _, out string inner);
+            return string.IsNullOrEmpty(inner) ? def : inner;
+        }
+
+        public static string KeyFor(Thing t)
+        {
+            if (t?.def == null) return "";
+            string inner = (t as MinifiedThing)?.InnerThing?.def?.defName;
+            return Compose(t.def.defName, t.Stuff?.defName, QualityIndexOf(t), inner);
         }
 
         // Quality 0 means no requirement, not "Awful".
@@ -61,8 +88,11 @@ namespace KMHPatch.UI
 
         public static string LabelForKey(string key)
         {
-            Split(key, out string def, out string stuff, out int q);
-            string baseName = ItemLabels.ResolveStuffedLabel(def, stuff);
+            Split(key, out string def, out string stuff, out int q, out string inner);
+            // A crate labelled "minified thing" tells the player nothing; the building inside is the item.
+            string baseName = string.IsNullOrEmpty(inner)
+                ? ItemLabels.ResolveStuffedLabel(def, stuff)
+                : ItemLabels.ResolveStuffedLabel(inner, stuff) + " (minified)";
             return q > 0 ? $"{QualityName(q)} {baseName}" : baseName;
         }
     }

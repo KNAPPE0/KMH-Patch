@@ -12,8 +12,9 @@ namespace KMHPatch.Patches
         private static bool _seenChat;
 
         [HarmonyPrefix]
-        private static bool Prefix(byte[] bytes)
+        private static bool Prefix(ServerClient __0, byte[] bytes)
         {
+            if (!ReferenceEquals(Network.ServerEndpoint, __0?.Listener)) return false;
             // The whole handshake rides PM_Chat, so proving the hook fires at all is worth one line.
             if (KmhLog.DebugEnabled && !_seenChat) { _seenChat = true; KmhLog.Debug("chat intercept: active - PM_Chat.Receive is hooked."); }
 
@@ -28,7 +29,17 @@ namespace KMHPatch.Patches
                 return true;
             }
 
-            if (pkt == null || pkt.Username != KmhProtocol.SystemUsername)
+            Sender from = pkt == null ? Sender.Player : Classify(pkt.Username, pkt.Message, SessionHandler.Username, KmhDispatcher.StockServerSeen);
+            if (from == Sender.OwnEcho)
+            {
+                bool first = !KmhDispatcher.StockServerSeen;
+                KmhDispatcher.MarkStockServer();
+                if (first) KmhMainThread.Post(KmhHandshakeHandler.StockServerDetected);
+                return false;
+            }
+            if (from == Sender.Forged) return false;
+
+            if (from == Sender.Player)
             {
                 // A KMH-shaped payload under another username means this RWT build mangled the tag in transit.
                 if (KmhLog.DebugEnabled && pkt?.Message != null && pkt.Message.Contains("\"kind\""))
@@ -43,11 +54,29 @@ namespace KMHPatch.Patches
                 return false;
             }
 
-            // Network thread; the generation captured here and re-checked at the pump keeps a packet from an ending session off the next one's caches.
+            // Network thread: re-checking the generation on the main thread keeps an ended session's packet off the next one.
             int gen = KmhDispatcher.SessionGeneration;
             KmhMainThread.Post(() => { if (gen == KmhDispatcher.SessionGeneration) KmhDispatcher.Receive(env); });
             return false;
         }
+
+        internal enum Sender { Player, Server, OwnEcho, Forged }
+
+        // A Colony Nexus server swallows the client's envelopes; a stock RWT server broadcasts them back to everyone, which
+        // proves any "server" message on this connection came from a player using the reserved name.
+        internal static Sender Classify(string user, string message, string me, bool stockServerSeen)
+        {
+            if (IsOwnEcho(user, message, me)) return Sender.OwnEcho;
+            if (user != KmhProtocol.SystemUsername) return Sender.Player;
+            return stockServerSeen ? Sender.Forged : Sender.Server;
+        }
+
+        // Relabelled with the sender's own name, or left with the client tag by a server that keeps what it was sent.
+        internal static bool IsOwnEcho(string sender, string message, string me)
+            => (string.Equals(sender, KmhProtocol.ClientUsername, System.StringComparison.Ordinal)
+                || (!string.IsNullOrEmpty(me) && string.Equals(sender, me, System.StringComparison.Ordinal)))
+            && message != null && message.StartsWith("{", System.StringComparison.Ordinal)
+            && !string.IsNullOrEmpty(KmhEnvelope.TryParse(message)?.Kind);
 
         // Show zero-width / control / non-ASCII chars so a mangled username tag is visible in the log.
         private static string Escape(string s)

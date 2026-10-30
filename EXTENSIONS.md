@@ -1,7 +1,7 @@
 # KMH Client SDK - extensions for the patch mod
 
 A stable public API for writing client-side (in-game) extensions
-that plug into KMH-Patch as standalone RimWorld mods. The companion
+that plug into Colony Nexus as standalone RimWorld mods. The companion
 to the server-side `KMH.Sdk.Server` (documented in
 KMH-Server-Addon/EXTENSIONS.md).
 
@@ -46,7 +46,7 @@ KMH-Server-Addon/EXTENSIONS.md).
                        │ implementations
                        ▼
         ┌──────────────────────────────────┐
-        │   KMHPatch (internal)            │
+        │   Colony Nexus (internal)        │
         │   • TreasuryCache, QuestCache    │
         │   • Dialogs, KmhDispatcher       │
         │   • Harmony patches              │
@@ -77,7 +77,7 @@ with no Verse references — see `Templates/ClientExtension-Earnings/`.
 
 - Change `packageId` to your own reverse-DNS string
 - Update `name` / `author` / `description`
-- Keep the `<modDependencies>` + `<loadAfter>` entries for KMHPatch
+- Keep the `<modDependencies>` + `<loadAfter>` entries for Colony Nexus (`knappe.kmh.patch`)
 - Update `<supportedVersions>` for the RimWorld versions you've
   tested
 
@@ -94,7 +94,7 @@ Output: `1.6/Assemblies/MyMod.dll`
 Copy the entire mod folder into RimWorld's Mods folder, or upload
 as a separate Steam Workshop item.
 
-In-game: enable KMH Patch *first*, then your extension. Restart
+In-game: enable KMH: Colony Nexus *first*, then your extension. Restart
 RimWorld.
 
 You'll see in the KMH log:
@@ -140,7 +140,7 @@ The stable surface you get in `Register`. Holds:
 | `IGuildLeaderboardCache` | `HasSnapshot`, `Guilds`, `LastUpdatedUtc`, `RequestRefresh()` |
 | `IPlayerStatsCache` | `HasSnapshot`, `Entries`, `LastUpdatedUtc`, `RequestRefresh()` |
 | `ILinkedAccountsCache` | `HasSnapshot`, `IsLinked`, `DiscordDisplayFor`, `FormatUsername`, `LastUpdatedUtc` |
-| `IItemLabelResolver` | `LabelFor`, `ResolveStuffedLabel` |
+| `IItemLabelResolver` | `LabelFor`, `ResolveStuffedLabel`, `MissingContent` (null when this game can hold the item, otherwise the reason: its def, material or crated building comes from a DLC or mod not active here; ask before offering to buy, bid on or withdraw it) |
 | `IAuctionCache` | `HasSnapshot`, `Auctions`, `LastUpdatedUtc`, `RequestRefresh()`, `TryPost`, `TryBid`, `TryCancel` |
 | `IWorldCache` | `HasSnapshot`, `Events`, `ServerQuests`, `LastUpdatedUtc`, `RequestRefresh()`, `TryDeliver` |
 
@@ -251,6 +251,25 @@ host.Toast.Positive("Trade succeeded!");   // green
 host.Toast.Rejected("Insufficient silver."); // yellow
 host.Toast.Neutral("Server sent a snapshot.");  // grey
 ```
+
+### Discord activity (`PresenceProviders`)
+
+Add your own line to the player's Colony Nexus Discord status. Colony Nexus asks every provider every few
+seconds on the main thread, ranks the answers with its own (a raid outranks your Medium claim), and sends a
+change only when its throttle allows. Return `null` when there is nothing to say.
+
+```csharp
+using KMH.Sdk.Client.Apis;
+
+PresenceProviders.Register("myname.outposts", () =>
+    OutpostUnderAttack() ? new PresenceClaim { Details = "Defending the outpost", Priority = PresencePriority.High } : null);
+
+PresenceProviders.Unregister("myname.outposts");
+```
+
+Claims appear only while the player has gameplay activity turned on. Markup is stripped and each line is
+capped at 64 bytes; a provider that throws three times in a row is dropped (`PresenceProviders.ProviderDisabled`
+names it). Never put player names, private messages or anything else the player has not chosen to share in a claim.
 
 
 ## License - same as server side

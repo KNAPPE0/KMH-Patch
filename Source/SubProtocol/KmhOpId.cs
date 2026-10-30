@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace KMHPatch.SubProtocol
 {
-    // One id per outstanding action key, so a re-send or double-click reuses it while a deliberate repeat later mints a new one.
+    // One id per outstanding action key: a re-send or double-click reuses it, a deliberate later repeat mints a new one.
     public static class KmhOpId
     {
         private static readonly Dictionary<string, KeyValuePair<string, DateTime>> _open

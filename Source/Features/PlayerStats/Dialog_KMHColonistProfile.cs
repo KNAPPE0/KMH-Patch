@@ -9,7 +9,6 @@ using Verse;
 
 namespace KMHPatch.Features.PlayerStats
 {
-    // Colonist Profile shows a player's colony header and strongest pawn, fetching full detail on open.
     public class Dialog_KMHColonistProfile : Window_KMHBase
     {
         private readonly string _username;
@@ -41,15 +40,15 @@ namespace KMHPatch.Features.PlayerStats
 
             if (e == null)
             {
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 24f), "<color=grey>No stats for this player yet.</color>");
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 24f), "<color=#A9AFB9>No stats for this player yet.</color>");
                 if (DialogLayout.DrawCloseButton(rect)) Close();
                 return;
             }
 
-            string guild  = string.IsNullOrEmpty(e.GuildName) ? "<color=grey>no guild</color>" : e.GuildName;
-            string colony = string.IsNullOrEmpty(e.ColonyName) ? "<color=grey>unknown colony</color>" : $"<b>{e.ColonyName}</b>";
+            string guild  = string.IsNullOrEmpty(e.GuildName) ? "<color=#A9AFB9>no guild</color>" : KmhDisplayText.GuildName(e.GuildName);
+            string colony = string.IsNullOrEmpty(e.ColonyName) ? "<color=#A9AFB9>no colony reported yet</color>" : $"<b>{I(e.ColonyName)}</b>";
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                $"{LinkedAccountsCache.Format(_username)}  <color=grey>·</color>  {colony}  <color=grey>·</color>  {guild}");
+                $"{LinkedAccountsCache.Format(_username)}  <color=#A9AFB9>·</color>  {colony}  <color=#A9AFB9>·</color>  {guild}");
             y += 24f;
             DialogLayout.DrawSectionDivider(rect, ref y);
 
@@ -58,23 +57,22 @@ namespace KMHPatch.Features.PlayerStats
             string topName = !string.IsNullOrEmpty(e.TopColonistName) ? e.TopColonistName : (d?.Name ?? "");
             if (string.IsNullOrEmpty(topName))
             {
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=grey>No colonist reported for this colony yet.</color>");
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f), "<color=#A9AFB9>No colonist reported for this colony yet.</color>");
                 if (DialogLayout.DrawCloseButton(rect)) Close();
                 return;
             }
             Color old = GUI.color;
             DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 22f),
-                $"<b>{topName}</b>  <color=grey>·</color>  {(string.IsNullOrEmpty(e.TopColonistTitle) ? (d?.Title ?? "") : e.TopColonistTitle)}  <color=grey>·</color>  {e.TopColonistKills} kills");
+                $"<b>{I(topName)}</b>  <color=#A9AFB9>·</color>  {I(string.IsNullOrEmpty(e.TopColonistTitle) ? (d?.Title ?? "") : e.TopColonistTitle)}  <color=#A9AFB9>·</color>  {e.TopColonistKills} kills");
             y += 22f;
             if (d != null && !string.IsNullOrEmpty(d.GenderAge))
             {
                 GUI.color = DialogLayout.MutedColor;
-                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f), $"{d.GenderAge} · {d.Descriptor}");
+                DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 18f), $"{I(d.GenderAge)} · {I(d.Descriptor)}");
                 GUI.color = old;
                 y += 20f;
             }
 
-            // Wrapping tab strip - the five tabs ran past the right edge on a narrow window and could not be clicked.
             int cur = 0;
             for (int i = 0; i < TabOrder.Length; i++) if (TabOrder[i] == _tab) { cur = i; break; }
             y = DialogLayout.TabRow(y, rect.width, TabLabels, cur, i => _tab = TabOrder[i]);
@@ -83,14 +81,22 @@ namespace KMHPatch.Features.PlayerStats
             Widgets.DrawMenuSection(body);
 
             if (!ColonistProfileCache.Has(_username))
-                DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=grey>Loading colonist…</color>");
+                DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=#A9AFB9>Loading colonist…</color>");
             else if (d == null)
-                DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=grey>No colonist detail available.</color>");
+                DialogLayout.LabelTrunc(new Rect(body.x + 8f, body.y + 8f, body.width - 16f, 22f), "<color=#A9AFB9>No colonist detail available.</color>");
             else
-                DrawLines(body, BuildLines(d));
+            {
+                // Rebuilt only for a new profile or tab: each arriving profile is a fresh object.
+                if (!ReferenceEquals(_linesFor, d) || _linesTab != _tab) { _lines = BuildLines(d); _linesFor = d; _linesTab = _tab; }
+                DrawLines(body, _lines);
+            }
 
             if (DialogLayout.DrawCloseButton(rect)) Close();
         }
+
+        private List<(string text, bool header)> _lines;
+        private ColonistProfile _linesFor;
+        private Tab _linesTab;
 
         private static readonly Tab[]    TabOrder  = { Tab.Bio, Tab.Health, Tab.Combat, Tab.Skills, Tab.History };
         private static readonly string[] TabLabels = { "Bio", "Health", "Combat", "Skills", "History" };
@@ -107,11 +113,11 @@ namespace KMHPatch.Features.PlayerStats
                     H("Overall");
                     R($"Health: <b>{d.HealthPct}%</b>");
                     R($"Pain: {d.PainPct}%");
-                    foreach (ColonistCapacity c in d.Capacities) R($"{c.Name}: {c.Pct}%");
+                    foreach (ColonistCapacity c in d.Capacities) R($"{I(c.Name)}: {c.Pct}%");
                     L.Add(("", false));
                     H("Conditions");
-                    if (d.Conditions.Count == 0) R("<color=grey>No notable long-term conditions.</color>");
-                    else foreach (string c in d.Conditions) R($"• {c}");
+                    if (d.Conditions.Count == 0) R("<color=#A9AFB9>No notable long-term conditions.</color>");
+                    else foreach (string c in d.Conditions) R($"• {I(c)}");
                     break;
 
                 case Tab.Combat:
@@ -119,59 +125,59 @@ namespace KMHPatch.Features.PlayerStats
                     R($"Total kills: <b>{d.TotalKills}</b>");
                     R($"Humanlike: {d.HumanlikeKills}   Mechanoid: {d.MechanoidKills}   Animal: {d.AnimalKills}");
                     R($"Damage taken: {d.DamageTaken}");
-                    R($"Weapon: {d.Weapon}{(string.IsNullOrEmpty(d.WeaponQuality) || d.WeaponQuality == "None" ? "" : $" ({d.WeaponQuality})")}");
+                    R($"Weapon: {I(d.Weapon)}{(string.IsNullOrEmpty(d.WeaponQuality) || d.WeaponQuality == "None" ? "" : $" ({I(d.WeaponQuality)})")}");
                     if (d.RecentCombat.Count > 0)
                     {
                         L.Add(("", false));
                         H("Recent combat");
-                        foreach (string c in d.RecentCombat) R($"• {c}");
+                        foreach (string c in d.RecentCombat) R($"• {I(c)}");
                     }
                     break;
 
                 case Tab.Skills:
                     H("Skills");
-                    if (d.Skills.Count == 0) R("<color=grey>No skills reported.</color>");
-                    else foreach (ColonistSkill sk in d.Skills) R($"{sk.Name}   <b>{sk.Level}</b> {Passion(sk.Passion)}");
+                    if (d.Skills.Count == 0) R("<color=#A9AFB9>No skills reported.</color>");
+                    else foreach (ColonistSkill sk in d.Skills) R($"{I(sk.Name)}   <b>{sk.Level}</b> {Passion(sk.Passion)}");
                     break;
 
                 case Tab.History:
                 {
                     H("Service");
                     R($"Days in colony: <b>{d.DaysInColony}</b>"
-                      + (d.DaysInColony > 0 ? $"  <color=grey>· about {Mathf.Max(1, d.DaysInColony / 60)} year(s) of colony time</color>" : ""));
-                    R($"Origin: <color=#cccccc>{(string.IsNullOrEmpty(d.Childhood) ? "-" : d.Childhood)}</color>");
+                      + (d.DaysInColony > 0 ? $"  <color=#A9AFB9>· about {Mathf.Max(1, d.DaysInColony / 60)} year(s) of colony time</color>" : ""));
+                    R($"Origin: <color=#c4cad6>{(string.IsNullOrEmpty(d.Childhood) ? "-" : I(d.Childhood))}</color>");
                     if (!string.IsNullOrEmpty(d.Adulthood))
-                        R($"Became: <color=#cccccc>{d.Adulthood}</color>");
+                        R($"Became: <color=#c4cad6>{I(d.Adulthood)}</color>");
 
                     L.Add(("", false));
                     H("What they have been through");
-                    R($"Kills: <b>{d.TotalKills}</b>  <color=grey>· {d.HumanlikeKills} humanlike, {d.MechanoidKills} mechanoid, {d.AnimalKills} animal</color>");
+                    R($"Kills: <b>{d.TotalKills}</b>  <color=#A9AFB9>· {d.HumanlikeKills} humanlike, {d.MechanoidKills} mechanoid, {d.AnimalKills} animal</color>");
                     R($"Damage taken: {d.DamageTaken}");
                     if (d.RecentCombat != null && d.RecentCombat.Count > 0)
-                        foreach (string c in d.RecentCombat) R($"• {c}");
-                    else R("<color=grey>No recent combat recorded.</color>");
+                        foreach (string c in d.RecentCombat) R($"• {I(c)}");
+                    else R("<color=#A9AFB9>No recent combat recorded.</color>");
 
                     L.Add(("", false));
                     H("Lasting marks");
                     if (d.Conditions != null && d.Conditions.Count > 0)
-                        foreach (string c in d.Conditions) R($"• {c}");
-                    else R("<color=grey>None - unscarred so far.</color>");
+                        foreach (string c in d.Conditions) R($"• {I(c)}");
+                    else R("<color=#A9AFB9>None - unscarred so far.</color>");
                     break;
                 }
 
-                default: // Bio
+                default:
                     H("Backstory");
-                    R($"Childhood: <color=#cccccc>{(string.IsNullOrEmpty(d.Childhood) ? "-" : d.Childhood)}</color>");
-                    R($"Adulthood: <color=#cccccc>{(string.IsNullOrEmpty(d.Adulthood) ? "-" : d.Adulthood)}</color>");
+                    R($"Childhood: <color=#c4cad6>{(string.IsNullOrEmpty(d.Childhood) ? "-" : I(d.Childhood))}</color>");
+                    R($"Adulthood: <color=#c4cad6>{(string.IsNullOrEmpty(d.Adulthood) ? "-" : I(d.Adulthood))}</color>");
                     R($"Days in colony: {d.DaysInColony}");
                     L.Add(("", false));
                     H("Traits");
-                    if (d.Traits.Count == 0) R("<color=grey>None.</color>");
-                    else foreach (string t in d.Traits) R($"• {t}");
+                    if (d.Traits.Count == 0) R("<color=#A9AFB9>None.</color>");
+                    else foreach (string t in d.Traits) R($"• {I(t)}");
                     L.Add(("", false));
                     H("Incapable Of");
-                    if (d.Incapable.Count == 0) R("<color=grey>No incapabilities recorded.</color>");
-                    else R(string.Join(", ", d.Incapable));
+                    if (d.Incapable.Count == 0) R("<color=#A9AFB9>No incapabilities recorded.</color>");
+                    else R(I(string.Join(", ", d.Incapable)));
                     break;
             }
             return L;
@@ -188,13 +194,16 @@ namespace KMHPatch.Features.PlayerStats
             float ly = 0f;
             foreach ((string text, bool header) in lines)
             {
-                if (header) DialogLayout.LabelTrunc(new Rect(0f, ly, viewRect.width, lineH), $"<color=#e0b94a><b>{text}</b></color>");
+                if (header) DialogLayout.LabelTrunc(new Rect(0f, ly, viewRect.width, lineH), $"<color=#f0c04f><b>{text}</b></color>");
                 else if (!string.IsNullOrEmpty(text)) DialogLayout.LabelTrunc(new Rect(8f, ly, viewRect.width - 8f, lineH), text);
                 ly += lineH;
             }
             Widgets.EndScrollView();
         }
 
-        private static string Passion(int passion) => passion >= 2 ? "<color=#ff9d4d>++</color>" : passion == 1 ? "<color=#ffce4d>+</color>" : "";
+        // Every string here was typed or generated in another player's game.
+        private static string I(string s) => KmhDisplayText.Inert(s ?? "");
+
+        private static string Passion(int passion) => passion >= 2 ? "<color=#ff9d4d>++</color>" : passion == 1 ? "<color=#f0c04f>+</color>" : "";
     }
 }

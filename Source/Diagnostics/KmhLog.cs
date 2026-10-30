@@ -16,10 +16,10 @@ namespace KMHPatch.Diagnostics
         private static long _sinkRetryAtTicks;
 
         private const string Gold = "#F4B83C";
-        private const string Body = "#E6DCC2";   // normal message text
-        private const string Dim  = "#94A0B0";   // verbose/secondary
+        private const string Body = "#E6DCC2";
+        private const string Dim  = "#94A0B0";
         private static readonly string Mark =
-            "<color=#6E7689>[</color><color=" + Gold + "><b>KMH</b></color><color=#B5872F>-Patch</color><color=#6E7689>]</color>";
+            "<color=#6E7689>[</color><color=" + Gold + "><b>Colony</b></color><color=#B5872F> Nexus</color><color=#6E7689>]</color>";
 
         private static string Con(string body, string hex) => $"{Mark} <color={hex}>{body}</color>";
 
@@ -51,7 +51,7 @@ namespace KMHPatch.Diagnostics
         {
             get
             {
-                string dir = Path.Combine(Path.Combine(GenFilePaths.SaveDataFolderPath, "KMH-Patch"), "Logs");
+                string dir = Path.Combine(Persistence.KmhDataFolder.Root, "Logs");
                 try { Directory.CreateDirectory(dir); } catch { /* handled at write time */ }
                 return dir;
             }
@@ -64,7 +64,7 @@ namespace KMHPatch.Diagnostics
                 if (_logFilePath == null)
                 {
                     string unused = SessionId;   // fixes the stamp before it is used in the name
-                    _logFilePath = Path.Combine(LogFolderPath, $"kmh-patch_{_sessionStamp}.log");
+                    _logFilePath = Path.Combine(LogFolderPath, $"{FilePrefix}{_sessionStamp}.log");
                     StartSession();
                 }
                 return _logFilePath;
@@ -79,10 +79,10 @@ namespace KMHPatch.Diagnostics
                 Prune();
                 File.AppendAllText(_logFilePath, string.Join(Environment.NewLine, new[]
                 {
-                    "=== KMH Patch diagnostic log ===",
+                    "=== KMH: Colony Nexus diagnostic log ===",
                     $"Build       : {SubProtocol.KmhProtocol.DisplayVersion} {SubProtocol.KmhProtocol.UiBuildTag}",
                     $"Protocol    : v{SubProtocol.KmhProtocol.CurrentVersion}",
-                    $"RimWorld    : {UnityEngine.Application.version}",
+                    $"RimWorld    : {Compat.KmhGameVersion.Full}",
                     $"SessionId   : {SessionId}",
                     $"StartedUtc  : {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z",
                     "",
@@ -98,17 +98,29 @@ namespace KMHPatch.Diagnostics
             {
                 var dir = new DirectoryInfo(LogFolderPath);
                 if (!dir.Exists) return;
-                FileInfo[] files = dir.GetFiles("kmh-patch_*.log");
+                FileInfo[] files = Logs(dir);
                 DateTime cutoff = DateTime.Now.AddDays(-RetentionDays);
                 foreach (FileInfo f in files)
                     if (f.LastWriteTime < cutoff) { try { f.Delete(); } catch { } }
 
-                files = dir.GetFiles("kmh-patch_*.log");
+                files = Logs(dir);
                 if (files.Length <= MaxLogFiles) return;
                 Array.Sort(files, (a, b) => a.LastWriteTime.CompareTo(b.LastWriteTime));
                 for (int i = 0; i < files.Length - MaxLogFiles; i++) { try { files[i].Delete(); } catch { } }
             }
             catch { }
+        }
+
+        private const string FilePrefix = "colony-nexus_", LegacyFilePrefix = "kmh-patch_";
+
+        // Legacy kmh-patch_ logs came over with the data folder and age out under the same rules.
+        private static FileInfo[] Logs(DirectoryInfo dir)
+        {
+            FileInfo[] now = dir.GetFiles(FilePrefix + "*.log"), old = dir.GetFiles(LegacyFilePrefix + "*.log");
+            FileInfo[] all = new FileInfo[now.Length + old.Length];
+            now.CopyTo(all, 0);
+            old.CopyTo(all, now.Length);
+            return all;
         }
 
         // One session must not be able to fill the disk either, so it rolls at a bounded size.
@@ -117,7 +129,7 @@ namespace KMHPatch.Diagnostics
             if (_written < MaxLogBytes) return;
             _rollover++;
             _written = 0;
-            _logFilePath = Path.Combine(LogFolderPath, $"kmh-patch_{_sessionStamp}_{_rollover + 1:D3}.log");
+            _logFilePath = Path.Combine(LogFolderPath, $"{FilePrefix}{_sessionStamp}_{_rollover + 1:D3}.log");
             try
             {
                 File.AppendAllText(_logFilePath,
@@ -142,15 +154,42 @@ namespace KMHPatch.Diagnostics
             if (Muted) return;
             message = OneLine(message);
             // RimWorld tints the whole line yellow; the gold KMH mark still reads inside it.
-            WriteToFile(Format("WARN", message));
+            string line = Format("WARN", message);
+            NoteProblem(line);
+            WriteToFile(line);
             KmhMainThread.Post(() => Log.Warning($"{Mark} {message}"));
         }
+
+        // Counted, so the report offer notices a new error without scanning the problem queue every frame.
+        internal static long ErrorCount;
+        internal static volatile string LastError = "";
 
         public static void Error(string message)
         {
             message = OneLine(message);
-            WriteToFile(Format("ERROR", message));
+            string line = Format("ERROR", message);
+            LastError = message;
+            System.Threading.Interlocked.Increment(ref ErrorCount);
+            NoteProblem(line);
+            WriteToFile(line);
             KmhMainThread.Post(() => Log.Error($"{Mark} {message}"));
+        }
+
+        internal const int RecentProblemsKept = 60;
+        private static readonly System.Collections.Generic.Queue<string> _recentProblems = new System.Collections.Generic.Queue<string>();
+
+        private static void NoteProblem(string line)
+        {
+            lock (_recentProblems)
+            {
+                if (_recentProblems.Count >= RecentProblemsKept) _recentProblems.Dequeue();
+                _recentProblems.Enqueue(line);
+            }
+        }
+
+        internal static System.Collections.Generic.List<string> RecentProblems()
+        {
+            lock (_recentProblems) return new System.Collections.Generic.List<string>(_recentProblems);
         }
 
         public static void Error(string message, Exception ex)
@@ -207,7 +246,7 @@ namespace KMHPatch.Diagnostics
 
         private const char Delete = (char)0x7F;
 
-        // One record, one line: a socket error arrived carrying its raw FormatMessage tail, CRLF then 71 NUL bytes, and both the file and the uplink took it as-is.
+        // One record, one line: an OS error's FormatMessage tail can carry CRLF and NUL bytes into file and uplink.
         internal static string OneLine(string message)
         {
             if (string.IsNullOrEmpty(message)) return message ?? "";
@@ -226,9 +265,9 @@ namespace KMHPatch.Diagnostics
 
         private static void WriteToFile(string line)
         {
-            try { KmhDebugUplink.Enqueue(line); } catch { }   // mirror to the server when the uplink is active
+            try { KmhDebugUplink.Enqueue(line); } catch { }
 
-            // A momentary IO error must not lose diagnostics for the rest of the session; back off and return when the disk does.
+            // Back off on IO errors rather than give up: a momentary failure must not lose the rest of the session.
             if (DateTime.UtcNow.Ticks < _sinkRetryAtTicks) return;
 
             try

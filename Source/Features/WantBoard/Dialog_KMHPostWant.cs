@@ -6,7 +6,7 @@ using Verse;
 
 namespace KMHPatch.Features.WantBoard
 {
-    // The full ask (price * qty) is escrowed from your treasury server-side, so you can only post wants you can pay for.
+    // The server escrows price * qty from the treasury, so only a want the player can pay for is accepted.
     public class Dialog_KMHPostWant : Window_KMHBase
     {
         public override Vector2 InitialSize => KMHPatch.UI.DialogLayout.FitToScreen(580f, 560f);
@@ -19,7 +19,7 @@ namespace KMHPatch.Features.WantBoard
         private string _unitPrice = "";
         private string _hours     = "72";
         private string _visibility = "public";
-        private bool   _allowComplex = false; // accept full-state gear (weapons/apparel), else clean simple items only
+        private bool   _allowComplex = false;
         private bool   _allowDamaged = false;
         private bool   _allowTainted = false;
 
@@ -42,20 +42,17 @@ namespace KMHPatch.Features.WantBoard
 
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "Post want - escrowed from your treasury");
+            float y = DialogLayout.DrawTitle(rect, KmhText.Get("KMH_PostWant_Title", "Post want - escrowed from your treasury"));
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            const float labelW = 190f;
-
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Item");
             string itemDisplay = string.IsNullOrEmpty(_itemDef)
-                ? "<color=grey>(pick an item)</color>"
+                ? "<color=#A9AFB9>" + KmhText.Get("KMH_PostWant_PickAnItem", "(pick an item)") + "</color>"
                 : _itemLabel;
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), itemDisplay))
+            if (ButtonRow(rect, y, KmhText.Get("KMH_Market_ColItem", "Item"), itemDisplay))
             {
                 KmhItemPickerService.Open(
-                    title:           "Pick item to buy",
-                    pickActionLabel: "Select",
+                    title:           KmhText.Get("KMH_PostWant_PickTitle", "Pick item to buy"),
+                    pickActionLabel: KmhText.Get("KMH_PostListing_Select", "Select"),
                     source:          _catalog,
                     onPick:          (key, qty) =>
                     {
@@ -69,48 +66,54 @@ namespace KMHPatch.Features.WantBoard
             }
             y += 30f;
 
-            y = DrawRequirements(rect, y, labelW);
+            y = DrawRequirements(rect, y);
 
-            y = Row(rect, y, "Quantity",              ref _qty);
-            y = Row(rect, y, "Price per unit (silver)", ref _unitPrice);
-            y = Row(rect, y, "Duration (hours)",      ref _hours);
+            y = Row(rect, y, KmhText.Get("KMH_PostListing_Quantity", "Quantity"), ref _qty);
+            y = Row(rect, y, Decimals ? KmhText.Get("KMH_PostWant_PricePerUnitDecimal", "Price per unit (silver, e.g. 0.55)")
+                                      : KmhText.Get("KMH_PostWant_PricePerUnit", "Price per unit (silver)"), ref _unitPrice);
+            y = Row(rect, y, KmhText.Get("KMH_PostAuction_Duration", "Duration (hours)"), ref _hours);
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Visibility");
-            string visLabel = _visibility == "guild_only" ? "Guild + allies only" : "Public (all servers)";
-            if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), visLabel))
+            string visPublic = KmhText.Get("KMH_PostListing_VisPublic", "Public (all servers)");
+            string visGuild  = KmhText.Get("KMH_PostListing_VisGuild", "Guild + allies only");
+            string visLabel = _visibility == "guild_only" ? visGuild : visPublic;
+            if (ButtonRow(rect, y, KmhText.Get("KMH_PostListing_Visibility", "Visibility"), visLabel))
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
-                    new FloatMenuOption("Public (all servers)", () => _visibility = "public"),
-                    new FloatMenuOption("Guild + allies only",  () => _visibility = "guild_only"),
+                    new FloatMenuOption(visPublic, () => _visibility = "public"),
+                    new FloatMenuOption(visGuild,  () => _visibility = "guild_only"),
                 }));
             y += 34f;
 
-            // Match constraints. Off by default = clean simple items only, so a buyer never gets handed junk gear.
-            Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 24f), "Accept used gear (weapons/apparel, full state)", ref _allowComplex);
+            // Off by default, so a buyer is never handed junk gear.
+            Widgets.CheckboxLabeled(new Rect(0f, y, rect.width, 24f),
+                KmhText.Get("KMH_PostWant_AcceptUsed", "Accept used gear (weapons/apparel, full state)"), ref _allowComplex);
             y += 26f;
             if (_allowComplex)
             {
-                Widgets.CheckboxLabeled(new Rect(24f, y, rect.width - 24f, 24f), "  ...even if damaged", ref _allowDamaged);
+                // Indented by the rect, not leading spaces: a Keyed value's leading spaces are not reliably kept.
+                Widgets.CheckboxLabeled(new Rect(32f, y, rect.width - 32f, 24f),
+                    KmhText.Get("KMH_PostWant_EvenDamaged", "...even if damaged"), ref _allowDamaged);
                 y += 26f;
-                Widgets.CheckboxLabeled(new Rect(24f, y, rect.width - 24f, 24f), "  ...even if tainted (worn by the dead)", ref _allowTainted);
+                Widgets.CheckboxLabeled(new Rect(32f, y, rect.width - 32f, 24f),
+                    KmhText.Get("KMH_PostWant_EvenTainted", "...even if tainted (worn by the dead)"), ref _allowTainted);
                 y += 26f;
             }
             else { _allowDamaged = false; _allowTainted = false; }
             y += 6f;
 
-            // Live total so the buyer sees what will be escrowed.
-            if (int.TryParse(T(_qty), out int q) && q > 0 && int.TryParse(T(_unitPrice), out int p) && p > 0)
+            if (int.TryParse(T(_qty), out int q) && q > 0 && TryParsePrice(T(_unitPrice), Decimals, out int p, out _))
             {
                 Color old = GUI.color; GUI.color = DialogLayout.MutedColor;
                 DialogLayout.LabelTrunc(new Rect(0f, y, rect.width, 20f),
-                    $"Escrow on post: <color=yellow>{SilverFmt.Format((long)q * p)}</color> silver");
+                    KmhText.Get("KMH_PostWant_EscrowOnPost", "Escrow on post: {0} silver",
+                        "<color=yellow>" + SilverFmt.Format(EscrowFor(p, q)) + "</color>"));
                 GUI.color = old;
             }
 
             const float btnW = 120f, btnH = 32f;
             float btnY = rect.height - btnH - 4f;
-            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, "Cancel")) Close();
-            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, "Post")) Submit();
+            if (IconButton.Draw(new Rect(0f, btnY, btnW, btnH), KMHTextures.Cancel, KmhText.Get("KMH_Common_Cancel", "Cancel"))) Close();
+            if (IconButton.Draw(new Rect(rect.width - btnW, btnY, btnW, btnH), KMHTextures.Post, KmhText.Get("KMH_PostListing_Post", "Post"))) Submit();
         }
 
         private static float Row(Rect rect, float y, string label, ref string value)
@@ -121,22 +124,29 @@ namespace KMHPatch.Features.WantBoard
             return y + 30f;
         }
 
-        private float DrawRequirements(Rect rect, float y, float labelW)
+        private static bool ButtonRow(Rect rect, float y, string label, string value)
+        {
+            const float labelW = 190f;
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), label);
+            return Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), value);
+        }
+
+        private float DrawRequirements(Rect rect, float y)
         {
             ThingDef td = SelectedDef();
             if (td == null) return y;
 
             if (td.HasComp(typeof(CompQuality)))
             {
-                DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Minimum quality");
-                string label = _minQuality > 0 ? $"{ItemKeys.QualityName(_minQuality)} or better" : "Any";
-                if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), label))
+                string label = _minQuality > 0 ? Dialog_KMHWantBoard.QualityOrBetter(_minQuality) : KmhText.Get("KMH_PostWant_Any", "Any");
+                if (ButtonRow(rect, y, KmhText.Get("KMH_PostWant_MinQuality", "Minimum quality"), label))
                 {
-                    List<FloatMenuOption> opts = new List<FloatMenuOption> { new FloatMenuOption("Any", () => _minQuality = 0) };
+                    List<FloatMenuOption> opts = new List<FloatMenuOption>
+                        { new FloatMenuOption(KmhText.Get("KMH_PostWant_Any", "Any"), () => _minQuality = 0) };
                     for (int q = 1; q <= 7; q++)
                     {
                         int pick = q;
-                        opts.Add(new FloatMenuOption($"{ItemKeys.QualityName(q)} or better", () => _minQuality = pick));
+                        opts.Add(new FloatMenuOption(Dialog_KMHWantBoard.QualityOrBetter(q), () => _minQuality = pick));
                     }
                     Find.WindowStack.Add(new FloatMenu(opts));
                 }
@@ -146,9 +156,8 @@ namespace KMHPatch.Features.WantBoard
 
             if (td.MadeFromStuff)
             {
-                DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Required material");
-                if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f),
-                        string.IsNullOrEmpty(_stuffDef) ? "Any" : _stuffLabel))
+                if (ButtonRow(rect, y, KmhText.Get("KMH_PostWant_RequiredMaterial", "Required material"),
+                        string.IsNullOrEmpty(_stuffDef) ? KmhText.Get("KMH_PostWant_Any", "Any") : _stuffLabel))
                     Find.WindowStack.Add(new FloatMenu(StuffOptions(td)));
                 y += 30f;
             }
@@ -161,7 +170,7 @@ namespace KMHPatch.Features.WantBoard
         private List<FloatMenuOption> StuffOptions(ThingDef td)
         {
             List<FloatMenuOption> opts = new List<FloatMenuOption>
-            { new FloatMenuOption("Any", () => { _stuffDef = ""; _stuffLabel = ""; }) };
+            { new FloatMenuOption(KmhText.Get("KMH_PostWant_Any", "Any"), () => { _stuffDef = ""; _stuffLabel = ""; }) };
 
             List<ThingDef> stuffs = new List<ThingDef>();
             try { foreach (ThingDef s in GenStuff.AllowedStuffsFor(td)) if (s != null) stuffs.Add(s); }
@@ -186,16 +195,43 @@ namespace KMHPatch.Features.WantBoard
 
         private void Submit()
         {
-            if (string.IsNullOrEmpty(_itemDef)) { Reject("Pick an item first"); return; }
-            if (!int.TryParse(T(_qty), out int qty) || qty <= 0) { Reject("Quantity: positive whole number"); return; }
-            if (!int.TryParse(T(_unitPrice), out int price) || price <= 0) { Reject("Price per unit: positive whole number"); return; }
-            if (!int.TryParse(T(_hours), out int hours) || hours <= 0) { Reject("Duration: positive whole number of hours"); return; }
+            if (string.IsNullOrEmpty(_itemDef)) { Reject(KmhText.Get("KMH_PostListing_PickItemFirst", "Pick an item first")); return; }
+            if (!int.TryParse(T(_qty), out int qty) || qty <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadQty", "Quantity: positive whole number")); return; }
+            if (!TryParsePrice(T(_unitPrice), Decimals, out int price, out string why)) { Reject(why); return; }
+            if (!int.TryParse(T(_hours), out int hours) || hours <= 0)
+            { Reject(KmhText.Get("KMH_PostAuction_BadDuration", "Duration: positive whole number of hours")); return; }
 
             if (WantHandler.TryPost(_itemDef, qty, price, hours, _visibility,
                     minQuality: _minQuality, requiredStuff: _stuffDef,
                     allowComplex: _allowComplex, allowTainted: _allowTainted, allowDamaged: _allowDamaged))
                 Close();
         }
+
+        internal static bool Decimals => SubProtocol.KmhCapabilities.Has(SubProtocol.KmhCapabilities.WantDecimalPrices);
+
+        // As a listing's price where the server takes one; whole silver otherwise, which is all an older server reads.
+        internal static bool TryParsePrice(string s, bool decimals, out int milli, out string why)
+        {
+            why = null;
+            if (!KmhNumberInput.TryParse(s, out decimal silver, out bool ambiguous) || !Extensibility.KmhSilver.TryToMilli(silver, out milli))
+            {
+                milli = 0;
+                why = ambiguous ? KmhNumberInput.AmbiguousText()
+                    : decimals ? KmhText.Get("KMH_PostWant_BadPriceDecimal", "Price per unit: enter a positive amount (e.g. 0.55 or 12)")
+                               : KmhText.Get("KMH_PostWant_BadPrice", "Price per unit: positive whole number");
+                return false;
+            }
+            if (!decimals && milli % 1000 != 0)
+            {
+                why = KmhText.Get("KMH_PostWant_WholeOnly", "This server takes whole silver for wants.");
+                return false;
+            }
+            return true;
+        }
+
+        // What the server escrows: the total rounded up to whole silver, as its WantStore.CostUpTo does.
+        internal static long EscrowFor(int milli, int qty) => milli <= 0 || qty <= 0 ? 0 : ((long)milli * qty + 999) / 1000;
 
         private static string T(string s) => (s ?? "").Trim();
         private static void Reject(string msg) => Notifications.KmhNotifications.Rejected(msg);

@@ -3,7 +3,6 @@ using KMHPatch.Features.Seasons.Dto;
 
 namespace KMHPatch.Features.Seasons
 {
-    // Caches the season archive snapshot (current leaders + past seasons + all-time server records).
     public static class SeasonArchiveCache
     {
         public static SeasonArchiveSnapshot Snapshot { get; private set; }

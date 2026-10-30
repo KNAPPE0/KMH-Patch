@@ -3,7 +3,6 @@ using Verse;
 
 namespace KMHPatch.Features.Chat
 {
-    // One transport bar drawn both inline and fullscreen, so neither teaches different controls. Degrades by width.
     internal static class ChatVideoControls
     {
         public const float BarHeight = 24f;
@@ -17,7 +16,7 @@ namespace KMHPatch.Features.Chat
 
         private static string _drag;
 
-        // Returns true when the player asked to cross into or out of fullscreen; the caller owns that window.
+        // True when the player toggled fullscreen; the caller owns that window.
         public static bool Draw(Rect bar, bool inFullscreen)
         {
             bool toggleFullscreen = false;
@@ -34,7 +33,6 @@ namespace KMHPatch.Features.Chat
                              : "Watch fullscreen. Esc or F comes back here without interrupting playback.");
             rx -= Gap;
 
-            // Offered only from the chat row: the other two views already ARE somewhere to watch it.
             if (!inFullscreen && bar.width >= 440f && !Find.WindowStack.IsOpen(typeof(Dialog_KMHVideoWindow)))
             {
                 rx -= BtnWide;
@@ -67,7 +65,6 @@ namespace KMHPatch.Features.Chat
 
             rx -= BtnSmall;
             Rect muteR = new Rect(rx, bar.y, BtnSmall, h);
-            // Never colour alone: the label itself says which state it is in.
             if (Widgets.ButtonText(muteR, ChatVideoPlayer.Muted ? "Unmute" : "Mute")) ChatVideoPlayer.ToggleMute();
             rx -= Gap;
 
@@ -82,16 +79,16 @@ namespace KMHPatch.Features.Chat
             if (Widgets.ButtonText(new Rect(x, bar.y, BtnSmall, h), "Stop")) ChatVideoPlayer.Stop();
             x += BtnSmall + Gap;
 
-            // Fit, not a width threshold: a fixed one drew the clock straight through the mute button.
+            // Fit, not a width threshold: a fixed one draws the clock straight through the mute button.
             double len = ChatVideoPlayer.Length;
-            if (len > 0d && rx - x >= TimeW + Gap + MinSeekW)
+            string clock = len > 0d ? $"{ChatVideoPlayer.FormatTime(ChatVideoPlayer.Position)} / {ChatVideoPlayer.FormatTime(len)}" : "";
+            float timeW = clock.Length > 0 ? Mathf.Max(TimeW, Mathf.Ceil(Text.CalcSize(clock).x) + 6f) : TimeW;
+            if (len > 0d && rx - x >= timeW + Gap + MinSeekW)
             {
-                Widgets.Label(new Rect(x, bar.y + 2f, TimeW, h),
-                    $"<color=grey>{ChatVideoPlayer.FormatTime(ChatVideoPlayer.Position)} / {ChatVideoPlayer.FormatTime(len)}</color>");
-                x += TimeW + Gap;
+                UI.DialogLayout.LabelTrunc(new Rect(x, bar.y, timeW, h), $"<color=#A9AFB9>{clock}</color>", TextAnchor.MiddleLeft);
+                x += timeW + Gap;
             }
 
-            // A live stream has no length to scrub, so it gets a state word instead of a bar that would do nothing.
             float seekW = rx - x;
             if (seekW >= MinSeekW)
             {
@@ -104,14 +101,13 @@ namespace KMHPatch.Features.Chat
                 }
                 else
                 {
-                    Widgets.Label(new Rect(x, bar.y + 2f, seekW, h), "<color=grey>live</color>");
+                    Widgets.Label(new Rect(x, bar.y + 2f, seekW, h), "<color=#A9AFB9>live</color>");
                 }
             }
 
             return toggleFullscreen;
         }
 
-        // Buffering, paused and finished all look identical on screen: a still picture that is not moving.
         public static string StatusWord()
         {
             if (ChatVideoPlayer.Buffering) return "buffering…";
@@ -120,7 +116,6 @@ namespace KMHPatch.Features.Chat
             return null;
         }
 
-        // Fullscreen keyboard shortcuts. Returns true when the player asked to leave.
         public static bool HandleKeys()
         {
             Event e = Event.current;

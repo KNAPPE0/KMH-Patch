@@ -41,9 +41,11 @@ namespace KMHPatch.SubProtocol
         {
             failed = new System.Collections.Generic.List<string>();
             if (!KmhDispatcher.IsKmhServer) return;
+            if (Features.Enforcement.EnforcementAdmission.Pending) return;
 
             foreach ((string name, System.Func<bool> send) in All)
             {
+                if (name == "enforcement" && Features.Enforcement.EnforcementAdmission.Verified) continue;
                 bool ok = false;
                 try { ok = send(); } catch { }
                 if (!ok) failed.Add(name);

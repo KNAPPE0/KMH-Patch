@@ -41,10 +41,13 @@ namespace KMHPatch.Features.Mail
             float y = DialogLayout.DrawTitle(rect, "New mail");
             DialogLayout.DrawSectionDivider(rect, ref y);
 
-            const float labelW = 90f;
+            const string silverLabel = "Attach silver", goodsLabel = "Attach goods";
+            // Measured from the longest label: a fixed 90px column cuts both of these.
+            float labelW = Mathf.Clamp(Mathf.Max(Text.CalcSize(silverLabel).x, Text.CalcSize(goodsLabel).x) + 10f,
+                                       90f, Mathf.Max(90f, rect.width * 0.35f));
 
             DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "To");
-            string toLabel = string.IsNullOrEmpty(_to) ? "<color=grey>(pick a player)</color>" : LinkedAccountsCache.Format(_to);
+            string toLabel = string.IsNullOrEmpty(_to) ? "<color=#A9AFB9>(pick a player)</color>" : LinkedAccountsCache.Format(_to);
             if (Widgets.ButtonText(new Rect(labelW, y, rect.width - labelW, 26f), toLabel))
                 Dialog_KMHPlayerPicker.Open("Send mail to", u => _to = u);
             y += 32f;
@@ -53,9 +56,9 @@ namespace KMHPatch.Features.Mail
             _subject = Widgets.TextField(new Rect(labelW, y, rect.width - labelW, 26f), _subject ?? "");
             y += 32f;
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Attach silver");
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), silverLabel);
             const float hintW = 150f;
-            // Floored: below ~244px this subtraction went negative and the field was drawn inside-out.
+            // Floored: below ~244px this subtraction goes negative and the field draws inside-out.
             float silverW = Mathf.Max(40f, rect.width - labelW - hintW - 4f);
             _attach = Widgets.TextField(new Rect(labelW, y, silverW, 26f), _attach ?? "");
             long have = PersonalSilver();
@@ -65,7 +68,7 @@ namespace KMHPatch.Features.Mail
             GUI.color = oc;
             y += 32f;
 
-            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), "Attach goods");
+            DialogLayout.LabelTrunc(new Rect(0f, y + 4f, labelW, 22f), goodsLabel);
             if (Widgets.ButtonText(new Rect(labelW, y, Mathf.Min(170f, Mathf.Max(0f, rect.width - labelW)), 26f), "Add item / gear")) OpenPicker();
             y += 30f;
             Rect itemBox = new Rect(0f, y, rect.width, 58f);
@@ -77,7 +80,7 @@ namespace KMHPatch.Features.Mail
             y += 22f;
             float bodyH = DialogLayout.BodyHeight(rect, y) - 4f;
 
-            // 1.6 has no scrollable TextArea, so the scroll view is our own.
+            // RimWorld 1.6 has no scrollable TextArea, so this one sits in a hand-made scroll view.
             Rect editorRect = new Rect(0f, y, rect.width, bodyH);
             float lineH = Text.LineHeight;
             // Measured, not estimated per character: a narrow dialog wraps onto more lines than a guess reserves.
@@ -124,15 +127,14 @@ namespace KMHPatch.Features.Mail
             if (a.Length > 0 && (!long.TryParse(a, out attach) || attach < 0)) { Reject("Attach silver: a whole number, or leave it blank"); return; }
             if (attach > PersonalSilver()) { Reject("You don't have that much silver in your treasury to attach"); return; }
 
-            if (attach <= 0 && _attachItems.Count == 0 && _attachGear.Count == 0
-                && string.IsNullOrWhiteSpace(_body) && string.IsNullOrWhiteSpace(_subject))
-            { Reject("Write a subject or message, or attach silver/items/gear"); return; }
+            // The server refuses mail with neither, attachments or not; saying so here saves a round trip that fails.
+            if (string.IsNullOrWhiteSpace(_body) && string.IsNullOrWhiteSpace(_subject))
+            { Reject("Write a subject or a message - even mail that only carries silver or items needs one"); return; }
 
             if (MailHandler.TrySend(_to, _subject, _body, attach,
                     _attachItems.Count > 0 ? _attachItems : null, _attachGear.Count > 0 ? _attachGear : null)) Close();
         }
 
-        // Combined attached list: compact items (by defName) then full-state gear (by fingerprint), each removable.
         private void DrawAttached(Rect box)
         {
             List<string> items = new List<string>(_attachItems.Keys);
@@ -146,7 +148,7 @@ namespace KMHPatch.Features.Mail
                     string def = items[i];
                     if (Widgets.ButtonText(new Rect(inner.x, inner.y, 18f, 18f), "x")) _attachItems.Remove(def);
                     DialogLayout.LabelTrunc(new Rect(row.x + 24f, row.y, Mathf.Max(0f, row.width - 28f), DialogLayout.TextRowH),
-                        $"{ItemLabels.ResolveLabel(def)}  <color=grey>x{_attachItems[def]}</color>");
+                        $"{ItemLabels.ResolveLabel(def)}  <color=#A9AFB9>x{_attachItems[def]}</color>");
                 }
                 else
                 {
@@ -154,9 +156,9 @@ namespace KMHPatch.Features.Mail
                     if (Widgets.ButtonText(new Rect(inner.x, inner.y, 18f, 18f), "x")) { _attachGear.Remove(fp); _gearLabel.Remove(fp); }
                     string label = _gearLabel.TryGetValue(fp, out string l) ? l : "gear";
                     DialogLayout.LabelTrunc(new Rect(row.x + 24f, row.y, Mathf.Max(0f, row.width - 28f), DialogLayout.TextRowH),
-                        $"<color=#B9D0FF>{label}</color>  <color=grey>x{_attachGear[fp]}</color>");
+                        $"<color=#B9D0FF>{label}</color>  <color=#A9AFB9>x{_attachGear[fp]}</color>");
                 }
-            }, "<color=grey>(nothing attached)</color>");
+            }, "<color=#A9AFB9>(nothing attached)</color>");
         }
 
         private void OpenPicker()
@@ -209,14 +211,12 @@ namespace KMHPatch.Features.Mail
             return (s != null && !s.IsGuildOwned) ? Math.Max(0, s.SilverBalance) : 0;
         }
 
-        // Compact items in my personal treasury (defName -> qty). Empty when the snapshot is guild-owned or absent.
         private static Dictionary<string, int> PersonalItems()
         {
             Treasury.Dto.TreasurySnapshot s = TreasuryCache.Snapshot;
             return (s != null && !s.IsGuildOwned && s.Items != null) ? s.Items : new Dictionary<string, int>();
         }
 
-        // Full-state gear payloads in my personal treasury. Empty when the snapshot is guild-owned or absent.
         private static List<KMHPatch.Items.KmhThingPayload> PersonalPayloads()
         {
             Treasury.Dto.TreasurySnapshot s = TreasuryCache.Snapshot;

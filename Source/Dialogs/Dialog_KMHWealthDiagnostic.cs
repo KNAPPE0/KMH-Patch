@@ -28,7 +28,7 @@ namespace KMHPatch.Dialogs
 
         protected override void DrawContents(Rect rect)
         {
-            float y = DialogLayout.DrawTitle(rect, "KMH storyteller wealth");
+            float y = DialogLayout.DrawTitle(rect, "Colony Nexus storyteller wealth");
             DialogLayout.DrawSectionDivider(rect, ref y);
 
             Rect box   = new Rect(0f, y, rect.width, DialogLayout.BodyHeight(rect, y));
@@ -50,11 +50,11 @@ namespace KMHPatch.Dialogs
             if (!KmhWealthLedger.Enabled)
             {
                 st.Header("Off-map wealth");
-                st.Label("<color=#C8A24A>The server has turned the wealth feature off, so KMH adds nothing to threat scaling.</color>");
+                st.Label("<color=#C8A24A>The server has turned the wealth feature off, so Colony Nexus adds nothing to threat scaling.</color>");
                 return;
             }
 
-            st.Header("KMH off-map holdings");
+            st.Header("Colony Nexus off-map holdings");
 
             List<KeyValuePair<string, float>> parts = KmhWealthLedger.Breakdown();
             float kmh = 0f;
@@ -65,7 +65,7 @@ namespace KMHPatch.Dialogs
             }
 
             st.Gap(6f);
-            Money(st, "KMH contribution", kmh, false);
+            Money(st, "Colony Nexus contribution", kmh, false);
 
             st.Header("Storyteller");
             Map map = Find.CurrentMap;
@@ -81,7 +81,7 @@ namespace KMHPatch.Dialogs
 
             st.Gap(6f);
             st.Label("<color=#9A9A9A>Map wealth is recounted by RimWorld on its own schedule, so it lags a deposit. "
-                   + "The KMH figure is added on every read and follows the treasury within a second.</color>");
+                   + "The Colony Nexus figure is added on every read and follows the treasury within a second.</color>");
         }
 
         private static void Money(KmhStack st, string label, float value, bool dim)

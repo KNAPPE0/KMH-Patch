@@ -54,7 +54,7 @@ namespace KMHPatch.Features.Auctions
         public static bool TryBid(long auctionId, long amount)
         {
             bool sent = KmhDispatcher.Send(KmhProtocol.Kind.AuctionBid, new { auction_id = auctionId, amount });
-            if (sent) KmhNotifications.Neutral($"Bidding {amount}…");
+            if (sent) KmhNotifications.Neutral(UI.KmhText.Get("KMH_Auction_Bidding", "Bidding {0}…", UI.SilverFmt.Format(amount)));
             else      KmhNotifications.NotConnected();
             return sent;
         }
