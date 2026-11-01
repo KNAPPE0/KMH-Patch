@@ -975,6 +975,7 @@ They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_
   <!-- What's New -->
   <KMH_WhatsNew_Title>What's new in {0} v{1}</KMH_WhatsNew_Title>
   <KMH_WhatsNew_Subtitle>Connected Worlds: find a server, bring your friends, federate your guild.</KMH_WhatsNew_Subtitle>
+  <KMH_WhatsNew_Hotfix>v1.3.1.1: settings that only sounded like display settings, such as Alpha Animals' spawn rate, are now enforced; Prepare and join handles an old Workshop copy that shares a mod's id; other players' settlements are outlined on the world map; and no colony starts empty.</KMH_WhatsNew_Hotfix>
   <KMH_WhatsNew_Rw17>Plays on RimWorld 1.7, together with RimWorld Together's own 1.7 release (26.10.20.1 or newer).</KMH_WhatsNew_Rw17>
   <KMH_WhatsNew_Look>A new Colony Nexus look: a full-screen loading screen with real progress and tips, a Colony Nexus card on the main menu and a tidier Colony Nexus tab.</KMH_WhatsNew_Look>
   <KMH_WhatsNew_Leaderboards>Leaderboards: 22 boards in Server Standings, and the same rankings on the Colony Nexus website, with images to share.</KMH_WhatsNew_Leaderboards>
@@ -1173,12 +1174,18 @@ They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_
   <KMH_Prep_NothingToDownload>Nothing to download.</KMH_Prep_NothingToDownload>
   <KMH_Prep_NoSteam>Steam is not running or not signed in, so the server's Workshop mods cannot be subscribed. Start Steam, then Retry.</KMH_Prep_NoSteam>
   <KMH_Prep_SubscribeRefused>Steam refused the subscription to {0} (Workshop {1}).</KMH_Prep_SubscribeRefused>
+  <KMH_Prep_UnsubscribeRefused>Steam refused to unsubscribe {0} (Workshop {1}).</KMH_Prep_UnsubscribeRefused>
+  <KMH_Prep_ShadowFound>{0} (Workshop {1}) has the same mod id as {2}, which this server uses, and RimWorld can load it instead. Unsubscribe it to carry on.</KMH_Prep_ShadowFound>
+  <KMH_Prep_Headline_Shadow>Waiting for you: an older copy of a server mod is subscribed.</KMH_Prep_Headline_Shadow>
+  <KMH_Prep_UnsubscribeGo>Unsubscribe and carry on</KMH_Prep_UnsubscribeGo>
+  <KMH_Prep_StillSubscribed>Steam still has {0} (Workshop {1}) subscribed. It shares its mod id with {2}, which this server uses, so RimWorld can load it instead. Unsubscribe it on its Workshop page, then Retry.</KMH_Prep_StillSubscribed>
   <KMH_Prep_SubscribeIgnored>Steam did not take the subscription to {0} (Workshop {1}). The item may have been removed, made private, or be unavailable in your region.</KMH_Prep_SubscribeIgnored>
   <KMH_Prep_Stalled>The download of {0} (Workshop {1}) has stopped moving. Check Steam's Downloads page, then Retry.</KMH_Prep_Stalled>
   <KMH_Prep_Downloading>{0} of {1} on disk</KMH_Prep_Downloading>
   <KMH_Prep_Rescanning>Downloaded. Asking RimWorld to find the new mods…</KMH_Prep_Rescanning>
   <KMH_Prep_FoundOnRestart>Downloaded. RimWorld finds them when it restarts.</KMH_Prep_FoundOnRestart>
   <KMH_Prep_Downloaded>{0} mod(s) on disk.</KMH_Prep_Downloaded>
+  <KMH_Prep_UnsubscribedOld>{0} other copy(s) sharing a server mod's id unsubscribed; RimWorld drops them when it restarts.</KMH_Prep_UnsubscribedOld>
   <KMH_Prep_ListLoaded>Loaded.</KMH_Prep_ListLoaded>
   <KMH_Prep_ListWritten>Set. RimWorld loads it after the restart.</KMH_Prep_ListWritten>
   <KMH_Prep_ListAfterRestart>Set after the restart, once RimWorld has found the new mods.</KMH_Prep_ListAfterRestart>
@@ -1210,6 +1217,9 @@ They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_
   <KMH_Prep_ReviewUnverified>Install it although GitHub published no checksum for this older release</KMH_Prep_ReviewUnverified>
   <KMH_Prep_ReviewSubscribe>Subscribe on the Steam Workshop ({0})</KMH_Prep_ReviewSubscribe>
   <KMH_Prep_ReviewNoSteam>Steam is not running or not signed in. Start it before you begin, or preparation stops at this step.</KMH_Prep_ReviewNoSteam>
+  <KMH_Prep_ReviewUnsubscribe>Unsubscribe on the Steam Workshop ({0})</KMH_Prep_ReviewUnsubscribe>
+  <KMH_Prep_ReviewShadow>{0}  (Workshop {1}) has the same mod id as {2} (Workshop {3}), which this server uses. RimWorld loads only one of them, and it can be this one.</KMH_Prep_ReviewShadow>
+  <KMH_Prep_ReviewUnsubscribeNote>Only once the server's copy is on disk. You can subscribe to it again from its Workshop page at any time.</KMH_Prep_ReviewUnsubscribeNote>
   <KMH_Prep_ReviewOptional>Optional mods this server allows (only if you tick them)</KMH_Prep_ReviewOptional>
   <KMH_Prep_ReviewEnable>Switch on (already installed)</KMH_Prep_ReviewEnable>
   <KMH_Prep_ReviewDisable>Switch off (this server does not allow them)</KMH_Prep_ReviewDisable>
@@ -1256,6 +1266,7 @@ They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_
   <KMH_Browser_Join_NeedsAccount>RimWorld Together needs a player name and password first. Save them in its Account Setup window, then press Join again.</KMH_Browser_Join_NeedsAccount>
   <KMH_Browser_Mod_Disabled>Installed, switched off: {0}</KMH_Browser_Mod_Disabled>
   <KMH_Browser_Mod_Order>Your load order differs from this server's.</KMH_Browser_Mod_Order>
+  <KMH_Browser_Mod_Shadow>Two mods share one id: {0} (Workshop {1}) can load instead of {2}, which this server uses. "Prepare and join" unsubscribes it.</KMH_Browser_Mod_Shadow>
   <KMH_Browser_Mods_OrderOnly>Load order differs</KMH_Browser_Mods_OrderOnly>
   <KMH_Browser_Sort_Players>Most players</KMH_Browser_Sort_Players>
   <KMH_Browser_Sort_Active>Most active</KMH_Browser_Sort_Active>
@@ -2187,8 +2198,8 @@ They stop being your friend, cannot ask again, and cannot see you.</KMH_Friends_
   <KMH_Settings_BadHex>Not a six-digit hex colour: {0}. The Colony Nexus default is being used for these.</KMH_Settings_BadHex>
   <KMH_Settings_ClearColours>Clear my colours</KMH_Settings_ClearColours>
   <KMH_Settings_MarkersHeader>World map markers</KMH_Settings_MarkersHeader>
-  <KMH_Settings_MarkerOutline>Outline Colony Nexus places on the world map</KMH_Settings_MarkerOutline>
-  <KMH_Settings_MarkerOutlineTip>Draws the same coloured border RimWorld puts on a settlement you own, around Colony Nexus sites, outposts and your guild hall. The border is the only colour applied - the icon itself always keeps its own artwork.</KMH_Settings_MarkerOutlineTip>
+  <KMH_Settings_MarkerOutline>Outline Colony Nexus places and other players' settlements</KMH_Settings_MarkerOutline>
+  <KMH_Settings_MarkerOutlineTip>Draws the same coloured border RimWorld puts on a settlement you own, around Colony Nexus sites, outposts, your guild hall and other players' RimWorld Together settlements, which can wear any faction's icon. The border is the only colour applied - the icon itself always keeps its own artwork.</KMH_Settings_MarkerOutlineTip>
   <KMH_Settings_UseServerMarkers>Use this server's marker colours</KMH_Settings_UseServerMarkers>
   <KMH_Settings_UseServerMarkersTip>Server owners can suggest which colours mark your own places and other players'. Turn this off to pick your own. Outpost states - claimable, hostile, derelict - always keep the Colony Nexus colours so a warning cannot be styled into something calm.</KMH_Settings_UseServerMarkersTip>
   <KMH_Settings_MarkerHexHelp>Six-digit hex, e.g. 6BE26B. Blank uses the Colony Nexus default.</KMH_Settings_MarkerHexHelp>

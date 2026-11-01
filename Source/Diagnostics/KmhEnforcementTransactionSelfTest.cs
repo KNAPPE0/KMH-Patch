@@ -1032,12 +1032,14 @@ namespace KMHPatch.Diagnostics
                 checkBoot.Invoke(null, null);
                 bool survivesMenu = EnforcementProfileApplier.IsApplied;
                 File.WriteAllText(alpha, Settings(own, "drifted"));
-                ReceiveQuietly(Zip(("Mod_Alpha_AlphaMod.xml", Settings(own, "server2"))));
+                // Hashed as sent: a zip built again carries a new timestamp once the clock passes a 2-second mark.
+                byte[] server2 = Zip(("Mod_Alpha_AlphaMod.xml", Settings(own, "server2")));
+                ReceiveQuietly(server2);
                 // Back at the menu before restarting: these settings have not been through a start yet, so that proves nothing.
                 EnforcementProfileApplier.MainMenuReached();
                 checkBoot.Invoke(null, null);
                 checkBoot.Invoke(null, null);
-                string bootHash = ConfigProfileUtility.Sha256Hex(Zip(("Mod_Alpha_AlphaMod.xml", Settings(own, "server2"))));
+                string bootHash = ConfigProfileUtility.Sha256Hex(server2);
                 Verdict(results, "AStartThatNeverReachedTheMenuPutsThePlayersSettingsBack",
                     survivesMenu && !EnforcementProfileApplier.IsApplied && Text(alpha) == Settings(own, "personal")
                     && EnforcementProfileApplier.StartupRestoreNote.Length > 0 && EnforcementProfileApplier.BootFailedFor(bootHash),
@@ -1049,6 +1051,56 @@ namespace KMHPatch.Diagnostics
                 string merged = ConfigMerge.MergePreservingPersonal(serverText, "<SettingsBlock><ModSettings><windowPos>mine</windowPos></ModSettings></SettingsBlock>");
                 Verdict(results, "MergingNeverExpandsAServersEntities", merged == serverText && merged.IndexOf("expanded</", StringComparison.Ordinal) < 0,
                     merged.Length > 160 ? merged.Substring(0, 160) : merged);
+
+                // Field names from the live server profiles; raidCompositionMode and the display ones are made up.
+                string[] gameplay = { "alphaAnimalSpawnMultiplier", "traderWealthOffsetFromTimesTraded", "currentMilianModifyScale",
+                                      "offsetMultiLayerClothingAmount", "raidCompositionMode" };
+                string[] personal = { "colors", "colorStorage", "disableSetupWindow", "lastLoadingModHash", "LastVersion", "loadingTimesMeasuredToMenu",
+                                      "MiliraRace_ModSetting_MilianHairColorOffset", "ToolbarWindowPos", "iconScale", "UIScale", "labelOffsetX", "windowposx", "showtooltips" };
+                string misread = string.Join(",", Array.FindAll(gameplay, ConfigHeuristics.IsPersonalField))
+                               + " | " + string.Join(",", Array.FindAll(personal, f => !ConfigHeuristics.IsPersonalField(f)));
+                Verdict(results, "AGameplayValueNamedLikeADisplaySettingIsEnforced", misread == " | ", misread);
+
+                Fresh();
+                try
+                {
+                    EnforcementCache.Apply(false, false, true, false, false, null, "", new List<string>(), "");
+                    string Fields(string inner) => "<?xml version=\"1.0\" encoding=\"utf-8\"?><SettingsBlock><ModSettings Class=\"" + own + "\">"
+                                                 + inner + "</ModSettings></SettingsBlock>";
+                    string serverSide = Fields("<flagMime>True</flagMime><colors>server</colors>");
+                    byte[] keeping = Zip(("Mod_Alpha_AlphaMod.xml", serverSide));
+                    // What the old merge left a returning player: their own spawn rate beside their own colours.
+                    File.WriteAllText(alpha, Fields("<flagMime>True</flagMime><alphaAnimalSpawnMultiplier>5</alphaAnimalSpawnMultiplier><colors>mine</colors>"));
+                    int nudges = restarts + Prompts;
+                    ReceiveQuietly(keeping);
+                    string landed = Text(alpha);
+                    Verdict(results, "APlayersOwnSpawnRateIsReplacedWhileTheirColoursStay",
+                        landed.IndexOf("alphaAnimalSpawnMultiplier", StringComparison.Ordinal) < 0 && landed.IndexOf("<colors>mine</colors>", StringComparison.Ordinal) >= 0
+                        && landed.IndexOf("<flagMime>True</flagMime>", StringComparison.Ordinal) >= 0 && restarts + Prompts == nudges + 1, landed);
+                    Verdict(results, "ARestartForChangedSettingsNamesTheFileInTheLog",
+                        EnforcementProfileApplier.LastDrift.IndexOf("Mod_Alpha_AlphaMod.xml", StringComparison.Ordinal) >= 0, EnforcementProfileApplier.LastDrift);
+
+                    object live = stateField.GetValue(null);
+                    live.GetType().GetProperty("RestartBootId").SetValue(live, "previous-process");
+                    string relaid = System.Text.RegularExpressions.Regex.Replace(landed, @">\s+<", "><");
+                    File.WriteAllText(alpha, relaid);
+                    nudges = restarts + Prompts;
+                    int failed = failures;
+                    ReceiveQuietly(keeping);
+                    string generation = (string)live.GetType().GetProperty("ApplyGeneration").GetValue(live);
+                    ReceiveQuietly(keeping);
+                    Verdict(results, "TheSameSettingsLaidOutDifferentlyNeedNoRestart",
+                        relaid != landed && Text(alpha) == relaid && restarts + Prompts == nudges && failures == failed && EnforcementProfileApplier.IsApplied
+                        && (string)live.GetType().GetProperty("ApplyGeneration").GetValue(live) == generation,
+                        $"relaid={relaid != landed}, untouched={Text(alpha) == relaid}, nudges {nudges}->{restarts + Prompts}, failures {failed}->{failures}");
+
+                    // Without the merge every file is the server's byte for byte, as before.
+                    EnforcementCache.Apply(false, false, false, false, false, null, "", new List<string>(), "");
+                    File.WriteAllText(alpha, serverSide.Replace("><", ">\r\n<"));
+                    ReceiveQuietly(keeping);
+                    Verdict(results, "WithoutTheMergeAFileIsPutBackByteForByte", Text(alpha) == serverSide, Text(alpha));
+                }
+                finally { EnforcementCache.Apply(false, false, false, false, false, null, "", new List<string>(), ""); }
 
                 // F9: device names open a device on Windows, in any folder.
                 bool devices = !ConfigManifest.IsManagedName("COM1.xml") && !ConfigManifest.IsManagedName("nul.json") && !ConfigManifest.IsManagedName("LPT9.settings.xml")

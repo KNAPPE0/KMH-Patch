@@ -956,6 +956,7 @@ Dejará de ser tu amigo, no podrá volver a solicitarlo y no podrá verte.</KMH_
   <!-- What's New -->
   <KMH_WhatsNew_Title>Novedades de {0} v{1}</KMH_WhatsNew_Title>
   <KMH_WhatsNew_Subtitle>Connected Worlds: encuentra un servidor, trae a tus amigos y federa tu gremio.</KMH_WhatsNew_Subtitle>
+  <KMH_WhatsNew_Hotfix>v1.3.1.1: los ajustes que solo parecían de pantalla, como la tasa de aparición de Alpha Animals, ahora se aplican; Preparar y unirse resuelve una copia antigua del Workshop que comparte la id de un mod; los asentamientos de otros jugadores se marcan con un borde en el mapa del mundo; y ninguna colonia empieza vacía.</KMH_WhatsNew_Hotfix>
   <KMH_WhatsNew_Rw17>Funciona en RimWorld 1.7, junto con la versión 1.7 de RimWorld Together (26.10.20.1 o posterior).</KMH_WhatsNew_Rw17>
   <KMH_WhatsNew_Look>Un nuevo aspecto de Colony Nexus: una pantalla de carga a pantalla completa con progreso real y consejos, una tarjeta de Colony Nexus en el menú principal y una pestaña de Colony Nexus más ordenada.</KMH_WhatsNew_Look>
   <KMH_WhatsNew_Leaderboards>Clasificaciones: 22 tablas en la Clasificación del servidor y las mismas en la web de Colony Nexus, con imágenes para compartir.</KMH_WhatsNew_Leaderboards>
@@ -1154,12 +1155,18 @@ Dejará de ser tu amigo, no podrá volver a solicitarlo y no podrá verte.</KMH_
   <KMH_Prep_NothingToDownload>Nada que descargar.</KMH_Prep_NothingToDownload>
   <KMH_Prep_NoSteam>Steam no está abierto o no has iniciado sesión, así que no se pueden suscribir los mods del Workshop del servidor. Abre Steam y reintenta.</KMH_Prep_NoSteam>
   <KMH_Prep_SubscribeRefused>Steam rechazó la suscripción a {0} (Workshop {1}).</KMH_Prep_SubscribeRefused>
+  <KMH_Prep_UnsubscribeRefused>Steam rechazó cancelar la suscripción a {0} (Workshop {1}).</KMH_Prep_UnsubscribeRefused>
+  <KMH_Prep_ShadowFound>{0} (Workshop {1}) tiene el mismo id de mod que {2}, que usa este servidor, y RimWorld puede cargarlo en su lugar. Cancela su suscripción para continuar.</KMH_Prep_ShadowFound>
+  <KMH_Prep_Headline_Shadow>Esperándote: hay suscrita una copia antigua de un mod del servidor.</KMH_Prep_Headline_Shadow>
+  <KMH_Prep_UnsubscribeGo>Cancelar suscripción y continuar</KMH_Prep_UnsubscribeGo>
+  <KMH_Prep_StillSubscribed>Steam sigue teniendo {0} (Workshop {1}) suscrito. Comparte su id de mod con {2}, que usa este servidor, así que RimWorld puede cargarlo en su lugar. Cancela la suscripción en su página del Workshop y pulsa Reintentar.</KMH_Prep_StillSubscribed>
   <KMH_Prep_SubscribeIgnored>Steam no aceptó la suscripción a {0} (Workshop {1}). Puede que se haya retirado, que sea privado o que no esté disponible en tu región.</KMH_Prep_SubscribeIgnored>
   <KMH_Prep_Stalled>La descarga de {0} (Workshop {1}) se ha detenido. Revisa la página de descargas de Steam y reintenta.</KMH_Prep_Stalled>
   <KMH_Prep_Downloading>{0} de {1} en disco</KMH_Prep_Downloading>
   <KMH_Prep_Rescanning>Descargado. Pidiendo a RimWorld que encuentre los mods nuevos…</KMH_Prep_Rescanning>
   <KMH_Prep_FoundOnRestart>Descargado. RimWorld los encuentra al reiniciar.</KMH_Prep_FoundOnRestart>
   <KMH_Prep_Downloaded>{0} mod(s) en disco.</KMH_Prep_Downloaded>
+  <KMH_Prep_UnsubscribedOld>{0} copia(s) más con el id de un mod del servidor dadas de baja; RimWorld las quita al reiniciarse.</KMH_Prep_UnsubscribedOld>
   <KMH_Prep_ListLoaded>Cargada.</KMH_Prep_ListLoaded>
   <KMH_Prep_ListWritten>Ajustada. RimWorld la carga tras el reinicio.</KMH_Prep_ListWritten>
   <KMH_Prep_ListAfterRestart>Se ajusta tras el reinicio, cuando RimWorld haya encontrado los mods nuevos.</KMH_Prep_ListAfterRestart>
@@ -1191,6 +1198,9 @@ Dejará de ser tu amigo, no podrá volver a solicitarlo y no podrá verte.</KMH_
   <KMH_Prep_ReviewUnverified>Instalarlo aunque GitHub no publicó suma de comprobación para esta versión antigua</KMH_Prep_ReviewUnverified>
   <KMH_Prep_ReviewSubscribe>Suscribirse en el Steam Workshop ({0})</KMH_Prep_ReviewSubscribe>
   <KMH_Prep_ReviewNoSteam>Steam no está abierto o no has iniciado sesión. Ábrelo antes de empezar o la preparación se detendrá en este paso.</KMH_Prep_ReviewNoSteam>
+  <KMH_Prep_ReviewUnsubscribe>Cancelar la suscripción en el Steam Workshop ({0})</KMH_Prep_ReviewUnsubscribe>
+  <KMH_Prep_ReviewShadow>{0}  (Workshop {1}) tiene el mismo id de mod que {2} (Workshop {3}), que usa este servidor. RimWorld carga solo uno de ellos, y puede ser este.</KMH_Prep_ReviewShadow>
+  <KMH_Prep_ReviewUnsubscribeNote>Solo cuando la copia del servidor ya esté en disco. Puedes volver a suscribirte desde su página del Workshop cuando quieras.</KMH_Prep_ReviewUnsubscribeNote>
   <KMH_Prep_ReviewOptional>Mods opcionales que este servidor permite (solo si los marcas)</KMH_Prep_ReviewOptional>
   <KMH_Prep_ReviewEnable>Activar (ya instalados)</KMH_Prep_ReviewEnable>
   <KMH_Prep_ReviewDisable>Desactivar (este servidor no los permite)</KMH_Prep_ReviewDisable>
@@ -1237,6 +1247,7 @@ Dejará de ser tu amigo, no podrá volver a solicitarlo y no podrá verte.</KMH_
   <KMH_Browser_Join_NeedsAccount>RimWorld Together necesita primero un nombre de jugador y una contraseña. Guárdalos en su ventana «Account Setup» y vuelve a pulsar Unirse.</KMH_Browser_Join_NeedsAccount>
   <KMH_Browser_Mod_Disabled>Instalado, desactivado: {0}</KMH_Browser_Mod_Disabled>
   <KMH_Browser_Mod_Order>Tu orden de carga es distinto al del servidor.</KMH_Browser_Mod_Order>
+  <KMH_Browser_Mod_Shadow>Dos mods comparten un id: {0} (Workshop {1}) puede cargarse en lugar de {2}, que usa este servidor. «Preparar y unirse» cancela su suscripción.</KMH_Browser_Mod_Shadow>
   <KMH_Browser_Mods_OrderOnly>El orden de carga difiere</KMH_Browser_Mods_OrderOnly>
   <KMH_Browser_Sort_Players>Más jugadores</KMH_Browser_Sort_Players>
   <KMH_Browser_Sort_Active>Más activos</KMH_Browser_Sort_Active>
@@ -2168,8 +2179,8 @@ Dejará de ser tu amigo, no podrá volver a solicitarlo y no podrá verte.</KMH_
   <KMH_Settings_BadHex>No es un color hexadecimal de seis dígitos: {0}. Para estos se usa el predeterminado de Colony Nexus.</KMH_Settings_BadHex>
   <KMH_Settings_ClearColours>Borrar mis colores</KMH_Settings_ClearColours>
   <KMH_Settings_MarkersHeader>Marcadores del mapa del mundo</KMH_Settings_MarkersHeader>
-  <KMH_Settings_MarkerOutline>Contornear los lugares de Colony Nexus en el mapa del mundo</KMH_Settings_MarkerOutline>
-  <KMH_Settings_MarkerOutlineTip>Dibuja alrededor de los puestos, avanzadas y la sede de tu gremio de Colony Nexus el mismo borde de color que RimWorld pone en un asentamiento tuyo. El borde es el único color aplicado - el icono siempre conserva su propio dibujo.</KMH_Settings_MarkerOutlineTip>
+  <KMH_Settings_MarkerOutline>Contornear lugares de Colony Nexus y asentamientos de otros jugadores</KMH_Settings_MarkerOutline>
+  <KMH_Settings_MarkerOutlineTip>Dibuja alrededor de los puestos, avanzadas y la sede de tu gremio de Colony Nexus, y de los asentamientos de RimWorld Together de otros jugadores, que pueden llevar el icono de cualquier facción, el mismo borde de color que RimWorld pone en un asentamiento tuyo. El borde es el único color aplicado - el icono siempre conserva su propio dibujo.</KMH_Settings_MarkerOutlineTip>
   <KMH_Settings_UseServerMarkers>Usar los colores de marcador de este servidor</KMH_Settings_UseServerMarkers>
   <KMH_Settings_UseServerMarkersTip>Los dueños de servidores pueden sugerir qué colores marcan tus lugares y los de otros jugadores. Desactívalo para elegir los tuyos. Los estados de las avanzadas - reclamable, hostil, abandonada - siempre mantienen los colores de Colony Nexus para que un aviso no pueda disfrazarse de algo tranquilo.</KMH_Settings_UseServerMarkersTip>
   <KMH_Settings_MarkerHexHelp>Hexadecimal de seis dígitos, p. ej. 6BE26B. En blanco usa el predeterminado de Colony Nexus.</KMH_Settings_MarkerHexHelp>

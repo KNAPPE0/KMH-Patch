@@ -1108,6 +1108,44 @@ namespace KMHPatch.Diagnostics
                    && Resolves("", KMHPatch.Features.Sites.KmhMarkerColors.FallbackMine),
                    "a bad hex must not draw an invisible rim"));
 
+            // RWT lets a player wear any faction's icon, so only the rim tells their settlement from an NPC one.
+            {
+                const string rwtRim = "markers: another player's RWT settlement wears the other-players rim, and nothing else does";
+                // Found here, not taken from the patch: a patch that never installed must fail this, not skip it.
+                Type rwtType = RwtCompat.ResolveType(RwtCompat.ClientNsRoot, "WO_Settlement", RwtCompat.ClientNsRoot + ".WorldObjects.WO_Settlement");
+                RimWorld.WorldObjectDef rwtDef = null;
+                if (rwtType != null)
+                    foreach (RimWorld.WorldObjectDef d in Verse.DefDatabase<RimWorld.WorldObjectDef>.AllDefsListForReading)
+                        if (d.worldObjectClass == rwtType) { rwtDef = d; break; }
+                if (rwtDef == null || Verse.Current.Game == null)
+                    r.Add(KmhSelfTestResult.Skipped(rwtRim, rwtDef == null ? "this RWT has no player settlement object" : "no game loaded"));
+                else
+                {
+                    // Built bare, never added to the world: no id is taken from the loaded game.
+                    var theirs = (RimWorld.Planet.WorldObject)Activator.CreateInstance(rwtType);
+                    theirs.def = rwtDef;
+                    var npc = new RimWorld.Planet.Settlement { def = RimWorld.WorldObjectDefOf.Settlement };
+                    KMHPatchSettings s = KMHPatchMod.SettingsOrDefault;
+                    bool was = s.MarkerShowRim;
+                    UnityEngine.Material on, off, plain;
+                    try { s.MarkerShowRim = true; on = theirs.ExpandingMaterial; plain = npc.ExpandingMaterial; s.MarkerShowRim = false; off = theirs.ExpandingMaterial; }
+                    finally { s.MarkerShowRim = was; }
+                    UnityEngine.Material want = KMHPatch.Features.Sites.KmhMarkerRender.Halo(KMHPatch.Features.Sites.KmhMarkerColors.Theirs);
+                    r.Add((rwtRim, on != null && on == want && off == null && plain == null,
+                           $"rim={(on == null ? "none" : on == want ? "other players" : "another colour")}, with rims off={(off == null ? "none" : "drawn")}, NPC={(plain == null ? "none" : "drawn")}"));
+                }
+            }
+
+            // A start that finds no place for its colonists leaves them off the map; only the starting ones are set down.
+            {
+                var init = new Verse.GameInitData { startingPawnCount = 2 };
+                init.startingAndOptionalPawns = new List<Verse.Pawn> { new Verse.Pawn(), new Verse.Pawn(), new Verse.Pawn() };
+                int left = KMHPatch.Patches.Patch_ScenPart_ArriveMethod_KmhStragglers.Unplaced(init).Count;
+                int none = KMHPatch.Patches.Patch_ScenPart_ArriveMethod_KmhStragglers.Unplaced(null).Count;
+                r.Add(("start: colonists a scenario left off the map are found, and only the starting ones", left == 2 && none == 0,
+                       $"{left} of 3 found with 2 starting, {none} with no game data"));
+            }
+
             // Vanilla starts a world quad's art along an east-west tangent, which lays KMH's directional art on its side.
             UnityEngine.Vector3 onEquator = new UnityEngine.Vector3(100f, 0f, 0f);
             float uprightHere = KMHPatch.Features.Sites.KmhMarkerRender.AngleFor(
@@ -3857,6 +3895,49 @@ namespace KMHPatch.Diagnostics
                 bool exactKey = viaName.Ok && !viaName.WillEnable.Contains("Nice") && viaId.Ok && viaId.WillEnable.Contains("Nice");
                 r.Add(("mod plan: an optional mod is switched on only by the exact key the player ticked", exactKey,
                        exactKey ? "id ticked, name ignored" : $"by name enables={string.Join(",", viaName.WillEnable.ToArray())}, by id={string.Join(",", viaId.WillEnable.ToArray())}"));
+
+                // The live Fantasy entry (RWT publishes no packageIds): RoM's 1.7 continuation kept its 1.6 original's, and RimWorld loads either.
+                var rom = new Features.Global.ModEntryDto { Name = "A RimWorld of Magic (Continued)", Kind = Features.Global.ModKindNames.Workshop, Id = "3823345404" };
+                var romNamed = new Features.Global.ModEntryDto { Name = rom.Name, Kind = rom.Kind, Id = rom.Id, PackageId = "Torann.ARimworldOfMagic" };
+                Features.Global.ModProfileDto RomList(Features.Global.ModEntryDto e) => new Features.Global.ModProfileDto
+                    { Policy = Features.Global.ModPolicyNames.Enforced, Required = new List<string> { e.Name }, Entries = new List<Features.Global.ModEntryDto> { e } };
+                var original = new Features.Mods.InstalledMod { Name = "A RimWorld of Magic", PackageId = "Torann.ARimworldOfMagic", WorkshopId = "1201382956", Active = true };
+                var originalIdle = new Features.Mods.InstalledMod { Name = original.Name, PackageId = original.PackageId, WorkshopId = original.WorkshopId };
+                var handCopy = new Features.Mods.InstalledMod { Name = rom.Name, PackageId = "Torann.ARimworldOfMagic", WorkshopId = "RoM-Continued-3823345404", Active = true };
+                Features.Global.ModComparison Against(Features.Global.ModEntryDto e, params Features.Mods.InstalledMod[] mods)
+                {
+                    var running = new List<string>();
+                    foreach (Features.Mods.InstalledMod m in mods) if (m.Active) running.Add(m.Name);
+                    return Features.Global.ModComparison.Compare(RomList(e), running, new List<Features.Mods.InstalledMod>(mods));
+                }
+                Features.Global.ModComparison onlyOriginal, bothCopies, namedOnlyOriginal, namedByHand;
+                try
+                {
+                    // RimWorld lists only the first copy of a packageId: with both subscribed, the continuation is on disk, unlisted.
+                    Features.Global.KmhLocalMods.PackageOnDiskForTest = id => null;
+                    onlyOriginal = Against(rom, original);
+                    namedOnlyOriginal = Against(romNamed, original);
+                    namedByHand = Against(romNamed, handCopy, originalIdle);
+                    Features.Global.KmhLocalMods.PackageOnDiskForTest = id => id == rom.Id ? "Torann.ARimworldOfMagic" : null;
+                    bothCopies = Against(rom, original);
+                }
+                finally { Features.Global.KmhLocalMods.PackageOnDiskForTest = null; }
+                // Until the server's copy is on disk its packageId is unknown, so it is downloaded and the clash found after.
+                bool downloads = onlyOriginal.MissingWorkshop.Count == 1 && onlyOriginal.Shadowing.Count == 0
+                              && namedOnlyOriginal.MissingWorkshop.Count == 1 && namedOnlyOriginal.Shadowing.Count == 1;
+                bool unsubscribes = bothCopies.MissingWorkshop.Count == 1 && bothCopies.Shadowing.Count == 1 && bothCopies.Shadowing[0].Copy == original;
+                bool localWins = namedByHand.Shadowing.Count == 0 && !namedByHand.Blocking;
+                r.Add(("mod plan: another Workshop item with a server mod's packageId is never taken for it, and is marked to go",
+                       downloads && unsubscribes && localWins,
+                       $"only the original: subscribe {onlyOriginal.MissingWorkshop.Count}/{namedOnlyOriginal.MissingWorkshop.Count}, drop {onlyOriginal.Shadowing.Count}/{namedOnlyOriginal.Shadowing.Count}; "
+                     + $"both subscribed: subscribe {bothCopies.MissingWorkshop.Count}, drop {bothCopies.Shadowing.Count}; "
+                     + $"hand-installed: drop {namedByHand.Shadowing.Count}, blocking={namedByHand.Blocking}"));
+
+                // Prepare unsubscribes only what the player was shown; a clash found after the download waits for them.
+                var unasked = Features.Mods.KmhJoinPreparation.Unasked(bothCopies.Shadowing, new List<string>());
+                var shown = Features.Mods.KmhJoinPreparation.Unasked(bothCopies.Shadowing, Features.Global.Dialog_KMHPrepareJoin.ShownToGo(bothCopies));
+                r.Add(("prepare: a Workshop item is unsubscribed only once the player has seen it listed", unasked.Count == 1 && shown.Count == 0,
+                       $"not shown: {unasked.Count} waiting; shown in the review: {shown.Count} waiting"));
             }
             catch (Exception ex) { r.Add(("mod plan: the planning rules run outside the game", false, ex.Message)); }
             finally { Features.Mods.KmhModPlan.DependenciesForTest = null; }

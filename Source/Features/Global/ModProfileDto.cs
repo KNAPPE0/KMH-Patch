@@ -81,6 +81,12 @@ namespace KMHPatch.Features.Global
         }
     }
 
+    internal sealed class ModShadow
+    {
+        public Mods.InstalledMod Copy;
+        public ModEntryDto Server;
+    }
+
     // Missing and Disallowed mirror the only two things RWT itself refuses a join over.
     internal sealed class ModComparison
     {
@@ -95,6 +101,8 @@ namespace KMHPatch.Features.Global
         public List<ModEntryDto> MissingLocal = new List<ModEntryDto>();
         public List<ModEntryDto> MissingDisabled = new List<ModEntryDto>();
         public List<ModEntryDto> OptionalWorkshop = new List<ModEntryDto>();
+        // Another Workshop item with a server mod's packageId: RimWorld loads either, usually the older, so it has to go.
+        public List<ModShadow> Shadowing = new List<ModShadow>();
 
         public bool Blocking => Missing.Count > 0 || Disallowed.Count > 0 || OrderMismatch;
 
@@ -179,6 +187,7 @@ namespace KMHPatch.Features.Global
         private static void Classify(ModComparison c, ModProfileDto profile, IList<Mods.InstalledMod> installed)
         {
             if (profile.Entries.Count == 0) return;
+            FindShadowing(c, profile, installed);
 
             foreach (string name in c.Missing)
             {
@@ -197,6 +206,29 @@ namespace KMHPatch.Features.Global
             }
         }
 
+        // An optional mod's other copy only matters while it runs; a required mod's matters as soon as it is installed.
+        private static void FindShadowing(ModComparison c, ModProfileDto profile, IList<Mods.InstalledMod> installed)
+        {
+            if (installed == null) return;
+            HashSet<string> required = new HashSet<string>(profile.Required, StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, List<Mods.InstalledMod>> byWorkshop = Mods.KmhModPlan.ByWorkshopId(installed);
+            foreach (ModEntryDto e in profile.Entries)
+            {
+                if (e == null || !e.Subscribable) continue;
+                // RWT servers publish no packageIds, so the server's own copy names it once it is on disk, listed or not.
+                string package = !string.IsNullOrEmpty(e.PackageId) ? e.PackageId
+                    : Mods.KmhModPlan.ByWorkshopId(e.Id, byWorkshop)?.PackageId ?? KmhLocalMods.PackageIdOnDisk(e.Id);
+                if (string.IsNullOrEmpty(package)) continue;
+                List<Mods.InstalledMod> copies = new List<Mods.InstalledMod>();
+                foreach (Mods.InstalledMod m in installed) if (m != null && SamePackage(m, package)) copies.Add(m);
+                // A hand-installed copy is the one RimWorld loads, whatever Steam also holds.
+                if (copies.Exists(m => !Mods.KmhWorkshop.IsWorkshopId(m.WorkshopId))) continue;
+                foreach (Mods.InstalledMod m in copies)
+                    if (!SameItem(m, e) && (required.Contains(e.Name) || m.Active))
+                        c.Shadowing.Add(new ModShadow { Copy = m, Server = e });
+            }
+        }
+
         // Must resolve as the mod plan does: packageId, else a unique Workshop id, then name.
         internal static bool IsInstalled(ModEntryDto e, IList<Mods.InstalledMod> installed)
         {
@@ -206,11 +238,20 @@ namespace KMHPatch.Features.Global
             {
                 if (m == null) continue;
                 if (!string.IsNullOrEmpty(e.PackageId))
-                { if (string.Equals(Mods.KmhModPlan.Bare(m.PackageId), Mods.KmhModPlan.Bare(e.PackageId), StringComparison.OrdinalIgnoreCase)) return true; }
+                {
+                    // Another Workshop item sharing the packageId is a different mod (RoM's 1.6 original beside its continuation).
+                    if (SamePackage(m, e.PackageId) && (!e.Subscribable || !Mods.KmhWorkshop.IsWorkshopId(m.WorkshopId) || SameItem(m, e))) return true;
+                }
                 else if (!string.IsNullOrEmpty(e.Name) && string.Equals(m.Name, e.Name, StringComparison.OrdinalIgnoreCase)) return true;
             }
             return false;
         }
+
+        private static bool SamePackage(Mods.InstalledMod m, string packageId)
+            => string.Equals(Mods.KmhModPlan.Bare(m.PackageId), Mods.KmhModPlan.Bare(packageId), StringComparison.OrdinalIgnoreCase);
+
+        private static bool SameItem(Mods.InstalledMod m, ModEntryDto e)
+            => string.Equals((m.WorkshopId ?? "").Trim(), (e.Id ?? "").Trim(), StringComparison.Ordinal);
 
         // KMH's check, not RWT's (stock RWT has no load-order field); only mods the server names are compared.
         internal static bool OrderDiffers(ModProfileDto profile, IList<string> activePackageIds)

@@ -129,6 +129,7 @@ namespace KMHPatch
             Patch_DLG_GuildList_KmhRedirect.TryApply(HarmonyInstance);
             Patch_DLG_Leaderboard_KmhRedirect.TryApply(HarmonyInstance);
             Patch_RwtSettlementIcon.TryApply(HarmonyInstance);
+            Patch_RwtSettlementRim.TryApply(HarmonyInstance);
             Patch_DiscordManager_KmhPresence.Apply(HarmonyInstance);
 
             int patched = HarmonyInstance.GetPatchedMethods().Count();
@@ -500,10 +501,11 @@ namespace KMHPatch
 
             st.Gap(6f);
             st.Header(UI.KmhText.Get("KMH_Settings_MarkersHeader", "World map markers"));
-            st.Checkbox(UI.KmhText.Get("KMH_Settings_MarkerOutline", "Outline Colony Nexus places on the world map"), ref settings.MarkerShowRim,
+            st.Checkbox(UI.KmhText.Get("KMH_Settings_MarkerOutline", "Outline Colony Nexus places and other players' settlements"), ref settings.MarkerShowRim,
                 UI.KmhText.Get("KMH_Settings_MarkerOutlineTip",
-                    "Draws the same coloured border RimWorld puts on a settlement you own, around Colony Nexus sites, outposts and " +
-                    "your guild hall. The border is the only colour applied - the icon itself always keeps its own artwork."));
+                    "Draws the same coloured border RimWorld puts on a settlement you own, around Colony Nexus sites, outposts, your " +
+                    "guild hall and other players' RimWorld Together settlements, which can wear any faction's icon. The border is the " +
+                    "only colour applied - the icon itself always keeps its own artwork."));
 
             if (Features.Sites.KmhMarkerColors.Enabled)
             {

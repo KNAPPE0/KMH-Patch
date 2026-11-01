@@ -143,6 +143,26 @@ namespace KMHPatch.Features.Mods
             }
         }
 
+        // RimWorld lists only subscribed items, so it drops this one at the next start; Steam removes the files later.
+        public static bool Unsubscribe(string id)
+        {
+            if (!Available || !IsWorkshopId(id)) return false;
+            try
+            {
+                object handle = FileId(id);
+                MethodInfo unsub = handle == null ? null : UgcType.GetMethod("UnsubscribeItem", BindingFlags.Public | BindingFlags.Static);
+                if (unsub == null) { KmhLog.Warn("Workshop: this Steamworks build has no UnsubscribeItem."); return false; }
+                unsub.Invoke(null, new[] { handle });
+                KmhLog.Info($"Workshop: unsubscribed from {id}.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                KmhLog.Warn($"Workshop: unsubscribing from {id} failed: {ex.Message}");
+                return false;
+            }
+        }
+
         public static int SubscribeAll(IEnumerable<string> ids)
         {
             int done = 0;

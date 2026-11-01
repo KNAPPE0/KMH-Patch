@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using KMHPatch.Diagnostics;
 using Verse;
@@ -23,12 +24,23 @@ namespace KMHPatch.Features.Enforcement
 
         private static readonly string[] Markers =
         {
-            "window", "position", "posx", "posy", "anchor", "offset",
-            "scale", "opacity", "alpha", "color", "colour", "fontsize", "font", "texture",
+            "window", "position", "posx", "posy", "anchor",
+            "opacity", "color", "colour", "fontsize", "font", "texture",
             "volume", "sound", "mute", "audio",
             "hash", "cache", "lastloaded", "lastseen", "lastversion", "lastplayed",
             "loadingtimes", "startuploading", "tooltip",
         };
+
+        // As often gameplay as display (traderWealthOffset, raidPointsScale, Alpha Animals), so personal only beside a display word.
+        private static readonly string[] DisplayOnly = { "alpha", "offset", "scale" };
+
+        private static readonly HashSet<string> DisplayWords = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "ui", "gui", "hud", "icon", "label", "text", "overlay", "draw", "render", "graphic", "sprite", "button", "bar",
+            "screen", "camera", "zoom", "menu", "tab", "panel", "dialog", "widget", "gizmo", "pos", "x", "y",
+        };
+
+        private static readonly Regex Word = new Regex(@"\p{Lu}+(?!\p{Ll})|\p{Lu}?\p{Ll}+|\d+", RegexOptions.CultureInvariant);
 
         private static readonly Dictionary<string, Hint> _cache = new Dictionary<string, Hint>(StringComparer.OrdinalIgnoreCase);
 
@@ -82,11 +94,27 @@ namespace KMHPatch.Features.Enforcement
         }
 
         // Public so the preserve-personal merge classifies fields by the exact same rules as the dialog hint.
+        // A marker has to start a word, so "position" is not found inside raidCompositionMode.
         public static bool IsPersonalField(string field)
         {
             if (string.IsNullOrEmpty(field)) return false;
-            string f = field.ToLowerInvariant();
-            foreach (string m in Markers) if (f.Contains(m)) return true;
+            MatchCollection found = Word.Matches(field);
+            if (found.Count < 2)
+            {
+                // No word breaks to go by (windowposx), so searched as a whole.
+                string f = field.ToLowerInvariant();
+                foreach (string m in Markers) if (f.Contains(m)) return true;
+                return false;
+            }
+            var words = new List<string>();
+            foreach (Match w in found) words.Add(w.Value.ToLowerInvariant());
+            bool display = words.Exists(DisplayWords.Contains);
+            for (int i = 0; i < words.Count; i++)
+            {
+                string from = string.Concat(words.GetRange(i, words.Count - i));
+                foreach (string m in Markers) if (from.StartsWith(m, StringComparison.Ordinal)) return true;
+                if (display) foreach (string m in DisplayOnly) if (from.StartsWith(m, StringComparison.Ordinal)) return true;
+            }
             return false;
         }
     }

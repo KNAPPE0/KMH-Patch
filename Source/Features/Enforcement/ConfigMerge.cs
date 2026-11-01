@@ -42,10 +42,18 @@ namespace KMHPatch.Features.Enforcement
             catch { return serverText; }
         }
 
-        // No DTD and no resolver: server text never expands entities or reaches for another file.
-        private static XDocument ParseNoDtd(string text)
+        // The merge lays a file out differently from RimWorld, which no restart needs to load.
+        public static bool SameSettings(string a, string b)
         {
-            var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null };
+            if (a == b) return true;
+            try { return XNode.DeepEquals(ParseNoDtd(a, ignoreLayout: true).Root, ParseNoDtd(b, ignoreLayout: true).Root); }
+            catch { return false; }
+        }
+
+        // No DTD and no resolver: server text never expands entities or reaches for another file.
+        private static XDocument ParseNoDtd(string text, bool ignoreLayout = false)
+        {
+            var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, IgnoreWhitespace = ignoreLayout };
             using (var reader = System.Xml.XmlReader.Create(new System.IO.StringReader(text), settings))
                 return XDocument.Load(reader);
         }

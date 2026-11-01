@@ -9,10 +9,10 @@ namespace KMHPatch.SubProtocol
         public const string BuildVersion = "1.3.1";
 
         // What the player sees (What's New, load log); diverges from BuildVersion on a client-only patch.
-        public const string DisplayVersion = "1.3.1";
+        public const string DisplayVersion = "1.3.1.1";
 
         // Lets a player confirm which client DLL is loaded, since a stale install is the usual "fix not showing" cause.
-        public const string UiBuildTag = "rel-283";
+        public const string UiBuildTag = "rel-285";
 
         // The zero-width-space prefix is collision-proof: no player name can start with a non-printable control character.
         public const string SystemUsername = "​[KMH-SYS]"; // server -> client

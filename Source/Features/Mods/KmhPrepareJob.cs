@@ -30,6 +30,10 @@ namespace KMHPatch.Features.Mods
         [JsonProperty("expected_rwt")]   public string ExpectedRwt = "";
         [JsonProperty("optional")]       public List<string> OptionalChosen = new List<string>();
         [JsonProperty("subscribed")]     public List<string> Subscribed = new List<string>();
+        // Other Workshop items sharing a server mod's packageId, unsubscribed so RimWorld cannot load them instead.
+        [JsonProperty("unsubscribed")]   public List<string> Unsubscribed = new List<string>();
+        // Only these: the review showed them, or the player agreed once the download revealed the clash.
+        [JsonProperty("unsubscribe_approved")] public List<string> UnsubscribeApproved = new List<string>();
         [JsonProperty("accept_unverified_rwt")] public bool AcceptUnverifiedRwt;
         // What the player reviewed: the job acts only while the server still asks for exactly this.
         [JsonProperty("approved")]          public bool Approved;
@@ -68,6 +72,8 @@ namespace KMHPatch.Features.Mods
                 if (job.ExpectedOrder == null) job.ExpectedOrder = new List<string>();
                 if (job.OptionalChosen == null) job.OptionalChosen = new List<string>();
                 if (job.Subscribed == null) job.Subscribed = new List<string>();
+                if (job.Unsubscribed == null) job.Unsubscribed = new List<string>();
+                if (job.UnsubscribeApproved == null) job.UnsubscribeApproved = new List<string>();
                 return job;
             }
             catch (Exception ex)

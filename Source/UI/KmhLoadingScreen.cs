@@ -239,7 +239,7 @@ namespace KMHPatch.UI
         private static string BuildVersionLine()
         {
             Version v = typeof(KmhLoadingScreen).Assembly.GetName().Version;
-            return $"{KmhBrand.Name} {v.Major}.{v.Minor}.{v.Build} · {KmhProtocol.UiBuildTag}";
+            return $"{KmhBrand.Name} {v.ToString(v.Revision > 0 ? 4 : 3)} · {KmhProtocol.UiBuildTag}";
         }
 
         private static void Footer(Rect screen, float fade)

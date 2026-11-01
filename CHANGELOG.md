@@ -3,6 +3,36 @@
 All notable changes to the KMH: Colony Nexus client mod (called KMH Patch before v1.3.1). Versions follow the
 KMH build number shared with the Colony Nexus Server Addon.
 
+## v1.3.1.1
+
+A client update for v1.3.1. It works with every v1.3.1 server; servers need nothing.
+
+### rel-285
+
+- **Gameplay settings that only sounded like display settings are now enforced.** On a server that keeps players'
+  personal settings, any setting with "alpha", "offset" or "scale" in its name stayed the player's own. That caught
+  Alpha Animals' spawn rate, More Faction Interaction's trader wealth, Milira's Milian modification and RimWorld of
+  Magic's layered clothing offset, so each player could set them differently. Those words now count only next to a
+  display word such as icon, label or UI, and every marker has to start a word, so "position" no longer matches inside
+  a name like "raidComposition". If your settings still hold one of these values from an older server, the next join
+  puts the server's back and asks you to restart once.
+- **No restart over layout alone.** A merged settings file is compared by its values, so it only restarts RimWorld
+  when a setting actually changes.
+- **Prepare and join copes with an old copy that shares a mod's id.** A few 1.7 continuations, such as A RimWorld of
+  Magic (Continued), Kure's class expansion and SYR Processor Framework, kept their 1.6 original's mod id. With both
+  subscribed, RimWorld loads whichever it lists first, often the old one, and the server refuses the join. Colony
+  Nexus took the old copy for the server's mod, so Prepare never downloaded the right one and restarted into the same
+  mod list. It now downloads the copy the server uses, unsubscribes the other once the download is done (shown in the
+  review before you agree), and restarts. The browser names the clash too.
+- **No colony starts empty.** A gravship start sets its colonists down only on the ship's substructure. When the ship
+  laid none, as A RimWorld of Magic's "Worlds Collide" does on Medieval Fantasy, every colonist was left off the map.
+  Colonists a start could not place are now set down beside the landing spot.
+- **The log says why settings are applied again.** When a join finds a settings file different from the server's,
+  Colony Nexus now names the file, so a restart that keeps coming back can be traced.
+- **Other players' settlements are outlined on the world map.** RimWorld Together now lets a player pick any icon and
+  colour for their settlement, so it could look exactly like an NPC town. It now gets the same border as Colony Nexus
+  places, in the "other players" colour, and follows the same switch in the Colony Nexus settings.
+
 ## v1.3.1 — Connected Worlds
 
 **This client needs a v1.3.1 server.** The protocol is v3, and a v1.2.x or v1.3.0 server refuses it, naming both

@@ -16,6 +16,7 @@ namespace KMHPatch.Dialogs
         // This release only; each line is something a player can see or do.
         internal static string[] Highlights() => new[]
         {
+            KmhText.Get("KMH_WhatsNew_Hotfix", "v1.3.1.1: settings that only sounded like display settings, such as Alpha Animals' spawn rate, are now enforced; Prepare and join handles an old Workshop copy that shares a mod's id; other players' settlements are outlined on the world map; and no colony starts empty."),
             KmhText.Get("KMH_WhatsNew_Rw17", "Plays on RimWorld 1.7, together with RimWorld Together's own 1.7 release (26.10.20.1 or newer)."),
             KmhText.Get("KMH_WhatsNew_Look", "A new Colony Nexus look: a full-screen loading screen with real progress and tips, a Colony Nexus card on the main menu and a tidier Colony Nexus tab."),
             KmhText.Get("KMH_WhatsNew_Leaderboards", "Leaderboards: 22 boards in Server Standings, and the same rankings on the Colony Nexus website, with images to share."),

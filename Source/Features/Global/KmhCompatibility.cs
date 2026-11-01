@@ -178,6 +178,9 @@ namespace KMHPatch.Features.Global
             // Without this, an order-only mismatch says "Mods need changing" with nothing beneath it.
             if (c.OrderMismatch)
                 lines.Add(KmhText.Get("KMH_Browser_Mod_Order", "Your load order differs from this server's."));
+            foreach (ModShadow s in c.Shadowing)
+                lines.Add(KmhText.Get("KMH_Browser_Mod_Shadow", "Two mods share one id: {0} (Workshop {1}) can load instead of {2}, which this server uses. \"Prepare and join\" unsubscribes it.",
+                    UI.KmhDisplayText.Inert(s.Copy.Name, MaxModName), UI.KmhDisplayText.Inert(s.Copy.WorkshopId, 20), UI.KmhDisplayText.Inert(s.Server.Name, MaxModName)));
             return lines;
         }
 

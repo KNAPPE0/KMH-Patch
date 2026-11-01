@@ -436,6 +436,7 @@ namespace KMHPatch.Features.Enforcement
                         }
                         if (same && !string.IsNullOrEmpty(orderWhy))
                             KmhLog.Info($"ModSync: re-applying because {orderWhy}.");
+                        else if (same) KmhLog.Info($"Enforcement: re-applying because {LastDrift}.");
                         // New settings or a new mod list are shown before anything is committed; a re-assert of the applied ones is not.
                         List<string> order = EnforcementCache.ModOrder;
                         string orderFingerprint = EnforcementCache.OrderFingerprint(order);
@@ -580,7 +581,9 @@ namespace KMHPatch.Features.Enforcement
                     // Originals are recorded only once the apply is viable, and only for the files it will touch.
                     EnsureBaselineCovers(Touched(removed));
 
-                    changed = !CandidateMatchesLive(StagingPath, removed) || _state.RestartBootId == BootId;
+                    bool matches = CandidateMatchesLive(StagingPath, removed);
+                    if (!matches) KmhLog.Info($"Enforcement: writing the server's settings because {LastDrift}.");
+                    changed = !matches || _state.RestartBootId == BootId;
                     PreflightForTest?.Invoke();
                     live = true;
                     if (changed) CommitCandidate(StagingPath, removed, previousState);
@@ -668,7 +671,7 @@ namespace KMHPatch.Features.Enforcement
                     try
                     {
                         if (ManagedFilesMatch()) return;
-                        KmhLog.Warn("Enforcement: managed config drift requires a verified repair transaction.");
+                        KmhLog.Warn($"Enforcement: managed config drift ({LastDrift}) requires a verified repair transaction.");
                         ApplyProfile(_state.ActiveProfileHash, DateTime.UtcNow.Ticks);
                     }
                     catch (Exception ex) { RecoveryRequired = true; EnforcementAdmission.Fail("Config repair failed: " + ex.Message); }
@@ -820,8 +823,11 @@ namespace KMHPatch.Features.Enforcement
         {
             foreach (string path in Directory.GetFiles(staging, "*", SearchOption.TopDirectoryOnly))
             {
-                string live = ResolveUnder(ConfigPath, Path.GetFileName(path));
-                if (live == null || !File.Exists(live) || HashFile(live) != HashFile(path)) return false;
+                string name = Path.GetFileName(path);
+                string live = ResolveUnder(ConfigPath, name);
+                if (live == null || !File.Exists(live)) return Drift(name + " is not in Config yet");
+                if (HashFile(live) != HashFile(path)
+                    && !(Merges(path) && ConfigMerge.SameSettings(File.ReadAllText(path), File.ReadAllText(live)))) return Drift(name + " differs from the server's");
             }
             // A file this profile stops enforcing is still a change until it is back at the player's original.
             ConfigBaseline baseline = ConfigBaseline.Verify(BackupPath, out _);
@@ -830,17 +836,27 @@ namespace KMHPatch.Features.Enforcement
                 string live = ResolveUnder(ConfigPath, rel);
                 if (live == null) continue;
                 BaselineEntry e = baseline?.Entries.Find(x => string.Equals(x.Path, rel, StringComparison.OrdinalIgnoreCase));
-                if (e == null || !e.Existed) { if (File.Exists(live)) return false; continue; }
-                if (!File.Exists(live) || !string.Equals(HashFile(live), e.Hash, StringComparison.OrdinalIgnoreCase)) return false;
+                if (e == null || !e.Existed) { if (File.Exists(live)) return Drift(rel + " is no longer enforced and goes"); continue; }
+                if (!File.Exists(live) || !string.Equals(HashFile(live), e.Hash, StringComparison.OrdinalIgnoreCase))
+                    return Drift(rel + " is no longer enforced and goes back to yours");
             }
             return true;
         }
 
+        // What the last check found different, for the log: a restart loop is only diagnosable if it names the file.
+        internal static string LastDrift { get; private set; } = "";
+
+        private static bool Drift(string why) { LastDrift = why; return false; }
+
+        // Merged files compare by their settings, so a field the merge stops keeping restarts only if its value differs.
+        private static bool Merges(string path) => (_state?.PreservePersonal ?? false)
+            && Path.GetFileName(path).StartsWith("Mod_", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
+
         private static bool ManagedFilesMatch()
         {
-            if (_state.ManagedHashes == null || _state.ManagedHashes.Count != _state.ManagedFiles.Count) return false;
+            if (_state.ManagedHashes == null || _state.ManagedHashes.Count != _state.ManagedFiles.Count) return Drift("the record of applied files is incomplete");
             string folder = GetProfileFolder(_state.ActiveProfileHash);
-            if (!Directory.Exists(folder)) return false;
+            if (!Directory.Exists(folder)) return Drift("the unpacked profile is missing");
             var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string source in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
             {
@@ -849,21 +865,20 @@ namespace KMHPatch.Features.Enforcement
                     || !Enforceable(rel)) continue;
                 expected.Add(rel);
                 string live = ResolveUnder(ConfigPath, rel);
-                if (live == null || !File.Exists(live)) return false;
-                if (_state.PreservePersonal && Path.GetFileName(source).StartsWith("Mod_", StringComparison.OrdinalIgnoreCase)
-                    && source.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                if (live == null || !File.Exists(live)) return Drift(rel + " is missing from Config");
+                if (Merges(source))
                 {
-                    string merged = ConfigMerge.MergePreservingPersonal(File.ReadAllText(source), File.ReadAllText(live));
-                    if (merged != File.ReadAllText(live)) return false;
+                    string own = File.ReadAllText(live);
+                    if (!ConfigMerge.SameSettings(ConfigMerge.MergePreservingPersonal(File.ReadAllText(source), own), own)) return Drift(rel + " differs from the server's settings");
                 }
-                else if (HashFile(source) != HashFile(live)) return false;
+                else if (HashFile(source) != HashFile(live)) return Drift(rel + " differs from the server's copy");
             }
-            if (expected.Count != _state.ManagedFiles.Count || !expected.SetEquals(_state.ManagedFiles)) return false;
+            if (expected.Count != _state.ManagedFiles.Count || !expected.SetEquals(_state.ManagedFiles)) return Drift("the server's set of files changed");
             foreach (string rel in _state.ManagedFiles)
             {
                 string path = ResolveUnder(ConfigPath, rel);
                 if (path == null || !File.Exists(path) || !_state.ManagedHashes.TryGetValue(rel, out string hash)
-                    || hash != HashFile(path)) return false;
+                    || hash != HashFile(path)) return Drift(rel + " was rewritten since it was applied");
             }
             return true;
         }

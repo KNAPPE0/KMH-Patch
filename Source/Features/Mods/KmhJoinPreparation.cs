@@ -77,7 +77,8 @@ namespace KMHPatch.Features.Mods
         }
 
         // Called once the player has seen and accepted the plan; reviewedProfile is the list that review showed.
-        public static void Start(ServerCardDto card, List<string> optionalIds, bool acceptUnverifiedRwt, ModProfileDto reviewedProfile)
+        public static void Start(ServerCardDto card, List<string> optionalIds, bool acceptUnverifiedRwt, ModProfileDto reviewedProfile,
+                                 List<string> unsubscribeShown = null)
         {
             if (card == null || string.IsNullOrEmpty(card.ServerId) || RefusalToStart() != null) return;
             // Nothing here can bridge two RimWorld versions, so nothing on disk is touched for such a server.
@@ -96,6 +97,7 @@ namespace KMHPatch.Features.Mods
                 Approved = true,
                 ApprovedPolicy = card.ModPolicy ?? "",
                 ApprovedProfile = ProfileDigest(reviewedProfile),
+                UnsubscribeApproved = unsubscribeShown ?? new List<string>(),
             };
             ResetSession();
             _startedUtc = now;
@@ -195,6 +197,7 @@ namespace KMHPatch.Features.Mods
             _verified = false; _failed = false; _loginPrompted = false; _rwtStarted = false; _listWrittenThisBoot = false; _rwtStagedThisBoot = false;
             _sawConnecting = false; _connectUtc = DateTime.MinValue; _joinAtUtc = DateTime.MinValue;
             _subscribedAt.Clear(); _nudgedAt.Clear(); _progress.Clear();
+            AwaitingUnsubscribe = new List<ModShadow>();
             Finished = false;
             foreach (PrepLine l in Lines) { l.State = PrepLineState.Pending; l.Detail = ""; l.Progress = -1f; }
             Check.Label = KmhText.Get("KMH_Prep_Line_Check", "Read the server's requirements");
@@ -349,7 +352,11 @@ namespace KMHPatch.Features.Mods
                 Set(ModList, PrepLineState.Pending, KmhText.Get("KMH_Prep_ListAfter", "Set once the downloads above have finished."));
             else if (!StepModList(profile, c, out listRestart)) return;
 
-            if (!rwtSettled || !workshopSettled) { Headline = KmhText.Get("KMH_Prep_Headline_Working", "Preparing. You can leave this window open or close it; Colony Nexus keeps going."); return; }
+            if (!rwtSettled || !workshopSettled)
+            {
+                if (AwaitingUnsubscribe.Count == 0) Headline = KmhText.Get("KMH_Prep_Headline_Working", "Preparing. You can leave this window open or close it; Colony Nexus keeps going.");
+                return;
+            }
 
             if (rwtRestart || listRestart || _job.DiscoverAfterRestart)
             {
@@ -522,18 +529,19 @@ namespace KMHPatch.Features.Mods
         private static bool StepWorkshop(ModComparison c, DateTime now)
         {
             List<ModEntryDto> items = new List<ModEntryDto>();
+            List<ModShadow> shadows = c?.Shadowing ?? new List<ModShadow>();
             if (c != null)
             {
                 foreach (ModEntryDto e in c.Subscribable()) items.Add(e);
                 foreach (ModEntryDto e in c.OptionalSubscribable())
                     if (_job.OptionalChosen.Contains(e.Id)) items.Add(e);
             }
-            if (items.Count == 0 && _job.Subscribed.Count == 0)
+            if (items.Count == 0 && _job.Subscribed.Count == 0 && shadows.Count == 0 && _job.Unsubscribed.Count == 0)
             {
                 Set(Workshop, PrepLineState.Done, KmhText.Get("KMH_Prep_NothingToDownload", "Nothing to download."));
                 return true;
             }
-            if (items.Count > 0 && !KmhWorkshop.Available)
+            if ((items.Count > 0 || shadows.Count > 0) && !KmhWorkshop.Available)
             { Fail(KmhText.Get("KMH_Prep_NoSteam", "Steam is not running or not signed in, so the server's Workshop mods cannot be subscribed. Start Steam, then Retry.")); return false; }
 
             int installed = 0, total = items.Count;
@@ -605,6 +613,11 @@ namespace KMHPatch.Features.Mods
                 return false;
             }
 
+            // Only once the server's own copy is on disk, so a failed download never leaves the player with neither.
+            if (!StepUnsubscribe(shadows, now)) return false;
+            string dropped = _job.Unsubscribed.Count == 0 ? "" : KmhText.Get("KMH_Prep_UnsubscribedOld",
+                "{0} other copy(s) sharing a server mod's id unsubscribed; RimWorld drops them when it restarts.", _job.Unsubscribed.Count);
+
             // On disk is not known to RimWorld: it only lists mods when it scans, so it is asked to scan once.
             if (unknownToRimWorld.Count > 0)
             {
@@ -626,10 +639,68 @@ namespace KMHPatch.Features.Mods
                     KmhPrepareJobStore.Save(_job, now);
                     KmhLog.Info($"Join preparation: {unknownToRimWorld.Count} downloaded mod(s) are only found after a restart.");
                 }
-                Set(Workshop, PrepLineState.Done, KmhText.Get("KMH_Prep_FoundOnRestart", "Downloaded. RimWorld finds them when it restarts."));
+                Set(Workshop, PrepLineState.Done, Joined(KmhText.Get("KMH_Prep_FoundOnRestart", "Downloaded. RimWorld finds them when it restarts."), dropped));
                 return true;
             }
-            Set(Workshop, PrepLineState.Done, KmhText.Get("KMH_Prep_Downloaded", "{0} mod(s) on disk.", DownloadedCount(total, _job.Subscribed.Count)));
+            int onDisk = DownloadedCount(total, _job.Subscribed.Count);
+            Set(Workshop, PrepLineState.Done, onDisk == 0 && dropped.Length > 0 ? dropped
+                : Joined(KmhText.Get("KMH_Prep_Downloaded", "{0} mod(s) on disk.", onDisk), dropped));
+            return true;
+        }
+
+        private static string Joined(string a, string b) => b.Length == 0 ? a : a + " " + b;
+
+        // Shown only once a download has revealed a clash the review could not: nothing is unsubscribed unasked.
+        public static List<ModShadow> AwaitingUnsubscribe { get; private set; } = new List<ModShadow>();
+
+        public static void ApproveUnsubscribe()
+        {
+            if (_job == null || AwaitingUnsubscribe.Count == 0) return;
+            foreach (ModShadow s in AwaitingUnsubscribe)
+                if (!_job.UnsubscribeApproved.Contains(s.Copy.WorkshopId)) _job.UnsubscribeApproved.Add(s.Copy.WorkshopId);
+            AwaitingUnsubscribe = new List<ModShadow>();
+            KmhPrepareJobStore.Save(_job, DateTime.UtcNow);
+            _next = DateTime.MinValue;
+        }
+
+        internal static List<ModShadow> Unasked(List<ModShadow> shadows, ICollection<string> approved)
+            => shadows.FindAll(s => approved == null || !approved.Contains(s.Copy.WorkshopId));
+
+        // Returns false when it failed or waits for the player.
+        private static bool StepUnsubscribe(List<ModShadow> shadows, DateTime now)
+        {
+            List<ModShadow> unasked = Unasked(shadows, _job.UnsubscribeApproved);
+            if (unasked.Count > 0)
+            {
+                AwaitingUnsubscribe = unasked;
+                ModShadow first = unasked[0];
+                Set(Workshop, PrepLineState.Waiting, KmhText.Get("KMH_Prep_ShadowFound", "{0} (Workshop {1}) has the same mod id as {2}, which this server uses, and RimWorld can load it instead. Unsubscribe it to carry on.",
+                    Inert(first.Copy.Name), first.Copy.WorkshopId, Inert(first.Server.Name)));
+                Headline = KmhText.Get("KMH_Prep_Headline_Shadow", "Waiting for you: an older copy of a server mod is subscribed.");
+                return false;
+            }
+            AwaitingUnsubscribe = new List<ModShadow>();
+            foreach (ModShadow s in shadows)
+            {
+                string id = s.Copy.WorkshopId;
+                if (_job.Unsubscribed.Contains(id))
+                {
+                    // Asked before the last start and RimWorld still lists it, so Steam kept it: another restart changes nothing.
+                    if (_justRestarted)
+                    {
+                        Fail(KmhText.Get("KMH_Prep_StillSubscribed", "Steam still has {0} (Workshop {1}) subscribed. It shares its mod id with {2}, which this server uses, so RimWorld can load it instead. Unsubscribe it on its Workshop page, then Retry.",
+                            Inert(s.Copy.Name), id, Inert(s.Server.Name)));
+                        return false;
+                    }
+                    continue;
+                }
+                if (!KmhWorkshop.Unsubscribe(id))
+                { Fail(KmhText.Get("KMH_Prep_UnsubscribeRefused", "Steam refused to unsubscribe {0} (Workshop {1}).", Inert(s.Copy.Name), id)); return false; }
+                _job.Unsubscribed.Add(id);
+                _job.DiscoverAfterRestart = true;
+                KmhPrepareJobStore.Save(_job, now);
+                KmhLog.Info($"Join preparation: unsubscribed {s.Copy.Name} ({id}), which shares {s.Copy.PackageId} with the server's {s.Server.Name} ({s.Server.Id}).");
+            }
             return true;
         }
 

@@ -129,6 +129,17 @@ namespace KMHPatch.Features.Global
                         y = Para(y, w, KmhText.Get("KMH_Prep_ReviewNoSteam", "Steam is not running or not signed in. Start it before you begin, or preparation stops at this step."), warn: true);
                 }
 
+                if (c.Shadowing.Count > 0)
+                {
+                    y = Heading(y, w, KmhText.Get("KMH_Prep_ReviewUnsubscribe", "Unsubscribe on the Steam Workshop ({0})", c.Shadowing.Count));
+                    foreach (ModShadow s in c.Shadowing)
+                        y = Para(y, w, "  • " + KmhText.Get("KMH_Prep_ReviewShadow", "{0}  (Workshop {1}) has the same mod id as {2} (Workshop {3}), which this server uses. RimWorld loads only one of them, and it can be this one.",
+                            KmhDisplayText.Inert(s.Copy.Name, 64), KmhDisplayText.Inert(s.Copy.WorkshopId, 20), KmhDisplayText.Inert(s.Server.Name, 64), KmhDisplayText.Inert(s.Server.Id, 20)));
+                    y = Para(y, w, KmhText.Get("KMH_Prep_ReviewUnsubscribeNote", "Only once the server's copy is on disk. You can subscribe to it again from its Workshop page at any time."), dim: true);
+                    if (!KmhWorkshop.Available && c.Subscribable().Count == 0)
+                        y = Para(y, w, KmhText.Get("KMH_Prep_ReviewNoSteam", "Steam is not running or not signed in. Start it before you begin, or preparation stops at this step."), warn: true);
+                }
+
                 List<ModEntryDto> optional = OptionalChoices(c, profile);
                 if (optional.Count > 0)
                 {
@@ -287,7 +298,15 @@ namespace KMHPatch.Features.Global
                 return;
             }
             if (Widgets.ButtonText(start, startLabel))
-                KmhJoinPreparation.Start(_review, new List<string>(_optional), _acceptUnverified, fetched?.Profile);
+                KmhJoinPreparation.Start(_review, new List<string>(_optional), _acceptUnverified, fetched?.Profile, ShownToGo(fetched?.Comparison));
+        }
+
+        // Exactly the copies the review listed under Unsubscribe; one found later is asked about on its own.
+        internal static List<string> ShownToGo(ModComparison c)
+        {
+            List<string> ids = new List<string>();
+            if (c != null) foreach (ModShadow s in c.Shadowing) if (!ids.Contains(s.Copy.WorkshopId)) ids.Add(s.Copy.WorkshopId);
+            return ids;
         }
 
         private void DrawProgress(Rect rect)
@@ -396,6 +415,11 @@ namespace KMHPatch.Features.Global
             {
                 string restartNow = KmhText.Get("KMH_Prep_RestartNow", "Restart now");
                 if (Widgets.ButtonText(NextFor(restartNow, 160f), restartNow)) KmhJoinPreparation.RestartNow();
+            }
+            else if (KmhJoinPreparation.AwaitingUnsubscribe.Count > 0)
+            {
+                string unsubscribe = KmhText.Get("KMH_Prep_UnsubscribeGo", "Unsubscribe and carry on");
+                if (Widgets.ButtonText(NextFor(unsubscribe, 200f), unsubscribe)) KmhJoinPreparation.ApproveUnsubscribe();
             }
             else if (KmhJoinPreparation.JoinCountdownLeft >= 0)
             {

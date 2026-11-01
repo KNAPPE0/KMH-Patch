@@ -956,6 +956,7 @@ Die Freundschaft endet, es kann nicht erneut angefragt werden und du bist nicht 
   <!-- What's New -->
   <KMH_WhatsNew_Title>Neu in {0} v{1}</KMH_WhatsNew_Title>
   <KMH_WhatsNew_Subtitle>Connected Worlds: Server finden, Freunde mitbringen, deine Gilde föderieren.</KMH_WhatsNew_Subtitle>
+  <KMH_WhatsNew_Hotfix>v1.3.1.1: Einstellungen, die nur nach Anzeige klangen, etwa die Spawnrate von Alpha Animals, werden jetzt durchgesetzt; Vorbereiten und beitreten erkennt eine alte Workshop-Kopie mit derselben Mod-ID; Siedlungen anderer Spieler sind auf der Weltkarte umrandet; und keine Kolonie startet mehr leer.</KMH_WhatsNew_Hotfix>
   <KMH_WhatsNew_Rw17>Läuft auf RimWorld 1.7, zusammen mit der eigenen 1.7-Version von RimWorld Together (26.10.20.1 oder neuer).</KMH_WhatsNew_Rw17>
   <KMH_WhatsNew_Look>Ein neuer Colony-Nexus-Look: ein Ladebildschirm im Vollbild mit echtem Fortschritt und Tipps, eine Colony-Nexus-Karte im Hauptmenü und ein aufgeräumterer Colony-Nexus-Tab.</KMH_WhatsNew_Look>
   <KMH_WhatsNew_Leaderboards>Ranglisten: 22 Listen in der Serverwertung und dieselben Ranglisten auf der Colony-Nexus-Website, mit Bildern zum Teilen.</KMH_WhatsNew_Leaderboards>
@@ -1154,12 +1155,18 @@ Die Freundschaft endet, es kann nicht erneut angefragt werden und du bist nicht 
   <KMH_Prep_NothingToDownload>Nichts herunterzuladen.</KMH_Prep_NothingToDownload>
   <KMH_Prep_NoSteam>Steam läuft nicht oder ist nicht angemeldet, daher können die Workshop-Mods des Servers nicht abonniert werden. Starte Steam und versuche es erneut.</KMH_Prep_NoSteam>
   <KMH_Prep_SubscribeRefused>Steam hat das Abonnement von {0} (Workshop {1}) abgelehnt.</KMH_Prep_SubscribeRefused>
+  <KMH_Prep_UnsubscribeRefused>Steam hat das Deabonnieren von {0} (Workshop {1}) abgelehnt.</KMH_Prep_UnsubscribeRefused>
+  <KMH_Prep_ShadowFound>{0} (Workshop {1}) hat dieselbe Mod-ID wie {2}, das dieser Server verwendet, und RimWorld kann stattdessen dieses laden. Deabonniere es, um fortzufahren.</KMH_Prep_ShadowFound>
+  <KMH_Prep_Headline_Shadow>Wartet auf dich: Eine ältere Kopie einer Server-Mod ist abonniert.</KMH_Prep_Headline_Shadow>
+  <KMH_Prep_UnsubscribeGo>Deabonnieren und fortfahren</KMH_Prep_UnsubscribeGo>
+  <KMH_Prep_StillSubscribed>Steam hat {0} (Workshop {1}) noch abonniert. Es teilt seine Mod-ID mit {2}, das dieser Server verwendet, daher kann RimWorld stattdessen dieses laden. Deabonniere es auf seiner Workshop-Seite und wähle dann Erneut versuchen.</KMH_Prep_StillSubscribed>
   <KMH_Prep_SubscribeIgnored>Steam hat das Abonnement von {0} (Workshop {1}) nicht übernommen. Der Eintrag wurde vielleicht entfernt, auf privat gestellt oder ist in deiner Region nicht verfügbar.</KMH_Prep_SubscribeIgnored>
   <KMH_Prep_Stalled>Der Download von {0} (Workshop {1}) kommt nicht mehr voran. Sieh dir die Download-Seite von Steam an und versuche es dann erneut.</KMH_Prep_Stalled>
   <KMH_Prep_Downloading>{0} von {1} auf der Festplatte</KMH_Prep_Downloading>
   <KMH_Prep_Rescanning>Heruntergeladen. RimWorld wird gebeten, die neuen Mods zu finden…</KMH_Prep_Rescanning>
   <KMH_Prep_FoundOnRestart>Heruntergeladen. RimWorld findet sie beim Neustart.</KMH_Prep_FoundOnRestart>
   <KMH_Prep_Downloaded>{0} Mod(s) auf der Festplatte.</KMH_Prep_Downloaded>
+  <KMH_Prep_UnsubscribedOld>{0} andere Kopie(n) mit der ID einer Server-Mod deabonniert; RimWorld entfernt sie beim Neustart.</KMH_Prep_UnsubscribedOld>
   <KMH_Prep_ListLoaded>Geladen.</KMH_Prep_ListLoaded>
   <KMH_Prep_ListWritten>Gesetzt. RimWorld lädt sie nach dem Neustart.</KMH_Prep_ListWritten>
   <KMH_Prep_ListAfterRestart>Wird nach dem Neustart gesetzt, sobald RimWorld die neuen Mods gefunden hat.</KMH_Prep_ListAfterRestart>
@@ -1191,6 +1198,9 @@ Die Freundschaft endet, es kann nicht erneut angefragt werden und du bist nicht 
   <KMH_Prep_ReviewUnverified>Trotzdem installieren, obwohl GitHub für diese ältere Version keine Prüfsumme veröffentlicht hat</KMH_Prep_ReviewUnverified>
   <KMH_Prep_ReviewSubscribe>Im Steam Workshop abonnieren ({0})</KMH_Prep_ReviewSubscribe>
   <KMH_Prep_ReviewNoSteam>Steam läuft nicht oder ist nicht angemeldet. Starte es, bevor du beginnst, sonst bleibt die Vorbereitung bei diesem Schritt stehen.</KMH_Prep_ReviewNoSteam>
+  <KMH_Prep_ReviewUnsubscribe>Im Steam Workshop deabonnieren ({0})</KMH_Prep_ReviewUnsubscribe>
+  <KMH_Prep_ReviewShadow>{0}  (Workshop {1}) hat dieselbe Mod-ID wie {2} (Workshop {3}), das dieser Server verwendet. RimWorld lädt nur eine davon, und das kann diese sein.</KMH_Prep_ReviewShadow>
+  <KMH_Prep_ReviewUnsubscribeNote>Erst wenn die Kopie des Servers auf der Festplatte ist. Du kannst sie jederzeit auf ihrer Workshop-Seite wieder abonnieren.</KMH_Prep_ReviewUnsubscribeNote>
   <KMH_Prep_ReviewOptional>Optionale Mods, die dieser Server erlaubt (nur wenn du sie ankreuzt)</KMH_Prep_ReviewOptional>
   <KMH_Prep_ReviewEnable>Einschalten (bereits installiert)</KMH_Prep_ReviewEnable>
   <KMH_Prep_ReviewDisable>Ausschalten (dieser Server erlaubt sie nicht)</KMH_Prep_ReviewDisable>
@@ -1237,6 +1247,7 @@ Die Freundschaft endet, es kann nicht erneut angefragt werden und du bist nicht 
   <KMH_Browser_Join_NeedsAccount>RimWorld Together braucht zuerst einen Spielernamen und ein Passwort. Speichere sie in seinem Fenster „Account Setup“ und drücke dann erneut Beitreten.</KMH_Browser_Join_NeedsAccount>
   <KMH_Browser_Mod_Disabled>Installiert, ausgeschaltet: {0}</KMH_Browser_Mod_Disabled>
   <KMH_Browser_Mod_Order>Deine Ladereihenfolge weicht von der des Servers ab.</KMH_Browser_Mod_Order>
+  <KMH_Browser_Mod_Shadow>Zwei Mods teilen sich eine ID: {0} (Workshop {1}) kann statt {2} geladen werden, das dieser Server verwendet. „Vorbereiten und beitreten“ deabonniert es.</KMH_Browser_Mod_Shadow>
   <KMH_Browser_Mods_OrderOnly>Ladereihenfolge weicht ab</KMH_Browser_Mods_OrderOnly>
   <KMH_Browser_Sort_Players>Meiste Spieler</KMH_Browser_Sort_Players>
   <KMH_Browser_Sort_Active>Aktivste</KMH_Browser_Sort_Active>
@@ -2168,8 +2179,8 @@ Die Freundschaft endet, es kann nicht erneut angefragt werden und du bist nicht 
   <KMH_Settings_BadHex>Kein sechsstelliger Hex-Farbwert: {0}. Für diese wird der Colony-Nexus-Standard verwendet.</KMH_Settings_BadHex>
   <KMH_Settings_ClearColours>Meine Farben löschen</KMH_Settings_ClearColours>
   <KMH_Settings_MarkersHeader>Markierungen auf der Weltkarte</KMH_Settings_MarkersHeader>
-  <KMH_Settings_MarkerOutline>Colony-Nexus-Orte auf der Weltkarte umranden</KMH_Settings_MarkerOutline>
-  <KMH_Settings_MarkerOutlineTip>Zeichnet um Colony-Nexus-Standorte, Außenposten und deine Gildenhalle denselben farbigen Rand, den RimWorld um eine eigene Siedlung legt. Nur der Rand wird eingefärbt - das Symbol selbst behält immer seine eigene Grafik.</KMH_Settings_MarkerOutlineTip>
+  <KMH_Settings_MarkerOutline>Colony-Nexus-Orte und Siedlungen anderer Spieler umranden</KMH_Settings_MarkerOutline>
+  <KMH_Settings_MarkerOutlineTip>Zeichnet um Colony-Nexus-Standorte, Außenposten, deine Gildenhalle und die RimWorld-Together-Siedlungen anderer Spieler, die jedes Fraktionssymbol tragen können, denselben farbigen Rand, den RimWorld um eine eigene Siedlung legt. Nur der Rand wird eingefärbt - das Symbol selbst behält immer seine eigene Grafik.</KMH_Settings_MarkerOutlineTip>
   <KMH_Settings_UseServerMarkers>Markierungsfarben dieses Servers verwenden</KMH_Settings_UseServerMarkers>
   <KMH_Settings_UseServerMarkersTip>Serverbesitzer können vorschlagen, welche Farben deine eigenen Orte und die anderer Spieler markieren. Schalte das aus, um eigene zu wählen. Außenpostenzustände - beanspruchbar, feindlich, verlassen - behalten immer die Colony-Nexus-Farben, damit eine Warnung nicht harmlos gestaltet werden kann.</KMH_Settings_UseServerMarkersTip>
   <KMH_Settings_MarkerHexHelp>Sechsstelliger Hexwert, z. B. 6BE26B. Leer verwendet den Colony-Nexus-Standard.</KMH_Settings_MarkerHexHelp>

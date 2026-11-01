@@ -95,6 +95,7 @@ namespace KMHPatch.Features.Global
                 foreach (ModMetaData m in ModLister.AllInstalledMods)
                 {
                     if (m == null || string.IsNullOrEmpty(m.PackageId)) continue;
+                    if (_workshopFolder == null && m.OnSteamWorkshop) _workshopFolder = m.RootDir?.Parent?.FullName;
                     list.Add(new Mods.InstalledMod
                     {
                         Name       = m.Name ?? "",
@@ -110,6 +111,31 @@ namespace KMHPatch.Features.Global
         }
 
         private static volatile List<Mods.InstalledMod> _installedSnapshot;
+        private static volatile string _workshopFolder;
+        private static readonly Dictionary<string, string> _packageOnDisk = new Dictionary<string, string>(StringComparer.Ordinal);
+        internal static Func<string, string> PackageOnDiskForTest;
+
+        // RimWorld lists only the first copy of a packageId and drops the rest, so a Workshop item it dropped is read from disk.
+        internal static string PackageIdOnDisk(string workshopId)
+        {
+            if (PackageOnDiskForTest != null) return PackageOnDiskForTest(workshopId);
+            if (!Mods.KmhWorkshop.IsWorkshopId(workshopId) || _workshopFolder == null) return null;
+            lock (_packageOnDisk)
+                if (_packageOnDisk.TryGetValue(workshopId, out string known)) return known;
+            string found = null;
+            try
+            {
+                string about = System.IO.Path.Combine(_workshopFolder, workshopId, "About", "About.xml");
+                if (!System.IO.File.Exists(about)) return null;
+                var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null };
+                using (var reader = System.Xml.XmlReader.Create(about, settings))
+                    found = System.Xml.Linq.XDocument.Load(reader).Root?.Element("packageId")?.Value?.Trim();
+            }
+            catch (Exception ex) { KmhLog.Debug($"Mods: reading Workshop {workshopId}'s About.xml failed: {ex.Message}"); }
+            // A miss is not kept: the item may simply not have finished downloading.
+            if (!string.IsNullOrEmpty(found)) lock (_packageOnDisk) _packageOnDisk[workshopId] = found;
+            return found;
+        }
 
         // Snapshot for worker-thread comparisons; RimWorld replaces its list only on a main-thread rescan.
         public static List<Mods.InstalledMod> InstalledCached()
