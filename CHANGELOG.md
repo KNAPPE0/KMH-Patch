@@ -3,6 +3,29 @@
 All notable changes to the KMH: Colony Nexus client mod (called KMH Patch before v1.3.1). Versions follow the
 KMH build number shared with the Colony Nexus Server Addon.
 
+## v1.3.1.2
+
+An optional client update for v1.3.1. It works with every v1.3.1 server, including the v1.3.1.2 server hotfix;
+servers need nothing, and players who do not update keep playing as before. Both v1.3.1.1 and v1.3.1.2 work with
+RimWorld Together 26.11.21.1, the release the Steam Workshop gives players since 21 November.
+
+### rel-285.2
+
+- **A long save no longer drops you from the server.** RimWorld Together saves your colony after every road piece and
+  after trades, aid and events, and it ran that save inside a lock its network thread also needs. On a large colony,
+  where a save can take over a minute, the connection went silent for 60 seconds: the server dropped you, the game
+  showed "Connection lost", and a save that was being uploaded was cut off. RimWorld Together's queued jobs now run
+  outside that lock, in the same order, so the connection keeps answering while the save runs and the save reaches
+  the server.
+- **Each player can discover their own ancient complex.** RimWorld Together shows other players' quest sites on your
+  world map, and RimWorld lets a ritual reveal an ancient complex only while none exists anywhere, so one player's
+  unexplored complex stopped every other player's ritual. In a RimWorld Together game only your own complexes count
+  now; your own unexplored complex or ancient complex mission still blocks a second one, and a free tile near your
+  colony is still needed. Single player is unchanged.
+- **Other players' work sites no longer make work-site quests rarer for you.** RimWorld makes work-site quests rarer
+  as work sites pile up in the world, and it counted other players' sites too. In a RimWorld Together game only your
+  own count.
+
 ## v1.3.1.1
 
 A client update for v1.3.1. It works with every v1.3.1 server; servers need nothing.

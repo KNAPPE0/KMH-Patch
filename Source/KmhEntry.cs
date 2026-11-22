@@ -130,6 +130,7 @@ namespace KMHPatch
             Patch_DLG_Leaderboard_KmhRedirect.TryApply(HarmonyInstance);
             Patch_RwtSettlementIcon.TryApply(HarmonyInstance);
             Patch_RwtSettlementRim.TryApply(HarmonyInstance);
+            Patch_RwtMainThreadQueue.TryApply(HarmonyInstance);
             Patch_DiscordManager_KmhPresence.Apply(HarmonyInstance);
 
             int patched = HarmonyInstance.GetPatchedMethods().Count();

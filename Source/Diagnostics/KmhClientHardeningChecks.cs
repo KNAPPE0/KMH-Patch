@@ -10,6 +10,10 @@ using System.Threading.Tasks;
 using KMHPatch.Features.Global;
 using KMHPatch.SubProtocol;
 using Newtonsoft.Json.Linq;
+#if RWT_RT
+using KMHPatch.Patches;
+using RTClient.Managers;
+#endif
 
 namespace KMHPatch.Diagnostics
 {
@@ -44,8 +48,82 @@ namespace KMHPatch.Diagnostics
                 Guard(r, "server names", () => ServerNames(r));
                 Guard(r, "workshop details", () => WorkshopDetails(r));
                 Guard(r, "official standing", () => OfficialStanding(r));
+                Guard(r, "synced sites", () => SyncedSites(r));
+#if RWT_RT
+                Guard(r, "rwt job queue", () => RwtJobQueue(r));
+#endif
             }
             finally { try { Directory.Delete(scratch, true); } catch (Exception) { } }
+        }
+
+#if RWT_RT
+        // RWT's network thread queues every packet; a job holding the main thread (a save) must not stop it.
+        private static void RwtJobQueue(List<(string, bool, string)> r)
+        {
+            const string free = "rwt job queue: another thread can queue while a job runs, so a long save keeps the connection alive";
+            if (MainThreadManager.Instance == null) { r.Add(KmhSelfTestResult.Skipped(free, "needs the running game")); return; }
+            r.Add(("rwt job queue: the patch is on this RWT's queue", Patch_RwtMainThreadQueue.Applied, "see the RWT job queue line in the log"));
+            if (!Patch_RwtMainThreadQueue.Applied) return;
+            MainThreadManager rwt = MainThreadManager.Instance;
+            bool queuedMeanwhile = false;
+            rwt.Enqueue(() =>
+            {
+                var other = new Thread(() => rwt.Enqueue(() => { })) { IsBackground = true };
+                other.Start();
+                queuedMeanwhile = other.Join(2000);
+            });
+            Patch_RwtMainThreadQueue.Target.Invoke(rwt, null);
+            r.Add((free, queuedMeanwhile, $"queued while the job ran: {queuedMeanwhile}"));
+
+            var order = new List<string>();
+            rwt.Enqueue(() => { order.Add("a"); rwt.Enqueue(() => order.Add("c")); });
+            rwt.Enqueue(() => order.Add("b"));
+            Patch_RwtMainThreadQueue.Target.Invoke(rwt, null);
+            string first = string.Join("", order);
+            Patch_RwtMainThreadQueue.Target.Invoke(rwt, null);
+            r.Add(("rwt job queue: jobs run in RWT's order, one pass takes only what was queued when it began",
+                   first == "ab" && string.Join("", order) == "abc", $"first pass {first}, then {string.Join("", order)}"));
+        }
+#endif
+
+        // RWT's copies of other players' sites must not count as the player's own in one-per-world rules.
+        private static void SyncedSites(List<(string, bool, string)> r)
+        {
+            const string own = "synced sites: a site from the player's own quest is theirs, RWT's copy of another player's is not";
+            if (Verse.Find.World == null || RimWorld.SitePartDefOf.AncientComplex == null || RimWorld.QuestScriptDefOf.AncientComplex_Mission == null)
+            { r.Add(KmhSelfTestResult.Skipped(own, "needs a loaded game with Ideology")); return; }
+            RimWorld.Planet.Site Complex(bool mine)
+            {
+                var s = (RimWorld.Planet.Site)RimWorld.Planet.WorldObjectMaker.MakeWorldObject(RimWorld.WorldObjectDefOf.Site);
+                s.AddPart(new RimWorld.Planet.SitePart(s, RimWorld.SitePartDefOf.AncientComplex, new RimWorld.Planet.SitePartParams()));
+                if (mine) s.questTags = new List<string> { "Quest1.site" };
+                return s;
+            }
+            RimWorld.Planet.Site mineSite = Complex(true), copy = Complex(false);
+            r.Add((own, KMHPatch.Patches.RwtSyncedSites.IsOwn(mineSite) && !KMHPatch.Patches.RwtSyncedSites.IsOwn(copy) && KMHPatch.Patches.RwtSyncedSites.IsAncientComplex(copy),
+                   $"own {KMHPatch.Patches.RwtSyncedSites.IsOwn(mineSite)}, copy {KMHPatch.Patches.RwtSyncedSites.IsOwn(copy)}"));
+
+            var none = new List<RimWorld.Quest>();
+            var mission = new List<RimWorld.Quest> { new RimWorld.Quest { root = RimWorld.QuestScriptDefOf.AncientComplex_Mission } };
+            bool othersOnly = KMHPatch.Patches.RwtSyncedSites.AncientComplexAllowed(new RimWorld.Planet.WorldObject[] { copy }, none, () => true).Accepted;
+            bool ownBlocks = !KMHPatch.Patches.RwtSyncedSites.AncientComplexAllowed(new RimWorld.Planet.WorldObject[] { copy, mineSite }, none, () => true).Accepted;
+            bool missionBlocks = !KMHPatch.Patches.RwtSyncedSites.AncientComplexAllowed(new RimWorld.Planet.WorldObject[] { copy }, mission, () => true).Accepted;
+            bool noTile = !KMHPatch.Patches.RwtSyncedSites.AncientComplexAllowed(new RimWorld.Planet.WorldObject[0], none, () => false).Accepted;
+            r.Add(("ancient complex: another player's complex does not block the ritual; the player's own complex, an active mission or no free tile still do",
+                   othersOnly && ownBlocks && missionBlocks && noTile, $"others only {othersOnly}, own blocks {ownBlocks}, mission blocks {missionBlocks}, no tile {noTile}"));
+
+            Func<System.Reflection.MethodBase, bool> ours = m => m != null && (HarmonyLib.Harmony.GetPatchInfo(m)?.Owners.Contains(Constants.HarmonyId) ?? false);
+            bool patched = ours(HarmonyLib.AccessTools.Method(typeof(RimWorld.RitualAttachableOutcomeEffectWorker_DiscoverAncientComplex), "CanApplyNow"))
+                        && ours(HarmonyLib.AccessTools.Method(typeof(RimWorld.QuestGen.QuestNode_Root_WorkSite), "AppearanceFrequency"));
+            bool gate = !KMHPatch.Patches.Patch_DiscoverAncientComplex_OwnSites.UsesOwnRule(false, new RimWorld.Planet.WorldObject[] { copy })
+                     && !KMHPatch.Patches.Patch_DiscoverAncientComplex_OwnSites.UsesOwnRule(true, new RimWorld.Planet.WorldObject[] { mineSite })
+                     && KMHPatch.Patches.Patch_DiscoverAncientComplex_OwnSites.UsesOwnRule(true, new RimWorld.Planet.WorldObject[] { copy });
+            r.Add(("ancient complex: patched, and only in an RWT session with another player's complex on the map; single player keeps vanilla's rule",
+                   patched && gate, $"patched {patched}, gate {gate}"));
+
+            float none5 = KMHPatch.Patches.RwtSyncedSites.WorkSiteScale(5, 0), same = KMHPatch.Patches.RwtSyncedSites.WorkSiteScale(3, 3), equal = KMHPatch.Patches.RwtSyncedSites.WorkSiteScale(5, 4);
+            r.Add(("work sites: other players' copies no longer make the player's own work-site quests rarer",
+                   Math.Abs(none5 - 10f) < 0.01f && Math.Abs(same - 1f) < 0.001f && Math.Abs(equal - 1f) < 0.001f, $"5 copies {none5}, all own {same}, 4 own of 5 {equal}"));
         }
 
         private sealed class TypedHolder { public object x = null; }
